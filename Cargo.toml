@@ -1,2 +1,2 @@
 [workspace]
-members = ["server", "types"]
+members = ["server", "types", "hd-keyring"]

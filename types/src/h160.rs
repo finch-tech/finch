@@ -8,6 +8,9 @@ use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::types::VarChar;
+use digest::Digest;
+use ripemd160::Ripemd160;
+use sha2::Sha256;
 
 use rustc_hex::FromHexError;
 use web3::types::H160 as _H160;
@@ -19,6 +22,24 @@ pub struct H160(pub _H160);
 impl fmt::Debug for H160 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "0x{:#x}", **self)
+    }
+}
+
+impl H160 {
+    pub fn from_data(data: &[u8]) -> Self {
+        let mut output = [0; 20];
+
+        let mut hasher = Sha256::new();
+        hasher.input(data);
+        let sha2 = hasher.result();
+
+        let mut ripemd = Ripemd160::new();
+        ripemd.input(&sha2);
+        let ripemd_res = ripemd.result();
+
+        output.copy_from_slice(ripemd_res.as_slice());
+
+        H160(_H160(output))
     }
 }
 

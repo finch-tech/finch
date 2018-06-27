@@ -1,0 +1,129 @@
+use std::str::FromStr;
+
+use bip39::{Language, Mnemonic, MnemonicType};
+
+use bip32::{DerivationPath, Index, XKeyPair};
+use errors::Error;
+use wallet::Wallet;
+
+#[derive(Debug)]
+pub struct HdKeyring {
+    mnemonic: Mnemonic,
+    hd_path: DerivationPath,
+    wallets: Vec<Wallet>,
+    hd_wallet: XKeyPair,
+    root: XKeyPair,
+}
+
+impl HdKeyring {
+    pub fn new(path: &str, number_of_accounts: u32) -> Result<Self, Error> {
+        let path = DerivationPath::from_str(path)?;
+
+        let mnemonic = Mnemonic::new(
+            MnemonicType::Type12Words,
+            Language::English,
+            String::from(""),
+        )?;
+
+        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path)?;
+        keyring.load_wallets(number_of_accounts)?;
+        Ok(keyring)
+    }
+
+    pub fn from_mnemonic(
+        path: &str,
+        mnemonic: String,
+        number_of_accounts: u32,
+    ) -> Result<Self, Error> {
+        let path = DerivationPath::from_str(path)?;
+
+        let mnemonic = Mnemonic::from_string(mnemonic, Language::English, String::from(""))?;
+        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path)?;
+        keyring.load_wallets(number_of_accounts)?;
+        Ok(keyring)
+    }
+
+    fn init_from_mnemonic(mnemonic: Mnemonic, path: &DerivationPath) -> Result<Self, Error> {
+        let master_node = XKeyPair::from_seed(mnemonic.get_seed())?;
+        let root = master_node.from_path(path)?;
+
+        Ok(HdKeyring {
+            mnemonic: mnemonic,
+            root: root,
+            hd_wallet: master_node,
+            hd_path: (*path).clone(),
+            wallets: Vec::new(),
+        })
+    }
+
+    fn load_wallets(&mut self, number_of_accounts: u32) -> Result<(), Error> {
+        for i in 0..number_of_accounts {
+            let key_pair = self.root.derive(&Index::Soft(i))?;
+            let wallet = Wallet::from_secret_key(*key_pair.xprv().as_raw())?;
+            self.wallets.push(wallet);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_wallet_by_index(&self, index: u32) -> Result<Wallet, Error> {
+        let key_pair = self.root.derive(&Index::Soft(index - 1))?;
+        Wallet::from_secret_key(*key_pair.xprv().as_raw())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_new_keyring() {
+        HdKeyring::new("m/44'/60'/0'/0", 1).unwrap();
+    }
+
+    #[test]
+    fn eth_wallet_from_mnemonic() {
+        let addresses = vec!["0xD51CE1261D51DBB00A2CCA7FDC8136ABDFFB76B7"];
+
+        let keyring = HdKeyring::from_mnemonic(
+            "m/44'/60'/0'/0",
+            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            1,
+        ).unwrap();
+
+        for (i, w) in keyring.wallets.into_iter().enumerate() {
+            assert_eq!(addresses[i], w.get_eth_address());
+        }
+    }
+
+    #[test]
+    fn btc_wallet_from_mnemonic() {
+        let addresses = vec!["195BqgTp3yH1ZWmt1L9LmMkGbTMAc1vGPN"];
+
+        let keyring = HdKeyring::from_mnemonic(
+            "m/44'/0'/0'/0",
+            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            1,
+        ).unwrap();
+
+        for (i, w) in keyring.wallets.into_iter().enumerate() {
+            assert_eq!(addresses[i], w.get_btc_address());
+        }
+    }
+
+    #[test]
+    fn get_wallet_at_specific_index() {
+        let index = 100;
+        let address = "0x41CF7938A02B9B27795A8D28C2DE028AA86E8ECB";
+
+        let keyring = HdKeyring::from_mnemonic(
+            "m/44'/60'/0'/0",
+            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            0,
+        ).unwrap();
+
+        let wallet = keyring.get_wallet_by_index(index).unwrap();
+
+        assert_eq!(address, wallet.get_eth_address());
+    }
+}

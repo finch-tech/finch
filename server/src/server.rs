@@ -1,7 +1,7 @@
 use std::fs;
 
 use actix::prelude::*;
-use actix_web::{http, middleware, server, App, HttpResponse};
+use actix_web::{http, middleware, server, App};
 use num_cpus;
 
 use controllers;

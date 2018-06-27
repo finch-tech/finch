@@ -1,9 +1,12 @@
 extern crate bigdecimal;
 #[macro_use]
 extern crate diesel;
+extern crate digest;
 extern crate num_traits;
+extern crate ripemd160;
 extern crate rustc_hex;
 extern crate serde;
+extern crate sha2;
 #[macro_use]
 extern crate serde_derive;
 extern crate web3;
