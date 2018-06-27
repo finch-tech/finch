@@ -4,7 +4,6 @@ use actix::prelude::*;
 use r2d2;
 use r2d2_redis::RedisConnectionManager;
 use redis;
-use serde_json;
 
 use db::Error;
 

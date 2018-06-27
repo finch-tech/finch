@@ -1,7 +1,7 @@
 use std::fs;
 
 use actix::prelude::*;
-use actix_web::{http, middleware, server, App};
+use actix_web::{http, middleware, server, App, HttpResponse};
 use num_cpus;
 
 use controllers;
@@ -59,6 +59,14 @@ pub fn run(
                 .resource("/profile", |r| {
                     r.method(http::Method::GET)
                         .with_async(controllers::auth::profile);
+                })
+                .resource("/stores", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::stores::create);
+                })
+                .resource("/stores/{id}", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::stores::get);
                 })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))
