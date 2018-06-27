@@ -1,14 +1,15 @@
 use std::fs;
 
 use actix::prelude::*;
-use actix_web::{middleware, server, App};
+use actix_web::{http, middleware, server, App};
 use num_cpus;
 
+use controllers;
 use db::{postgres, redis};
 use types::{PrivateKey, PublicKey};
 
 #[derive(Clone)]
-pub struct ServerState {
+pub struct AppState {
     pub postgres: postgres::PgExecutorAddr,
     pub redis: redis::RedisExecutorAddr,
     pub jwt_private: PrivateKey,
@@ -38,12 +39,15 @@ pub fn run(
         });
 
         server::new(move || {
-            App::with_state(ServerState {
+            App::with_state(AppState {
                 postgres: pg_addr.clone(),
                 redis: redis_addr.clone(),
                 jwt_private: jwt_private.clone(),
                 jwt_public: jwt_public.clone(),
             }).middleware(middleware::Logger::default())
+                .resource("/", |r| {
+                    r.method(http::Method::GET).with(controllers::root::index);
+                })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))
             .start();
