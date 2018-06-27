@@ -8,9 +8,9 @@ use wallet::Wallet;
 
 #[derive(Debug)]
 pub struct HdKeyring {
-    mnemonic: Mnemonic,
-    hd_path: DerivationPath,
-    wallets: Vec<Wallet>,
+    pub mnemonic: Mnemonic,
+    pub hd_path: DerivationPath,
+    pub wallets: Vec<Wallet>,
     hd_wallet: XKeyPair,
     root: XKeyPair,
 }
@@ -32,12 +32,12 @@ impl HdKeyring {
 
     pub fn from_mnemonic(
         path: &str,
-        mnemonic: String,
+        mnemonic: &str,
         number_of_accounts: u32,
     ) -> Result<Self, Error> {
         let path = DerivationPath::from_str(path)?;
 
-        let mnemonic = Mnemonic::from_string(mnemonic, Language::English, String::from(""))?;
+        let mnemonic = Mnemonic::from_string(mnemonic, Language::English, "")?;
         let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path)?;
         keyring.load_wallets(number_of_accounts)?;
         Ok(keyring)
@@ -87,7 +87,7 @@ mod tests {
 
         let keyring = HdKeyring::from_mnemonic(
             "m/44'/60'/0'/0",
-            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            "addict else general weird gospel excite void debate north include exercise liberty",
             1,
         ).unwrap();
 
@@ -102,7 +102,7 @@ mod tests {
 
         let keyring = HdKeyring::from_mnemonic(
             "m/44'/0'/0'/0",
-            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            "addict else general weird gospel excite void debate north include exercise liberty",
             1,
         ).unwrap();
 
@@ -118,7 +118,7 @@ mod tests {
 
         let keyring = HdKeyring::from_mnemonic(
             "m/44'/60'/0'/0",
-            String::from("addict else general weird gospel excite void debate north include exercise liberty"),
+            "addict else general weird gospel excite void debate north include exercise liberty",
             0,
         ).unwrap();
 
