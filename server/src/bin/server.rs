@@ -6,9 +6,10 @@ use server::server as web_server;
 use std::env;
 
 fn main() {
-    env_logger::init();
-    env::set_var("RUST_LOG", "actix_web=debug");
+    env::set_var("RUST_LOG", "actix_web=info");
     env::set_var("RUST_BACKTRACE", "1");
+    env_logger::init();
+
     dotenv::dotenv().ok();
 
     let postgres_url =

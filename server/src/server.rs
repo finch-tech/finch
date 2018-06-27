@@ -48,6 +48,18 @@ pub fn run(
                 .resource("/", |r| {
                     r.method(http::Method::GET).with(controllers::root::index);
                 })
+                .resource("/registration", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::registration);
+                })
+                .resource("/login", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::authentication);
+                })
+                .resource("/profile", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::auth::profile);
+                })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))
             .start();
