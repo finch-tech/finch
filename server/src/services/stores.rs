@@ -3,6 +3,7 @@ use openssl::rsa::Rsa;
 use uuid::Uuid;
 
 use db::postgres::PgExecutorAddr;
+use hd_keyring::HdKeyring;
 use models::store::{Store, StorePayload};
 use services::Error;
 use types::{PrivateKey, PublicKey};
@@ -19,9 +20,14 @@ pub fn create(
     mut payload: StorePayload,
     postgres: PgExecutorAddr,
 ) -> impl Future<Item = Store, Error = Error> {
-    generate_rsa()
-        .into_future()
-        .and_then(move |(private_key, public_key)| {
+    let kay_pair = generate_rsa().into_future();
+    let keyring = HdKeyring::new("m/44'/60'/0'/0", 1).into_future().from_err();
+
+    kay_pair
+        .join(keyring)
+        .and_then(move |((private_key, public_key), keyring)| {
+            payload.mnemonic = Some(keyring.mnemonic.get_string());
+            payload.hd_path = Some(keyring.hd_path.to_string());
             payload.private_key = Some(private_key);
             payload.public_key = Some(public_key);
             payload.active = Some(true);

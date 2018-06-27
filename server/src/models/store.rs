@@ -22,6 +22,8 @@ pub struct StorePayload {
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub payout_addresses: Vec<H160>,
+    pub mnemonic: Option<String>,
+    pub hd_path: Option<String>,
     pub active: Option<bool>,
 }
 
@@ -47,6 +49,9 @@ pub struct Store {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub payout_addresses: Vec<H160>,
+    // TODO: Encryption.
+    pub mnemonic: String,
+    pub hd_path: String,
     pub active: bool,
 }
 

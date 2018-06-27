@@ -8,12 +8,15 @@ use openssl::error::ErrorStack;
 use rustc_hex::FromHexError;
 use secp256k1::Error as Secp256k1Error;
 
+use hd_keyring::Error as KeyringError;
 use models::Error as ModelError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
+    #[fail(display = "{}", _0)]
+    KeyringError(#[cause] KeyringError),
     #[fail(display = "{}", _0)]
     DecodeError(#[cause] DecodeError),
     #[fail(display = "JWT error: {}", _0)]
@@ -64,6 +67,12 @@ impl error::ResponseError for Error {
 impl From<ModelError> for Error {
     fn from(e: ModelError) -> Error {
         Error::ModelError(e)
+    }
+}
+
+impl From<KeyringError> for Error {
+    fn from(e: KeyringError) -> Error {
+        Error::KeyringError(e)
     }
 }
 

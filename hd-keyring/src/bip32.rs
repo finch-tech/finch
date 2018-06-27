@@ -137,9 +137,9 @@ impl ToString for DerivationPath {
         let index_list = self.0.clone();
         let mut path = String::from("m");
         for (_, index) in index_list.iter().enumerate() {
+            path.push('/');
             match index {
                 Index::Hard(n) => {
-                    path.push('/');
                     path.push_str(&(n - HARDENED_OFFSET).to_string());
                     path.push('\'');
                 }

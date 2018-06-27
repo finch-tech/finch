@@ -27,6 +27,7 @@ extern crate serde_json;
 extern crate secp256k1;
 extern crate uuid;
 
+extern crate hd_keyring;
 extern crate types;
 
 mod auth;

@@ -9,6 +9,8 @@ table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         payout_addresses -> Array<Text>,
+        mnemonic -> Varchar,
+        hd_path -> Varchar,
         active -> Bool,
     }
 }

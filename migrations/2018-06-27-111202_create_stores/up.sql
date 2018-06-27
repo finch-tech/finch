@@ -10,5 +10,7 @@ CREATE TABLE stores
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     payout_addresses TEXT[] NOT NULL,
+    mnemonic VARCHAR NOT NULL,
+    hd_path VARCHAR NOT NULL,
     active BOOLEAN NOT NULL
 )
