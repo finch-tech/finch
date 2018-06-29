@@ -1,10 +1,12 @@
+use std::str::FromStr;
+
 use rust_base58::ToBase58;
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Secp256k1;
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{H160, H256};
+use types::{Currency, H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
@@ -23,7 +25,7 @@ impl Wallet {
         })
     }
 
-    pub fn get_eth_address(&self) -> String {
+    pub fn get_eth_address(&self) -> H160 {
         let key_hash = keccak256(&self.public_key.serialize_uncompressed()[1..]); // Ignoring prefix 0x04.
 
         let mut address = String::from("0x");
@@ -34,7 +36,7 @@ impl Wallet {
                 .collect::<String>(),
         );
 
-        address
+        H160::from_str(&address).unwrap()
     }
 
     pub fn get_btc_address(&self) -> String {
