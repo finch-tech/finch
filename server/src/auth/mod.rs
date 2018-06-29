@@ -1,16 +1,14 @@
-use actix_web::{error, Error as ActixError, FromRequest};
-use actix_web::{HttpMessage, HttpRequest};
+use actix_web::{error, Error as ActixError, FromRequest, HttpMessage, HttpRequest};
+use base64::decode;
+use chrono::prelude::*;
+use futures::future::{err, Future};
 use jwt;
-use uuid;
+use uuid::Uuid;
 
+use models::client_token::ClientToken;
 use server::AppState;
+use services;
 use types::PrivateKey;
-
-#[derive(Deserialize)]
-pub struct LoginPayload {
-    pub email: String,
-    pub password: String,
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JWTPayload {
@@ -66,12 +64,19 @@ impl FromRequest<AppState> for JWTPayload {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AuthClient {
-    pub name: String,
+    pub id: Uuid,
+    pub store_id: Uuid,
+    pub created_at: i64,
 }
 
-fn is_valid_client(client: &AuthClient) -> bool {
-    // TODO: Client authentication.
-    true
+impl AuthClient {
+    pub fn new(client_token: ClientToken) -> Self {
+        AuthClient {
+            id: Uuid::new_v4(),
+            store_id: client_token.store_id,
+            created_at: Utc::now().timestamp(),
+        }
+    }
 }
 
 impl FromRequest<AppState> for AuthClient {
@@ -82,13 +87,7 @@ impl FromRequest<AppState> for AuthClient {
         let token = JWTPayload::extract(&req)?;
 
         match token.client {
-            Some(ref client) => {
-                if !is_valid_client(&client) {
-                    return Err(error::ErrorUnauthorized("Invalid authorization token."));
-                }
-
-                Ok((*client).clone())
-            }
+            Some(ref client) => Ok((*client).clone()),
             None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
         }
     }
@@ -96,7 +95,7 @@ impl FromRequest<AppState> for AuthClient {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AuthUser {
-    pub id: uuid::Uuid,
+    pub id: Uuid,
 }
 
 impl FromRequest<AppState> for AuthUser {
@@ -110,5 +109,56 @@ impl FromRequest<AppState> for AuthUser {
             Some(ref user) => Ok((*user).clone()),
             None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
         }
+    }
+}
+
+impl FromRequest<AppState> for ClientToken {
+    type Config = ();
+    type Result = Box<Future<Item = ClientToken, Error = ActixError>>;
+
+    fn from_request(req: &HttpRequest<AppState>, _cfg: &Self::Config) -> Self::Result {
+        let state = req.state();
+
+        let auth_header = match req.headers().get("authorization") {
+            Some(auth_header) => auth_header,
+            None => {
+                return Box::new(err(error::ErrorUnauthorized(
+                    "Invalid authorization token.",
+                )))
+            }
+        };
+
+        let auth_header_parts: Vec<_> = auth_header.to_str().unwrap().split_whitespace().collect();
+
+        if auth_header_parts.len() != 2 {
+            return Box::new(err(error::ErrorUnauthorized(
+                "Invalid authorization token.",
+            )));
+        }
+
+        if auth_header_parts.len() != 2 || auth_header_parts[0].to_lowercase() != "bearer" {
+            return Box::new(err(error::ErrorUnauthorized(
+                "Invalid authorization token.",
+            )));
+        }
+
+        let token = match decode(&auth_header_parts[1]) {
+            Ok(decoded) => match Uuid::from_bytes(&decoded) {
+                Ok(token) => token,
+                Err(_) => {
+                    return Box::new(err(error::ErrorUnauthorized(
+                        "Invalid authorization token.",
+                    )))
+                }
+            },
+            Err(_) => {
+                return Box::new(err(error::ErrorUnauthorized(
+                    "Invalid authorization token.",
+                )))
+            }
+        };
+
+        // TODO: Check referer.
+        Box::new(services::client_tokens::get_by_token(token, state.postgres.clone()).from_err())
     }
 }

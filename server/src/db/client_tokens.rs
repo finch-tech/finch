@@ -48,3 +48,26 @@ impl Handler<FindById> for PgExecutor {
             .map_err(|e| Error::from(e))
     }
 }
+
+#[derive(Message)]
+#[rtype(result = "Result<ClientToken, Error>")]
+pub struct FindByToken(pub Uuid);
+
+impl Handler<FindByToken> for PgExecutor {
+    type Result = Result<ClientToken, Error>;
+
+    fn handle(
+        &mut self,
+        FindByToken(client_token): FindByToken,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::client_tokens::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        client_tokens
+            .filter(token.eq(client_token))
+            .first::<ClientToken>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}

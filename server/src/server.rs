@@ -60,6 +60,10 @@ pub fn run(
                     r.method(http::Method::GET)
                         .with_async(controllers::auth::profile);
                 })
+                .resource("/client_tokens", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::client_tokens::create);
+                })
                 .resource("/stores", |r| {
                     r.method(http::Method::POST)
                         .with_async(controllers::stores::create);
@@ -67,6 +71,10 @@ pub fn run(
                 .resource("/stores/{id}", |r| {
                     r.method(http::Method::GET)
                         .with_async(controllers::stores::get);
+                })
+                .resource("/payments", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::payments::create);
                 })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))

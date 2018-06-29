@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::client_tokens::{FindById, Insert};
+use db::client_tokens::{FindById, FindByToken, Insert};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -30,7 +30,7 @@ impl ClientTokenPayload {
     }
 }
 
-#[derive(Identifiable, Queryable, Serialize, Associations)]
+#[derive(Debug, Identifiable, Queryable, Serialize, Associations)]
 #[belongs_to(Store, foreign_key = "store_id")]
 pub struct ClientToken {
     pub id: Uuid,
@@ -62,6 +62,16 @@ impl ClientToken {
     ) -> impl Future<Item = ClientToken, Error = Error> {
         postgres
             .send(FindById(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_by_token(
+        token: Uuid,
+        postgres: PgExecutorAddr,
+    ) -> impl Future<Item = ClientToken, Error = Error> {
+        postgres
+            .send(FindByToken(token))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
