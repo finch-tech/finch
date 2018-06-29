@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate actix;
 extern crate actix_web;
+extern crate base64;
 extern crate chrono;
 extern crate data_encoding;
 #[macro_use]
