@@ -7,14 +7,37 @@ use auth::AuthUser;
 use models::store::StorePayload;
 use server::AppState;
 use services::{self, Error};
+use types::H160;
+
+#[derive(Debug, Deserialize)]
+pub struct CreateParams {
+    pub name: String,
+    pub description: String,
+    pub payout_addresses: Vec<H160>,
+}
 
 pub fn create(
-    (state, mut payload, user): (State<AppState>, Json<StorePayload>, AuthUser),
+    (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let state = state.clone();
+    let params = params.into_inner();
 
-    payload.owner_id = Some(user.id);
-    services::stores::create(payload.into_inner(), state.postgres)
+    let payload = StorePayload {
+        id: None,
+        name: params.name,
+        description: params.description,
+        owner_id: user.id,
+        private_key: None,
+        public_key: None,
+        created_at: None,
+        updated_at: None,
+        payout_addresses: params.payout_addresses,
+        mnemonic: None,
+        hd_path: None,
+        active: true,
+    };
+
+    services::stores::create(payload, state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 

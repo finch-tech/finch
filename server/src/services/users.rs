@@ -4,7 +4,7 @@ use ring::rand::SecureRandom;
 use ring::{digest, pbkdf2, rand};
 use uuid::Uuid;
 
-use auth::{AuthUser, JWTPayload, LoginPayload};
+use auth::{AuthUser, JWTPayload};
 use db::postgres::PgExecutorAddr;
 use models::user::{User, UserPayload};
 use services::Error;
@@ -37,12 +37,18 @@ pub fn register(
     User::insert(payload, postgres).from_err()
 }
 
+#[derive(Deserialize)]
+pub struct LoginParams {
+    pub email: String,
+    pub password: String,
+}
+
 pub fn authenticate(
-    payload: LoginPayload,
+    params: LoginParams,
     postgres: PgExecutorAddr,
     jwt_private: PrivateKey,
 ) -> impl Future<Item = String, Error = Error> {
-    User::find_by_email(payload.email.clone(), postgres)
+    User::find_by_email(params.email.clone(), postgres)
         .from_err()
         .and_then(move |user| {
             let salt = BASE64
@@ -61,7 +67,7 @@ pub fn authenticate(
                         &digest::SHA512,
                         N_ITER,
                         &salt,
-                        payload.password.as_bytes(),
+                        params.password.as_bytes(),
                         &password_hash,
                     ).map_err(|_| Error::IncorrectPassword)
                         .into_future()

@@ -16,7 +16,7 @@ pub struct UserPayload {
     pub salt: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub active: Option<bool>,
+    pub active: bool,
 }
 
 impl UserPayload {

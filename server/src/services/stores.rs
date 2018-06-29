@@ -30,7 +30,6 @@ pub fn create(
             payload.hd_path = Some(keyring.hd_path.to_string());
             payload.private_key = Some(private_key);
             payload.public_key = Some(public_key);
-            payload.active = Some(true);
 
             Store::insert(payload, postgres).from_err()
         })

@@ -16,7 +16,7 @@ pub struct StorePayload {
     pub id: Option<Uuid>,
     pub name: String,
     pub description: String,
-    pub owner_id: Option<Uuid>,
+    pub owner_id: Uuid,
     pub private_key: Option<PrivateKey>,
     pub public_key: Option<PublicKey>,
     pub created_at: Option<DateTime<Utc>>,
@@ -24,7 +24,7 @@ pub struct StorePayload {
     pub payout_addresses: Vec<H160>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
-    pub active: Option<bool>,
+    pub active: bool,
 }
 
 impl StorePayload {
