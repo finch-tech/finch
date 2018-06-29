@@ -117,11 +117,11 @@ impl FromStr for DerivationPath {
 
             if (c.len() > 1) && (c.ends_with('\'')) {
                 let (c, _) = c.split_at(c.len() - 1);
-                index = c.parse::<u32>().unwrap();
+                index = c.parse::<u32>().map_err(|_| Error::InvalidDerivation)?;
                 index += HARDENED_OFFSET;
                 di = Index::Hard(index);
             } else {
-                index = c.parse::<u32>().unwrap();
+                index = c.parse::<u32>().map_err(|_| Error::InvalidDerivation)?;
                 di = Index::Soft(index);
             }
 
