@@ -5,8 +5,8 @@ use ring::{digest, pbkdf2, rand};
 use uuid::Uuid;
 
 use auth::{AuthUser, JWTPayload};
-use db::postgres::PgExecutorAddr;
-use models::user::{User, UserPayload};
+use core::db::postgres::PgExecutorAddr;
+use core::user::{User, UserPayload};
 use services::Error;
 use types::PrivateKey;
 

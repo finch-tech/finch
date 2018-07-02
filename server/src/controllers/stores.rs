@@ -4,7 +4,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use auth::AuthUser;
-use models::store::StorePayload;
+use core::store::StorePayload;
 use server::AppState;
 use services::{self, Error};
 use types::H160;

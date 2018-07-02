@@ -2,9 +2,9 @@ use futures::future::{Future, IntoFuture};
 use openssl::rsa::Rsa;
 use uuid::Uuid;
 
-use db::postgres::PgExecutorAddr;
+use core::db::postgres::PgExecutorAddr;
+use core::store::{Store, StorePayload};
 use hd_keyring::HdKeyring;
-use models::store::{Store, StorePayload};
 use services::Error;
 use types::{PrivateKey, PublicKey};
 

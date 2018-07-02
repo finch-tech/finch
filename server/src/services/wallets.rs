@@ -1,9 +1,9 @@
 use futures::future::{Future, IntoFuture};
 
-use db::postgres::PgExecutorAddr;
+use core::db::postgres::PgExecutorAddr;
+use core::payment::Payment;
+use core::store::Store;
 use hd_keyring::{HdKeyring, Wallet};
-use models::payment::Payment;
-use models::store::Store;
 use services::Error;
 
 pub fn create(

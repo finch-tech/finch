@@ -4,8 +4,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use auth::AuthUser;
-use models::client_token::ClientTokenPayload;
-use models::store::Store;
+use core::client_token::ClientTokenPayload;
+use core::store::Store;
 use server::AppState;
 use services::{self, Error};
 use types::Client;

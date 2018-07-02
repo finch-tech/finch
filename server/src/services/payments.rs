@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use futures::future::Future;
 use uuid::Uuid;
 
-use db::postgres::PgExecutorAddr;
-use models::payment::{Payment, PaymentPayload};
+use core::db::postgres::PgExecutorAddr;
+use core::payment::{Payment, PaymentPayload};
 use services::{self, Error};
 use types::{Currency, Status};
 

@@ -3,7 +3,7 @@ use futures::future::Future;
 use serde_json::Value;
 
 use auth::AuthUser;
-use models::user::UserPayload;
+use core::user::UserPayload;
 use server::AppState;
 use services::users::LoginParams;
 use services::{self, Error};

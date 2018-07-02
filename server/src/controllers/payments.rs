@@ -5,8 +5,8 @@ use futures::future::{Future, IntoFuture};
 use serde_json::Value;
 
 use auth::{AuthClient, JWTPayload};
-use models::client_token::ClientToken;
-use models::payment::PaymentPayload;
+use core::client_token::ClientToken;
+use core::payment::PaymentPayload;
 use server::AppState;
 use services::{self, Error};
 use types::Currency;

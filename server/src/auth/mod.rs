@@ -5,7 +5,7 @@ use futures::future::{err, Future};
 use jwt;
 use uuid::Uuid;
 
-use models::client_token::ClientToken;
+use core::client_token::ClientToken;
 use server::AppState;
 use services;
 use types::PrivateKey;

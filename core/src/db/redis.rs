@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
+use _redis;
 use actix::prelude::*;
 use r2d2;
 use r2d2_redis::RedisConnectionManager;
-use redis;
 
 use db::Error;
 
@@ -32,7 +32,7 @@ impl Deref for RedisExecutor {
 }
 
 pub struct RedisSubscriber {
-    client: redis::Client,
+    client: _redis::Client,
 }
 
 impl Actor for RedisSubscriber {
@@ -45,7 +45,7 @@ impl Actor for RedisSubscriber {
 
 impl RedisSubscriber {
     pub fn new(url: &str) -> Self {
-        let client = redis::Client::open(url).unwrap();
+        let client = _redis::Client::open(url).unwrap();
         RedisSubscriber { client }
     }
 }
@@ -63,7 +63,7 @@ impl Handler<Publish> for RedisExecutor {
     fn handle(&mut self, msg: Publish, _: &mut Self::Context) -> Self::Result {
         let redis_conn = &self.get()?;
 
-        redis::cmd("PUBLISH")
+        _redis::cmd("PUBLISH")
             .arg(&msg.key)
             .arg(msg.value)
             .execute(&**redis_conn);

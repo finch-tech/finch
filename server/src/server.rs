@@ -5,7 +5,7 @@ use actix_web::{http, middleware, server, App};
 use num_cpus;
 
 use controllers;
-use db::{postgres, redis};
+use core::db::{postgres, redis};
 use types::{PrivateKey, PublicKey};
 
 #[derive(Clone)]

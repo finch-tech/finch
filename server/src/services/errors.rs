@@ -1,15 +1,15 @@
 use actix::MailboxError;
 use actix_web::{error, http, HttpResponse};
 use data_encoding::DecodeError;
-use db::Error as DbError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use jwt::errors::Error as JwtError;
 use openssl::error::ErrorStack;
 use rustc_hex::FromHexError;
 use secp256k1::Error as Secp256k1Error;
 
+use core::db::Error as DbError;
+use core::ModelError;
 use hd_keyring::Error as KeyringError;
-use models::Error as ModelError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
