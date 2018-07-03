@@ -1,2 +1,2 @@
 [workspace]
-members = ["server", "core", "types", "hd-keyring"]
+members = ["server", "core", "types", "hd-keyring", "block-processor"]

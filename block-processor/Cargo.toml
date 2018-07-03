@@ -1,0 +1,18 @@
+[package]
+name = "block-processor"
+version = "0.1.0"
+authors = ["Artefact Inc. <admin@artefact.co.jp>"]
+
+[dependencies]
+actix = { branch = "master", git = "https://github.com/actix/actix.git" }
+actix-web = { branch = "master", git = "https://github.com/actix/actix-web.git", features=["alpn"] }
+dotenv = "0.9.0"
+env_logger = "0.5.10"
+futures = "0.1"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+tokio = "0.1.7"
+
+types = { path = "../types" }
+core = { path = "../core" }
