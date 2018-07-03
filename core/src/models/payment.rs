@@ -5,7 +5,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindById, Insert, UpdateById};
+use db::payments::{FindAllByEthAddress, FindById, Insert, UpdateById};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -56,7 +56,7 @@ impl From<Payment> for PaymentPayload {
     }
 }
 
-#[derive(Identifiable, Queryable, Serialize, Associations, Clone)]
+#[derive(Debug, Identifiable, Queryable, Serialize, Associations, Clone)]
 #[belongs_to(Store, foreign_key = "store_id")]
 pub struct Payment {
     pub id: Uuid,
@@ -102,6 +102,16 @@ impl Payment {
     ) -> impl Future<Item = Payment, Error = Error> {
         postgres
             .send(UpdateById(id, payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_all_by_eth_address(
+        addresses: Vec<H160>,
+        postgres: PgExecutorAddr,
+    ) -> impl Future<Item = Vec<Payment>, Error = Error> {
+        postgres
+            .send(FindAllByEthAddress(addresses))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

@@ -6,6 +6,8 @@ use db::Error;
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
+use types::H160;
+
 #[derive(Message)]
 #[rtype(result = "Result<Payment, Error>")]
 pub struct Insert(pub PaymentPayload);
@@ -41,6 +43,30 @@ impl Handler<FindById> for PgExecutor {
         payments
             .filter(id.eq(payment_id))
             .first::<Payment>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Vec<Payment>, Error>")]
+pub struct FindAllByEthAddress(pub Vec<H160>);
+
+impl Handler<FindAllByEthAddress> for PgExecutor {
+    type Result = Result<Vec<Payment>, Error>;
+
+    fn handle(
+        &mut self,
+        FindAllByEthAddress(addresses): FindAllByEthAddress,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use diesel::pg::expression::dsl::any;
+        use schema::payments::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        payments
+            .filter(eth_address.eq(any(addresses)))
+            .load::<Payment>(pg_conn)
             .map_err(|e| Error::from(e))
     }
 }
