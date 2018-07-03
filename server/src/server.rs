@@ -23,7 +23,6 @@ pub fn run(
     public_key_path: String,
     postgres_url: String,
     redis_url: String,
-    ethereum_url: String,
 ) {
     System::run(move || {
         let jwt_private = fs::read(private_key_path).expect("Failed to open the private key file.");
