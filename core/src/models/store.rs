@@ -3,12 +3,13 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
+use currency_api_client::Api as CurrencyApi;
 use db::postgres::PgExecutorAddr;
 use db::stores::{FindById, Insert};
 use models::user::User;
 use models::Error;
 use schema::stores;
-use types::{H160, PrivateKey, PublicKey};
+use types::{Currency, H160, PrivateKey, PublicKey};
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "stores"]
@@ -24,6 +25,9 @@ pub struct StorePayload {
     pub payout_addresses: Vec<H160>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
+    pub base_currency: Currency,
+    pub currency_api: CurrencyApi,
+    pub currency_api_key: String,
     pub active: bool,
 }
 
@@ -52,6 +56,9 @@ pub struct Store {
     // TODO: Encryption.
     pub mnemonic: String,
     pub hd_path: String,
+    pub base_currency: Currency,
+    pub currency_api: CurrencyApi,
+    pub currency_api_key: String,
     pub active: bool,
 }
 

@@ -50,8 +50,7 @@ impl ToSql<Text, Pg> for Client {
 
 impl FromSql<Text, Pg> for Client {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-        let text: String = FromSql::<Text, Pg>::from_sql(bytes)
-            .map_err(|_| String::from("Failed to convert to text."))?;
+        let text: String = FromSql::<Text, Pg>::from_sql(bytes)?;
 
         match text.as_ref() {
             "web" => Ok(Client::Web),

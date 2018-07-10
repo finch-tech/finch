@@ -10,6 +10,8 @@ pub enum Error {
     MailboxError(#[cause] MailboxError),
     #[fail(display = "JWT error: {}", _0)]
     JwtError(String),
+    #[fail(display = "Property not found")]
+    PropertyNotFound,
 }
 
 impl From<DbError> for Error {

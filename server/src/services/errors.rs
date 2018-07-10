@@ -1,4 +1,5 @@
 use actix::MailboxError;
+use actix_web::client::SendRequestError;
 use actix_web::{error, http, HttpResponse};
 use data_encoding::DecodeError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
@@ -6,15 +7,19 @@ use jwt::errors::Error as JwtError;
 use openssl::error::ErrorStack;
 use rustc_hex::FromHexError;
 use secp256k1::Error as Secp256k1Error;
+use serde_json::Error as SerdeError;
 
 use core::db::Error as DbError;
 use core::ModelError;
+use currency_api_client::Error as CurrencyApiClientError;
 use hd_keyring::Error as KeyringError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
+    #[fail(display = "{}", _0)]
+    CurrencyApiClientError(#[cause] CurrencyApiClientError),
     #[fail(display = "{}", _0)]
     KeyringError(#[cause] KeyringError),
     #[fail(display = "{}", _0)]
@@ -33,6 +38,14 @@ pub enum Error {
     IncorrectPassword,
     #[fail(display = "Invalid request account")]
     InvalidRequestAccount,
+    #[fail(display = "{}", _0)]
+    SendRequestError(#[cause] SendRequestError),
+    #[fail(display = "{}", _0)]
+    PayloadError(#[cause] error::PayloadError),
+    #[fail(display = "{}", _0)]
+    SerdeError(#[cause] SerdeError),
+    #[fail(display = "Payment not yet confirmed")]
+    PaymentNotConfirmed,
 }
 
 impl error::ResponseError for Error {
@@ -67,6 +80,12 @@ impl error::ResponseError for Error {
 impl From<ModelError> for Error {
     fn from(e: ModelError) -> Error {
         Error::ModelError(e)
+    }
+}
+
+impl From<CurrencyApiClientError> for Error {
+    fn from(e: CurrencyApiClientError) -> Error {
+        Error::CurrencyApiClientError(e)
     }
 }
 
@@ -109,5 +128,23 @@ impl From<FromHexError> for Error {
 impl From<MailboxError> for Error {
     fn from(e: MailboxError) -> Error {
         Error::MailboxError(e)
+    }
+}
+
+impl From<SendRequestError> for Error {
+    fn from(e: SendRequestError) -> Error {
+        Error::SendRequestError(e)
+    }
+}
+
+impl From<error::PayloadError> for Error {
+    fn from(e: error::PayloadError) -> Error {
+        Error::PayloadError(e)
+    }
+}
+
+impl From<SerdeError> for Error {
+    fn from(e: SerdeError) -> Error {
+        Error::SerdeError(e)
     }
 }

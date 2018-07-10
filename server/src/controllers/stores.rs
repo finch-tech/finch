@@ -5,15 +5,19 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::store::StorePayload;
+use currency_api_client::Api as CurrencyApi;
 use server::AppState;
 use services::{self, Error};
-use types::H160;
+use types::{Currency, H160};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
     pub name: String,
     pub description: String,
     pub payout_addresses: Vec<H160>,
+    pub base_currency: Currency,
+    pub currency_api: CurrencyApi,
+    pub currency_api_key: String,
 }
 
 pub fn create(
@@ -21,6 +25,8 @@ pub fn create(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let state = state.clone();
     let params = params.into_inner();
+
+    // TODO: Check if the currency is legal tender.
 
     let payload = StorePayload {
         id: None,
@@ -34,6 +40,9 @@ pub fn create(
         payout_addresses: params.payout_addresses,
         mnemonic: None,
         hd_path: None,
+        base_currency: params.base_currency,
+        currency_api: params.currency_api,
+        currency_api_key: params.currency_api_key,
         active: true,
     };
 

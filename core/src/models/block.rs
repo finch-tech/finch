@@ -1,7 +1,5 @@
-use H160;
-use H256;
-use Transaction;
-use U256;
+use models::transaction::Transaction;
+use types::{H160, H256, U256};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHeader {

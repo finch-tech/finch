@@ -9,10 +9,9 @@ use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::types::VarChar;
 use digest::Digest;
-use sha2::Sha256;
-
+use ethereum_types::H256 as _H256;
 use rustc_hex::FromHexError;
-use web3::types::H256 as _H256;
+use sha2::Sha256;
 
 #[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 #[sql_type = "VarChar"]
@@ -37,13 +36,13 @@ impl H256 {
 
 impl fmt::Debug for H256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:#x}", **self)
+        write!(f, "{:?}", self.0)
     }
 }
 
 impl fmt::Display for H256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:#x}", **self)
+        write!(f, "{}", self.0)
     }
 }
 

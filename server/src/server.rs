@@ -71,9 +71,17 @@ pub fn run(
                     r.method(http::Method::GET)
                         .with_async(controllers::stores::get);
                 })
+                .resource("/items", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::items::create);
+                })
                 .resource("/payments", |r| {
                     r.method(http::Method::POST)
                         .with_async(controllers::payments::create);
+                })
+                .resource("/payments/{id}/status", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::payments::get_status)
                 })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))

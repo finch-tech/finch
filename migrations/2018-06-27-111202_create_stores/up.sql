@@ -9,8 +9,12 @@ CREATE TABLE stores
     public_key BYTEA NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    payout_addresses TEXT[] NOT NULL,
+    payout_addresses TEXT
+    [] NOT NULL,
     mnemonic VARCHAR NOT NULL,
     hd_path VARCHAR NOT NULL,
+    base_currency VARCHAR NOT NULL,
+    currency_api VARCHAR NOT NULL,
+    currency_api_key VARCHAR NOT NULL,
     active BOOLEAN NOT NULL
 )

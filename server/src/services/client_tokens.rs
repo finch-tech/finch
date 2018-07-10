@@ -12,10 +12,6 @@ pub fn create(
     ClientToken::insert(payload, postgres).from_err()
 }
 
-pub fn get(id: Uuid, postgres: PgExecutorAddr) -> impl Future<Item = ClientToken, Error = Error> {
-    ClientToken::find_by_id(id.clone(), postgres).from_err()
-}
-
 pub fn get_by_token(
     token: Uuid,
     postgres: PgExecutorAddr,

@@ -1,9 +1,9 @@
 #![feature(pattern_parentheses, rustc_private)]
 
-#[macro_use]
 extern crate actix;
 extern crate actix_web;
 extern crate base64;
+extern crate bigdecimal;
 extern crate chrono;
 extern crate data_encoding;
 extern crate diesel;
@@ -25,6 +25,7 @@ extern crate secp256k1;
 extern crate uuid;
 
 extern crate core;
+extern crate currency_api_client;
 extern crate hd_keyring;
 extern crate types;
 

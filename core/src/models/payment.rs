@@ -1,32 +1,38 @@
 use std::convert::From;
 
+use bigdecimal::BigDecimal;
 use chrono::prelude::*;
-use futures::Future;
+use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
 use db::payments::{FindAllByEthAddress, FindById, Insert, UpdateById};
 use db::postgres::PgExecutorAddr;
+use models::item::Item;
 use models::store::Store;
+use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, Status};
+use types::{H160, H256, Status};
 
-#[derive(Debug, Insertable, AsChangeset, Deserialize)]
+#[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
 pub struct PaymentPayload {
     pub id: Option<Uuid>,
     pub status: Option<Status>,
-    pub amount: i32,
     pub store_id: Uuid,
+    pub item_id: Uuid,
     pub created_by: Uuid, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: Option<i32>,
     pub eth_address: Option<H160>,
+    pub eth_price: Option<BigDecimal>,
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
+    pub btc_price: Option<BigDecimal>,
     // TODO: Add watch status and expiration
+    pub transaction_hash: Option<H256>,
 }
 
 impl PaymentPayload {
@@ -44,32 +50,39 @@ impl From<Payment> for PaymentPayload {
         PaymentPayload {
             id: Some(payment.id),
             status: Some(payment.status),
-            amount: payment.amount,
             store_id: payment.store_id,
+            item_id: payment.item_id,
             created_by: payment.created_by,
             created_at: Some(payment.created_at),
             paid_at: payment.paid_at,
             index: Some(payment.index),
             eth_address: payment.eth_address,
+            eth_price: payment.eth_price,
             btc_address: payment.btc_address,
+            btc_price: payment.btc_price,
+            transaction_hash: payment.transaction_hash,
         }
     }
 }
 
-#[derive(Debug, Identifiable, Queryable, Serialize, Associations, Clone)]
+#[derive(Debug, Identifiable, Queryable, Associations, Clone, Serialize)]
 #[belongs_to(Store, foreign_key = "store_id")]
+#[belongs_to(Item, foreign_key = "item_id")]
 pub struct Payment {
     pub id: Uuid,
     pub status: Status,
-    pub amount: i32,
     pub store_id: Uuid,
+    pub item_id: Uuid,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: i32,
     pub eth_address: Option<H160>,
+    pub eth_price: Option<BigDecimal>,
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
+    pub btc_price: Option<BigDecimal>,
+    pub transaction_hash: Option<H256>,
 }
 
 impl Payment {
@@ -83,6 +96,25 @@ impl Payment {
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn item(&self, postgres: PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
+        Item::find_by_id(self.item_id, postgres)
+    }
+
+    pub fn store(&self, postgres: PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
+        Store::find_by_id(self.store_id, postgres)
+    }
+
+    pub fn transaction(
+        &self,
+        postgres: PgExecutorAddr,
+    ) -> impl Future<Item = Transaction, Error = Error> {
+        self.to_owned()
+            .transaction_hash
+            .ok_or(Error::PropertyNotFound)
+            .into_future()
+            .and_then(|hash| Transaction::find_by_hash(hash, postgres))
     }
 
     pub fn find_by_id(
@@ -117,15 +149,29 @@ impl Payment {
     }
 
     pub fn export(&self) -> Value {
+        let mut eth = None;
+        let mut btc = None;
+
+        if let Some(ref address) = self.eth_address {
+            eth = Some(json!({
+                "address": address,
+                "price": format!("{}", self.eth_price.clone().unwrap())
+            }));
+        }
+
+        if let Some(ref address) = self.btc_address {
+            btc = Some(json!({
+                "address": address,
+                "price": format!("{}", self.btc_price.clone().unwrap())
+            }));
+        }
+
         json!({
             "id": self.id,
             "status": self.status,
-            "amount": self.amount,
             "store_id": self.store_id,
-            "addresses": {
-                "eth": self.eth_address,
-                "btc": self.btc_address
-            }
+            "eth": eth,
+            "btc": btc
         })
     }
 }

@@ -9,21 +9,14 @@ use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::types::VarChar;
 use digest::Digest;
+use ethereum_types::H160 as _H160;
 use ripemd160::Ripemd160;
-use sha2::Sha256;
-
 use rustc_hex::FromHexError;
-use web3::types::H160 as _H160;
+use sha2::Sha256;
 
 #[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 #[sql_type = "VarChar"]
 pub struct H160(pub _H160);
-
-impl fmt::Debug for H160 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:#x}", **self)
-    }
-}
 
 impl H160 {
     pub fn from_data(data: &[u8]) -> Self {
@@ -43,9 +36,15 @@ impl H160 {
     }
 }
 
+impl fmt::Debug for H160 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 impl fmt::Display for H160 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:#x}", **self)
+        write!(f, "{}", self.0)
     }
 }
 

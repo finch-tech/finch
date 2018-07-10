@@ -1,10 +1,8 @@
 extern crate bigdecimal;
 #[macro_use]
 extern crate diesel;
-#[macro_use]
-extern crate diesel_derive_enum;
 extern crate digest;
-extern crate num_traits;
+extern crate ethereum_types;
 extern crate ripemd160;
 extern crate rustc_hex;
 extern crate serde;
@@ -13,7 +11,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 extern crate sha2;
-extern crate web3;
 
 mod block;
 mod clients;

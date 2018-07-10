@@ -16,6 +16,7 @@ use diesel::types::FromSqlRow;
 pub enum Currency {
     Btc,
     Eth,
+    Usd,
 }
 
 impl Currency {
@@ -23,6 +24,7 @@ impl Currency {
         match *self {
             Currency::Btc => "btc",
             Currency::Eth => "eth",
+            Currency::Usd => "usd",
         }
     }
 }
@@ -38,6 +40,7 @@ impl FromSqlRow<Text, Pg> for Currency {
         match String::build_from_row(row)?.as_ref() {
             "btc" => Ok(Currency::Btc),
             "eth" => Ok(Currency::Eth),
+            "usd" => Ok(Currency::Usd),
             v => Err(format!("Unknown value {} for Currency found", v).into()),
         }
     }
@@ -53,12 +56,12 @@ impl ToSql<Text, Pg> for Currency {
 
 impl FromSql<Text, Pg> for Currency {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-        let text: String = FromSql::<Text, Pg>::from_sql(bytes)
-            .map_err(|_| String::from("Failed to convert to text."))?;
+        let text: String = FromSql::<Text, Pg>::from_sql(bytes)?;
 
         match text.as_ref() {
             "btc" => Ok(Currency::Btc),
             "eth" => Ok(Currency::Eth),
+            "usd" => Ok(Currency::Usd),
             v => Err(format!("Unknown value {} for Currency found", v).into()),
         }
     }

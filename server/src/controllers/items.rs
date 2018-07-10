@@ -1,21 +1,21 @@
 use actix_web::{Json, State};
+use bigdecimal::BigDecimal;
 use futures::future::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
 use auth::AuthUser;
-use core::client_token::ClientTokenPayload;
+use core::item::ItemPayload;
 use core::store::Store;
 use server::AppState;
 use services::{self, Error};
-use types::Client;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
     pub name: String,
-    pub referer: String,
-    pub typ: Client,
+    pub description: Option<String>,
     pub store_id: Uuid,
+    pub price: BigDecimal,
 }
 
 fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
@@ -27,7 +27,7 @@ fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
 }
 
 pub fn create(
-    (state, user, params): (State<AppState>, AuthUser, Json<CreateParams>),
+    (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let state = state.clone();
     let params = params.into_inner();
@@ -36,18 +36,18 @@ pub fn create(
         validate_store_owner(&store, &user)
             .into_future()
             .and_then(move |_| {
-                let payload = ClientTokenPayload {
+                let payload = ItemPayload {
                     id: None,
                     name: params.name,
-                    token: None,
+                    description: params.description,
                     store_id: store.id,
-                    referer: params.referer,
                     created_at: None,
-                    typ: params.typ,
+                    updated_at: None,
+                    price: params.price,
                 };
 
-                services::client_tokens::create(payload, state.postgres.clone())
-                    .then(|res| res.and_then(|client_token| Ok(Json(client_token.export()))))
+                services::items::create(payload, state.postgres.clone())
+                    .then(|res| res.and_then(|item| Ok(Json(item.export()))))
             })
     })
 }
