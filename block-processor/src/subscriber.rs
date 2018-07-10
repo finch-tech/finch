@@ -7,12 +7,12 @@ use futures::Future;
 use serde_json;
 
 use consumer::{ConsumerAddr, NewBlock};
-use types::{Block, BlockHeader, U256};
+use core::block::{Block, BlockHeader};
 
 pub struct Subscriber {
     writer: ClientWriter,
     consumer: ConsumerAddr,
-    previous_block_number: Option<U256>,
+    previous_block_number: Option<u128>,
 }
 
 impl Subscriber {
@@ -89,7 +89,7 @@ struct EmptyResponse {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-struct GetBlockByNumber(pub U256);
+struct GetBlockByNumber(pub u128);
 
 impl Handler<GetBlockByNumber> for Subscriber {
     type Result = ();
@@ -101,9 +101,9 @@ impl Handler<GetBlockByNumber> for Subscriber {
     ) -> Self::Result {
         let message = json!({
             "jsonrpc": "2.0",
-            "id": &block_number.0.low_u32(),
+            "id": &block_number,
             "method": "eth_getBlockByNumber",
-            "params": (format!("{:#x}", &block_number.0), true),
+            "params": (format!("{:#x}", &block_number), true),
         }).to_string();
 
         self.writer.text(message)
@@ -129,7 +129,13 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                 }
 
                 if let Ok(notification) = serde_json::from_str::<Publication>(&txt) {
-                    let block_number = notification.params.result.number.unwrap();
+                    let block_number = match notification.params.result.number {
+                        Some(number) => number,
+                        None => {
+                            // TODO: Handle error
+                            return;
+                        }
+                    };
 
                     if let Some(previous_block_number) = &self.previous_block_number {
                         if &block_number == previous_block_number {
@@ -139,7 +145,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
 
                     self.previous_block_number = Some(block_number.clone());
 
-                    ctx.run_later(Duration::from_secs(4), |_, ctx| {
+                    ctx.run_later(Duration::from_secs(4), move |_, ctx| {
                         spawn(
                             ctx.address()
                                 .send(GetBlockByNumber(block_number))
@@ -154,7 +160,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                     ctx.run_later(Duration::from_secs(4), move |_, ctx| {
                         spawn(
                             ctx.address()
-                                .send(GetBlockByNumber(U256::from(empty_response.id)))
+                                .send(GetBlockByNumber(empty_response.id as u128))
                                 .map_err(|_| ()),
                         )
                     });

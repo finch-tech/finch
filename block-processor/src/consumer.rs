@@ -1,10 +1,15 @@
+use std::str::FromStr;
+
 use actix::prelude::*;
+use bigdecimal::BigDecimal;
 use futures::Future;
 
+use core::block::Block;
 use core::db::postgres::PgExecutorAddr;
 use core::db::redis::{Publish, RedisExecutorAddr};
-use core::payment::Payment;
-use types::Block;
+use core::payment::{Payment, PaymentPayload};
+use core::transaction::Transaction;
+use types::Status as PaymentStatus;
 
 pub type ConsumerAddr = Addr<Consumer>;
 
@@ -29,11 +34,9 @@ impl Handler<NewBlock> for Consumer {
     type Result = ();
 
     fn handle(&mut self, NewBlock(block): NewBlock, _: &mut Self::Context) -> Self::Result {
-        println!("Payment check on: {:?}", block.number.unwrap().low_u32());
-
         let mut addresses = Vec::new();
         for (_, transaction) in block.transactions.iter().enumerate() {
-            if let Some(to) = transaction.to.clone() {
+            if let Some(to) = transaction.to_address.clone() {
                 addresses.push(to);
             }
         }
@@ -43,16 +46,58 @@ impl Handler<NewBlock> for Consumer {
         {
             for (_, payment) in payments.iter().enumerate() {
                 for (_, transaction) in block.transactions.iter().enumerate() {
-                    if let Some(to) = transaction.to.clone() {
+                    if let Some(to) = transaction.to_address.clone() {
                         if payment.eth_address.clone().unwrap() == to {
-                            println!("Publiching payout event for {:?}", transaction.hash);
-                            self.redis.do_send(Publish {
-                                key: String::from("payout"),
-                                value: json!({
-                                    "transaction": transaction,
-                                    "payment": payment
-                                }).to_string(),
-                            });
+                            let ether =
+                                match BigDecimal::from_str(&format!("{}", transaction.value)) {
+                                    Ok(value) => {
+                                        value / BigDecimal::from_str("1000000000000000000").unwrap()
+                                    }
+                                    Err(_) => {
+                                        // TODO: Handle error.
+                                        continue;
+                                    }
+                                };
+
+                            if ether > payment.clone().eth_price.unwrap() {
+                                let mut payload = PaymentPayload::from(payment.clone());
+                                payload.status = Some(PaymentStatus::Paid);
+
+                                match Transaction::insert(
+                                    (*transaction).clone(),
+                                    self.postgres.clone(),
+                                ).wait()
+                                {
+                                    Ok(transaction) => {
+                                        payload.transaction_hash = Some(transaction.hash.clone())
+                                    }
+                                    Err(_) => {
+                                        // TODO: Handle error
+                                        continue;
+                                    }
+                                };
+
+                                let payment = match Payment::update_by_id(
+                                    payment.id,
+                                    payload,
+                                    self.postgres.clone(),
+                                ).wait()
+                                {
+                                    Ok(payment) => payment,
+                                    Err(_) => {
+                                        // TODO: Handle error
+                                        continue;
+                                    }
+                                };
+
+                                self.redis.do_send(Publish {
+                                    key: String::from("payment"),
+                                    value: json!({
+                                        "transaction": transaction,
+                                        "payment": payment
+                                    }).to_string(),
+                                });
+                            }
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate actix;
 extern crate actix_web;
+extern crate bigdecimal;
 extern crate futures;
 extern crate serde;
 #[macro_use]
