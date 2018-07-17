@@ -1,5 +1,5 @@
 use models::transaction::Transaction;
-use types::{H160, H256, U256};
+use types::{H160, H256, U128, U256};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHeader {
@@ -16,7 +16,7 @@ pub struct BlockHeader {
     pub transactions_root: H256,
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
-    pub number: Option<u128>,
+    pub number: Option<U128>,
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
     #[serde(rename = "gasLimit")]
@@ -44,7 +44,7 @@ pub struct Block {
     pub transactions_root: H256,
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
-    pub number: Option<u128>,
+    pub number: Option<U128>,
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
     #[serde(rename = "gasLimit")]

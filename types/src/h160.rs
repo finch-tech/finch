@@ -34,6 +34,11 @@ impl H160 {
 
         H160(_H160(output))
     }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        let h160 = self.0;
+        h160.0.to_vec()
+    }
 }
 
 impl fmt::Debug for H160 {

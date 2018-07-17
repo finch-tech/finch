@@ -32,6 +32,15 @@ impl H256 {
 
         H256(_H256(output))
     }
+
+    pub fn from_hash(data: [u8; 32]) -> Self {
+        H256(_H256(data))
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        let h160 = self.0;
+        h160.0.to_vec()
+    }
 }
 
 impl fmt::Debug for H256 {

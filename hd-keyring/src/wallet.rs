@@ -6,12 +6,12 @@ use secp256k1::Secp256k1;
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{Currency, H160, H256};
+use types::{H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
-    secret_key: SecretKey,
-    public_key: PublicKey,
+    pub secret_key: SecretKey,
+    pub public_key: PublicKey,
 }
 
 impl Wallet {

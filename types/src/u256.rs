@@ -50,6 +50,18 @@ impl FromSql<Numeric, Pg> for U256 {
     }
 }
 
+impl From<u32> for U256 {
+    fn from(value: u32) -> U256 {
+        U256(_U256::from(value))
+    }
+}
+
+impl<'a> From<&'a [u8]> for U256 {
+    fn from(value: &[u8]) -> U256 {
+        U256(_U256::from(value))
+    }
+}
+
 impl Deref for U256 {
     type Target = _U256;
     fn deref(&self) -> &Self::Target {

@@ -8,11 +8,12 @@ use serde_json;
 
 use consumer::{ConsumerAddr, NewBlock};
 use core::block::{Block, BlockHeader};
+use types::U128;
 
 pub struct Subscriber {
     writer: ClientWriter,
     consumer: ConsumerAddr,
-    previous_block_number: Option<u128>,
+    previous_block_number: Option<U128>,
 }
 
 impl Subscriber {
@@ -77,19 +78,19 @@ struct PublicationParams {
 #[derive(Debug, Deserialize)]
 struct BlockResponse {
     jsonrpc: String,
-    id: u32,
+    id: u64,
     result: Block,
 }
 
 #[derive(Debug, Deserialize)]
 struct EmptyResponse {
     jsonrpc: String,
-    id: u32,
+    id: u64,
 }
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-struct GetBlockByNumber(pub u128);
+struct GetBlockByNumber(pub U128);
 
 impl Handler<GetBlockByNumber> for Subscriber {
     type Result = ();
@@ -101,9 +102,9 @@ impl Handler<GetBlockByNumber> for Subscriber {
     ) -> Self::Result {
         let message = json!({
             "jsonrpc": "2.0",
-            "id": &block_number,
+            "id": &block_number.0.low_u64(),
             "method": "eth_getBlockByNumber",
-            "params": (format!("{:#x}", &block_number), true),
+            "params": (format!("{:#x}", &block_number.0), true),
         }).to_string();
 
         self.writer.text(message)
@@ -160,7 +161,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                     ctx.run_later(Duration::from_secs(4), move |_, ctx| {
                         spawn(
                             ctx.address()
-                                .send(GetBlockByNumber(empty_response.id as u128))
+                                .send(GetBlockByNumber(U128::from(empty_response.id)))
                                 .map_err(|_| ()),
                         )
                     });

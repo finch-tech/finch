@@ -19,6 +19,7 @@ mod h160;
 mod h256;
 mod payment_status;
 mod transaction;
+mod u128;
 mod u256;
 
 pub type PrivateKey = Vec<u8>;
@@ -32,4 +33,5 @@ pub use self::h160::H160;
 pub use self::h256::H256;
 pub use self::payment_status::Status;
 pub use self::transaction::Transaction;
+pub use self::u128::U128;
 pub use self::u256::U256;

@@ -92,10 +92,7 @@ impl Handler<NewBlock> for Consumer {
 
                                 self.redis.do_send(Publish {
                                     key: String::from("payment"),
-                                    value: json!({
-                                        "transaction": transaction,
-                                        "payment": payment
-                                    }).to_string(),
+                                    value: json!(payment).to_string(),
                                 });
                             }
                         }
