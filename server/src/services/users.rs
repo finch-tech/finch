@@ -15,7 +15,7 @@ const N_ITER: u32 = 100_000;
 
 pub fn register(
     mut payload: UserPayload,
-    postgres: PgExecutorAddr,
+    postgres: &PgExecutorAddr,
 ) -> impl Future<Item = User, Error = Error> {
     let rng = rand::SystemRandom::new();
     let mut salt = [0u8; CREDENTIAL_LEN];
@@ -45,7 +45,7 @@ pub struct LoginParams {
 
 pub fn authenticate(
     params: LoginParams,
-    postgres: PgExecutorAddr,
+    postgres: &PgExecutorAddr,
     jwt_private: PrivateKey,
 ) -> impl Future<Item = String, Error = Error> {
     User::find_by_email(params.email.clone(), postgres)
@@ -80,6 +80,6 @@ pub fn authenticate(
         })
 }
 
-pub fn get(id: Uuid, postgres: PgExecutorAddr) -> impl Future<Item = User, Error = Error> {
+pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = User, Error = Error> {
     User::find_by_id(id, postgres).from_err()
 }

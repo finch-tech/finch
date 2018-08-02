@@ -159,6 +159,6 @@ impl FromRequest<AppState> for ClientToken {
         };
 
         // TODO: Check referer.
-        Box::new(services::client_tokens::get_by_token(token, state.postgres.clone()).from_err())
+        Box::new(services::client_tokens::get_by_token(token, &state.postgres).from_err())
     }
 }

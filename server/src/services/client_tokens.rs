@@ -7,14 +7,14 @@ use services::Error;
 
 pub fn create(
     payload: ClientTokenPayload,
-    postgres: PgExecutorAddr,
+    postgres: &PgExecutorAddr,
 ) -> impl Future<Item = ClientToken, Error = Error> {
     ClientToken::insert(payload, postgres).from_err()
 }
 
 pub fn get_by_token(
     token: Uuid,
-    postgres: PgExecutorAddr,
+    postgres: &PgExecutorAddr,
 ) -> impl Future<Item = ClientToken, Error = Error> {
-    ClientToken::find_by_token(token.clone(), postgres).from_err()
+    ClientToken::find_by_token(token, postgres).from_err()
 }

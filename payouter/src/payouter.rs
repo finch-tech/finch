@@ -38,8 +38,9 @@ impl Payouter {
         let eth_client = Client::new(self.etheretun_rpc_url.clone());
         let chain_id = self.chain_id.clone();
 
-        let store = payment.store(self.postgres.clone()).from_err();
-        let transaction = payment.transaction(self.postgres.clone()).from_err();
+        let store = payment.store(&self.postgres).from_err();
+        let transaction = payment.transaction(&self.postgres).from_err();
+
         let gas_price = eth_client.get_gas_price().from_err();
         let nonce = eth_client
             .get_transaction_count(payment.clone().eth_address.unwrap())
@@ -113,7 +114,7 @@ impl<'a> Handler<Event<'a>> for Payouter {
 
     fn handle(&mut self, msg: Event, _: &mut Self::Context) -> Self::Result {
         let payment = match serde_json::from_str::<Payment>(&msg.value) {
-            Ok(event) => event,
+            Ok(payment) => payment,
             _ => return (),
         };
 

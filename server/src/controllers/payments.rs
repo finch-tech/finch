@@ -21,7 +21,6 @@ pub struct CreateParams {
 pub fn create(
     (state, client_token, params): (State<AppState>, ClientToken, Json<CreateParams>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let params = params.into_inner();
     // TODO: Check params.currencies length.
 
@@ -43,10 +42,10 @@ pub fn create(
         transaction_hash: None,
     };
 
-    services::payments::create(params.currencies, payload, state.postgres.clone()).and_then(
+    services::payments::create(params.currencies, payload, &state.postgres).and_then(
         move |payment| {
             payment
-                .item(state.postgres.clone())
+                .item(&state.postgres)
                 .from_err()
                 .and_then(move |item| {
                     JWTPayload::new(None, Some(auth_client))
@@ -79,29 +78,26 @@ fn validate_client(payment: &Payment, client: &AuthClient) -> Result<bool, Error
 pub fn get_status(
     (state, client, path): (State<AppState>, AuthClient, Path<Uuid>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let id = path.into_inner();
 
-    services::payments::get(id, state.postgres.clone()).and_then(move |payment| {
+    services::payments::get(id, &state.postgres).and_then(move |payment| {
         validate_client(&payment, &client)
             .into_future()
             .and_then(move |_| {
-                services::vouchers::create(payment.clone(), state.postgres.clone()).then(
-                    move |res| match res {
-                        Ok(voucher) => {
-                            Ok(Json(json!({
+                services::vouchers::create(payment.clone(), &state.postgres).then(move |res| {
+                    match res {
+                        Ok(voucher) => Ok(Json(json!({
                                     "status": payment.status,
                                     "voucher": voucher,
-                                })))
-                        }
+                                }))),
                         Err(e) => {
                             println!("{:?}", e);
                             Ok(Json(json!({
                                     "status": payment.status,
                                 })))
                         }
-                    },
-                )
+                    }
+                })
             })
     })
 }

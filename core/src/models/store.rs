@@ -65,12 +65,12 @@ pub struct Store {
 impl Store {
     pub fn insert(
         mut payload: StorePayload,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Store, Error = Error> {
         payload.set_created_at();
         payload.set_updated_at();
 
-        postgres
+        (*postgres)
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -78,9 +78,9 @@ impl Store {
 
     pub fn find_by_id(
         id: Uuid,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Store, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindById(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))

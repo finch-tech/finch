@@ -29,10 +29,9 @@ fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
 pub fn create(
     (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let params = params.into_inner();
 
-    services::stores::get(params.store_id, state.postgres.clone()).and_then(move |store| {
+    services::stores::get(params.store_id, &state.postgres).and_then(move |store| {
         validate_store_owner(&store, &user)
             .into_future()
             .and_then(move |_| {
@@ -46,7 +45,7 @@ pub fn create(
                     price: params.price,
                 };
 
-                services::items::create(payload, state.postgres.clone())
+                services::items::create(payload, &state.postgres)
                     .then(|res| res.and_then(|item| Ok(Json(item.export()))))
             })
     })

@@ -17,7 +17,6 @@ pub struct RegistrationParams {
 pub fn registration(
     (state, params): (State<AppState>, Json<RegistrationParams>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let params = params.into_inner();
 
     let payload = UserPayload {
@@ -29,21 +28,23 @@ pub fn registration(
         active: true,
     };
 
-    services::users::register(payload, state.postgres)
+    services::users::register(payload, &state.postgres)
         .then(|res| res.and_then(|user| Ok(Json(user.export()))))
 }
 
 pub fn authentication(
     (state, params): (State<AppState>, Json<LoginParams>),
 ) -> impl Future<Item = String, Error = Error> {
-    let state = state.clone();
-    services::users::authenticate(params.into_inner(), state.postgres, state.jwt_private)
+    services::users::authenticate(
+        params.into_inner(),
+        &state.postgres,
+        state.jwt_private.clone(),
+    )
 }
 
 pub fn profile(
     (state, user): (State<AppState>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
-    services::users::get(user.id, state.postgres)
+    services::users::get(user.id, &state.postgres)
         .then(|res| res.and_then(|user| Ok(Json(user.export()))))
 }

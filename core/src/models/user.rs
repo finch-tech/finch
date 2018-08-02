@@ -43,12 +43,12 @@ pub struct User {
 impl User {
     pub fn insert(
         mut payload: UserPayload,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = User, Error = Error> {
         payload.set_created_at();
         payload.set_updated_at();
 
-        postgres
+        (*postgres)
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -56,9 +56,9 @@ impl User {
 
     pub fn find_by_email(
         email: String,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = User, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindByEmail(email))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -66,9 +66,9 @@ impl User {
 
     pub fn find_by_id(
         id: Uuid,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = User, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindById(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))

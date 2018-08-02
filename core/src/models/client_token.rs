@@ -46,11 +46,11 @@ pub struct ClientToken {
 impl ClientToken {
     pub fn insert(
         mut payload: ClientTokenPayload,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = ClientToken, Error = Error> {
         payload.set_created_at();
 
-        postgres
+        (*postgres)
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -58,9 +58,9 @@ impl ClientToken {
 
     pub fn find_by_id(
         id: Uuid,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = ClientToken, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindById(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -68,9 +68,9 @@ impl ClientToken {
 
     pub fn find_by_token(
         token: Uuid,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = ClientToken, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindByToken(token))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))

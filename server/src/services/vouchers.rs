@@ -8,10 +8,12 @@ use types::Status as PaymentStatus;
 
 pub fn create(
     payment: Payment,
-    postgres: PgExecutorAddr,
+    postgres: &PgExecutorAddr,
 ) -> Box<Future<Item = String, Error = Error>> {
-    let transaction = payment.transaction(postgres.clone()).from_err();
-    let store = payment.store(postgres.clone()).from_err();
+    let postgres = postgres.clone();
+
+    let transaction = payment.transaction(&postgres).from_err();
+    let store = payment.store(&postgres).from_err();
 
     match payment.status {
         PaymentStatus::Paid => Box::new(transaction.join(store).and_then(

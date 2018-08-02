@@ -33,9 +33,9 @@ pub struct Transaction {
 impl Transaction {
     pub fn insert(
         payload: Transaction,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Transaction, Error = Error> {
-        postgres
+        (*postgres)
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -43,9 +43,9 @@ impl Transaction {
 
     pub fn find_by_hash(
         hash: H256,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Transaction, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindByHash(hash))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))

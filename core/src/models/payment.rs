@@ -88,40 +88,42 @@ pub struct Payment {
 impl Payment {
     pub fn insert(
         mut payload: PaymentPayload,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
         payload.set_created_at();
 
-        postgres
+        (*postgres)
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn item(&self, postgres: PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
+    pub fn item(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
         Item::find_by_id(self.item_id, postgres)
     }
 
-    pub fn store(&self, postgres: PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
+    pub fn store(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
         Store::find_by_id(self.store_id, postgres)
     }
 
     pub fn transaction(
         &self,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Transaction, Error = Error> {
-        self.to_owned()
+        let postgres = postgres.clone();
+
+        self.clone()
             .transaction_hash
             .ok_or(Error::PropertyNotFound)
             .into_future()
-            .and_then(|hash| Transaction::find_by_hash(hash, postgres))
+            .and_then(move |hash| Transaction::find_by_hash(hash, &postgres))
     }
 
     pub fn find_by_id(
         id: Uuid,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindById(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -130,9 +132,9 @@ impl Payment {
     pub fn update_by_id(
         id: Uuid,
         payload: PaymentPayload,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
-        postgres
+        (*postgres)
             .send(UpdateById(id, payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -140,9 +142,9 @@ impl Payment {
 
     pub fn find_all_by_eth_address(
         addresses: Vec<H160>,
-        postgres: PgExecutorAddr,
+        postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Payment>, Error = Error> {
-        postgres
+        (*postgres)
             .send(FindAllByEthAddress(addresses))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))

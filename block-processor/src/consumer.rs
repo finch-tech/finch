@@ -41,9 +41,7 @@ impl Handler<NewBlock> for Consumer {
             }
         }
 
-        if let Ok(payments) =
-            Payment::find_all_by_eth_address(addresses, self.postgres.clone()).wait()
-        {
+        if let Ok(payments) = Payment::find_all_by_eth_address(addresses, &self.postgres).wait() {
             for (_, payment) in payments.iter().enumerate() {
                 for (_, transaction) in block.transactions.iter().enumerate() {
                     if let Some(to) = transaction.to_address.clone() {
@@ -63,13 +61,11 @@ impl Handler<NewBlock> for Consumer {
                                 let mut payload = PaymentPayload::from(payment.clone());
                                 payload.status = Some(PaymentStatus::Paid);
 
-                                match Transaction::insert(
-                                    (*transaction).clone(),
-                                    self.postgres.clone(),
-                                ).wait()
+                                match Transaction::insert((*transaction).clone(), &self.postgres)
+                                    .wait()
                                 {
                                     Ok(transaction) => {
-                                        payload.transaction_hash = Some(transaction.hash.clone())
+                                        payload.transaction_hash = Some(transaction.hash.clone());
                                     }
                                     Err(_) => {
                                         // TODO: Handle error
@@ -80,7 +76,7 @@ impl Handler<NewBlock> for Consumer {
                                 let payment = match Payment::update_by_id(
                                     payment.id,
                                     payload,
-                                    self.postgres.clone(),
+                                    &self.postgres,
                                 ).wait()
                                 {
                                     Ok(payment) => payment,

@@ -23,7 +23,6 @@ pub struct CreateParams {
 pub fn create(
     (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let params = params.into_inner();
 
     // TODO: Check if the currency is legal tender.
@@ -46,7 +45,7 @@ pub fn create(
         active: true,
     };
 
-    services::stores::create(payload, state.postgres)
+    services::stores::create(payload, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 
@@ -54,9 +53,8 @@ pub fn create(
 pub fn get(
     (state, path): (State<AppState>, Path<Uuid>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let state = state.clone();
     let id = path.into_inner();
 
-    services::stores::get(id, state.postgres)
+    services::stores::get(id, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
