@@ -101,11 +101,13 @@ impl Actor for Payouter {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
-        println!("Started payouter");
-        self.subscriber.do_send(Subscribe {
+        match self.subscriber.try_send(Subscribe {
             key: "payment",
             recipient: ctx.address().recipient(),
-        });
+        }) {
+            Ok(_) => println!("Started payouter"),
+            Err(_) => panic!("Failed to start payouter"),
+        }
     }
 }
 
@@ -117,6 +119,8 @@ impl<'a> Handler<Event<'a>> for Payouter {
             Ok(payment) => payment,
             _ => return (),
         };
+
+        // Check whether amount should be paidout or refunded.
 
         spawn(
             self.payout(payment)

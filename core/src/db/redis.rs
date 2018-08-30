@@ -105,7 +105,7 @@ impl<'a> Handler<Subscribe<'a>> for RedisSubscriber {
                 _ => return (),
             };
 
-            match msg.recipient.do_send(Event {
+            match msg.recipient.try_send(Event {
                 key: msg.key,
                 value: payload,
             }) {
