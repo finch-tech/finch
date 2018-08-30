@@ -4,7 +4,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::payment::Payment;
 use core::voucher::Voucher;
 use services::Error;
-use types::Status as PaymentStatus;
+use types::PaymentStatus;
 
 pub fn create(
     payment: Payment,

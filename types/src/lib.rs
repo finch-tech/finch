@@ -31,7 +31,7 @@ pub use self::clients::Client;
 pub use self::currencies::Currency;
 pub use self::h160::H160;
 pub use self::h256::H256;
-pub use self::payment_status::Status;
+pub use self::payment_status::PaymentStatus;
 pub use self::transaction::Transaction;
 pub use self::u128::U128;
 pub use self::u256::U256;

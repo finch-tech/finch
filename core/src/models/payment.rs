@@ -13,13 +13,13 @@ use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, H256, Status};
+use types::{H160, H256, PaymentStatus};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
 pub struct PaymentPayload {
     pub id: Option<Uuid>,
-    pub status: Option<Status>,
+    pub status: Option<PaymentStatus>,
     pub store_id: Uuid,
     pub item_id: Uuid,
     pub created_by: Uuid, // AuthClient id
@@ -33,6 +33,7 @@ pub struct PaymentPayload {
     pub btc_price: Option<BigDecimal>,
     // TODO: Add watch status and expiration
     pub transaction_hash: Option<H256>,
+    pub payout_transaction_hash: Option<H256>,
 }
 
 impl PaymentPayload {
@@ -61,6 +62,7 @@ impl From<Payment> for PaymentPayload {
             btc_address: payment.btc_address,
             btc_price: payment.btc_price,
             transaction_hash: payment.transaction_hash,
+            payout_transaction_hash: payment.payout_transaction_hash,
         }
     }
 }
@@ -70,7 +72,7 @@ impl From<Payment> for PaymentPayload {
 #[belongs_to(Item, foreign_key = "item_id")]
 pub struct Payment {
     pub id: Uuid,
-    pub status: Status,
+    pub status: PaymentStatus,
     pub store_id: Uuid,
     pub item_id: Uuid,
     pub created_by: Uuid,
@@ -83,6 +85,7 @@ pub struct Payment {
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
     pub transaction_hash: Option<H256>,
+    pub payout_transaction_hash: Option<H256>,
 }
 
 impl Payment {

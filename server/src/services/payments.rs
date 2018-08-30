@@ -7,7 +7,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::payment::{Payment, PaymentPayload};
 use currency_api_client::Client as CurrencyApiClient;
 use services::{self, Error};
-use types::{Currency, Status};
+use types::{Currency, PaymentStatus};
 
 pub fn create(
     currencies: HashSet<Currency>,
@@ -20,7 +20,7 @@ pub fn create(
     let index: i32 = 1;
 
     payload.index = Some(index);
-    payload.status = Some(Status::Pending);
+    payload.status = Some(PaymentStatus::Pending);
     payload.index = Some(index);
 
     Payment::insert(payload, &postgres)

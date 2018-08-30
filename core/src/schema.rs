@@ -37,6 +37,7 @@ table! {
         btc_address -> Nullable<Varchar>,
         btc_price -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
+        payout_transaction_hash -> Nullable<Varchar>,
     }
 }
 

@@ -40,6 +40,7 @@ pub fn create(
         btc_address: None,
         btc_price: None,
         transaction_hash: None,
+        payout_transaction_hash: None,
     };
 
     services::payments::create(params.currencies, payload, &state.postgres).and_then(

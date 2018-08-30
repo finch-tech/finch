@@ -14,5 +14,6 @@ CREATE TABLE payments
     eth_price NUMERIC,
     btc_address VARCHAR,
     btc_price NUMERIC,
-    transaction_hash VARCHAR
+    transaction_hash VARCHAR,
+    payout_transaction_hash VARCHAR
 )

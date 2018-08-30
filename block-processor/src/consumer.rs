@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use actix::prelude::*;
@@ -9,7 +10,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::db::redis::{Publish, RedisExecutorAddr};
 use core::payment::{Payment, PaymentPayload};
 use core::transaction::Transaction;
-use types::Status as PaymentStatus;
+use types::PaymentStatus;
 
 pub type ConsumerAddr = Addr<Consumer>;
 
@@ -35,63 +36,65 @@ impl Handler<NewBlock> for Consumer {
 
     fn handle(&mut self, NewBlock(block): NewBlock, _: &mut Self::Context) -> Self::Result {
         let mut addresses = Vec::new();
+        let mut transactions = HashMap::new();
+
         for (_, transaction) in block.transactions.iter().enumerate() {
             if let Some(to) = transaction.to_address.clone() {
-                addresses.push(to);
+                addresses.push(to.clone());
+                transactions.insert(to, transaction.clone());
             }
         }
 
+        // Start processing block.number
+
         if let Ok(payments) = Payment::find_all_by_eth_address(addresses, &self.postgres).wait() {
             for (_, payment) in payments.iter().enumerate() {
-                for (_, transaction) in block.transactions.iter().enumerate() {
-                    if let Some(to) = transaction.to_address.clone() {
-                        if payment.eth_address.clone().unwrap() == to {
-                            let ether =
-                                match BigDecimal::from_str(&format!("{}", transaction.value)) {
-                                    Ok(value) => {
-                                        value / BigDecimal::from_str("1000000000000000000").unwrap()
-                                    }
-                                    Err(_) => {
-                                        // TODO: Handle error.
-                                        continue;
-                                    }
-                                };
+                // Start processing payment.id
 
-                            if ether > payment.clone().eth_price.unwrap() {
-                                let mut payload = PaymentPayload::from(payment.clone());
-                                payload.status = Some(PaymentStatus::Paid);
-
-                                match Transaction::insert((*transaction).clone(), &self.postgres)
-                                    .wait()
-                                {
-                                    Ok(transaction) => {
-                                        payload.transaction_hash = Some(transaction.hash.clone());
-                                    }
-                                    Err(_) => {
-                                        // TODO: Handle error
-                                        continue;
-                                    }
-                                };
-
-                                let payment = match Payment::update_by_id(
-                                    payment.id,
-                                    payload,
-                                    &self.postgres,
-                                ).wait()
-                                {
-                                    Ok(payment) => payment,
-                                    Err(_) => {
-                                        // TODO: Handle error
-                                        continue;
-                                    }
-                                };
-
-                                self.redis.do_send(Publish {
-                                    key: String::from("payment"),
-                                    value: json!(payment).to_string(),
-                                });
-                            }
+                if let Some(transaction) = transactions.get(&payment.eth_address.clone().unwrap()) {
+                    let ether_paid = match BigDecimal::from_str(&format!("{}", transaction.value)) {
+                        Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
+                        Err(_) => {
+                            // TODO: Handle error.
+                            continue;
                         }
+                    };
+
+                    let transaction =
+                        match Transaction::insert((*transaction).clone(), &self.postgres).wait() {
+                            Ok(transaction) => transaction,
+                            Err(_) => {
+                                // TODO: Handle error
+                                continue;
+                            }
+                        };
+
+                    if ether_paid >= payment.clone().eth_price.unwrap() {
+                        let mut payload = PaymentPayload::from(payment.clone());
+
+                        payload.transaction_hash = Some(transaction.hash.clone());
+                        payload.status = Some(PaymentStatus::Paid);
+
+                        let payment =
+                            match Payment::update_by_id(payment.id, payload, &self.postgres).wait()
+                            {
+                                Ok(payment) => payment,
+                                Err(_) => {
+                                    // TODO: Handle error
+                                    continue;
+                                }
+                            };
+
+                        match self.redis.try_send(Publish {
+                            key: String::from("payment"),
+                            value: json!(payment).to_string(),
+                        }) {
+                            Ok(_) => (),
+                            Err(_) => {
+                                // TODO: Handle error
+                                continue;
+                            }
+                        };
                     }
                 }
             }
