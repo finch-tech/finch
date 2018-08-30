@@ -24,8 +24,8 @@ pub enum Error {
     KeyringError(#[cause] KeyringError),
     #[fail(display = "{}", _0)]
     DecodeError(#[cause] DecodeError),
-    #[fail(display = "JWT error: {}", _0)]
-    JwtError(String),
+    #[fail(display = "{}", _0)]
+    JwtError(#[cause] JwtError),
     #[fail(display = "{}", _0)]
     ErrorStack(#[cause] ErrorStack),
     #[fail(display = "{}", _0)]
@@ -109,7 +109,7 @@ impl From<ErrorStack> for Error {
 
 impl From<JwtError> for Error {
     fn from(e: JwtError) -> Error {
-        Error::JwtError(e.kind().description().to_owned())
+        Error::JwtError(e)
     }
 }
 

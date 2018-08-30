@@ -8,8 +8,8 @@ pub enum Error {
     DbError(#[cause] DbError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
-    #[fail(display = "JWT error: {}", _0)]
-    JwtError(String),
+    #[fail(display = "{}", _0)]
+    JwtError(#[cause] JwtError),
     #[fail(display = "Property not found")]
     PropertyNotFound,
 }
@@ -28,6 +28,6 @@ impl From<MailboxError> for Error {
 
 impl From<JwtError> for Error {
     fn from(e: JwtError) -> Error {
-        Error::JwtError(e.kind().description().to_owned())
+        Error::JwtError(e)
     }
 }

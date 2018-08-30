@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Artefact Inc. <admin@artefact.co.jp>"]
 
 [dependencies]
-bip39 = "0.5.1"
+bip39 = { path = "../../bip39-rs" }
 byteorder = "1.2.3"
 digest = "0.7"
 failure = "0.1.1"
