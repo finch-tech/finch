@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use actix_web::{error, Error as ActixError, FromRequest, HttpMessage, HttpRequest};
 use base64::decode;
 use chrono::prelude::*;
@@ -14,16 +16,32 @@ use types::PrivateKey;
 pub struct JWTPayload {
     pub client: Option<AuthClient>,
     pub user: Option<AuthUser>,
+    pub exp: u64,
 }
 
 impl JWTPayload {
     pub fn new(user: Option<AuthUser>, client: Option<AuthClient>) -> Self {
-        JWTPayload { client, user }
+        let mut timer = SystemTime::now();
+
+        if user.is_some() {
+            // 1 day
+            timer += Duration::from_secs(86400);
+        };
+
+        if client.is_some() {
+            // 30 mins
+            timer += Duration::from_secs(1800);
+        }
+
+        JWTPayload {
+            client,
+            user,
+            exp: timer.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        }
     }
 
     pub fn encode(&self, jwt_private: &PrivateKey) -> Result<String, jwt::errors::Error> {
-        let mut header = jwt::Header::default();
-        header.alg = jwt::Algorithm::RS256;
+        let header = jwt::Header::new(jwt::Algorithm::RS256);
 
         jwt::encode(&header, &self, jwt_private)
     }
@@ -50,10 +68,7 @@ impl FromRequest<AppState> for JWTPayload {
             return Err(error::ErrorUnauthorized("Invalid authorization token."));
         }
 
-        let validation = jwt::Validation {
-            algorithms: vec![jwt::Algorithm::RS256],
-            ..Default::default()
-        };
+        let validation = jwt::Validation::new(jwt::Algorithm::RS256);
 
         match jwt::decode::<JWTPayload>(&auth_header_parts[1], &state.jwt_public, &validation) {
             Ok(token) => Ok(token.claims),
