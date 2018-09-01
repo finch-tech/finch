@@ -76,10 +76,12 @@ pub fn run(
                         .with_async(controllers::items::create);
                 })
                 .resource("/payments", |r| {
+                    middleware::cors::Cors::build().finish().register(r);
                     r.method(http::Method::POST)
                         .with_async(controllers::payments::create);
                 })
                 .resource("/payments/{id}/status", |r| {
+                    middleware::cors::Cors::build().finish().register(r);
                     r.method(http::Method::GET)
                         .with_async(controllers::payments::get_status)
                 })
