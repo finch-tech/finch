@@ -11,7 +11,7 @@ use types::{H160, H256, U256};
 pub struct Voucher {
     pub tx_hash: H256,
     pub uuid: Uuid,
-    pub value: U256,
+    pub value: String,
     pub paid_by: H160,
     pub store_id: Uuid,
 }
@@ -21,7 +21,7 @@ impl Voucher {
         Voucher {
             tx_hash: transaction.hash,
             uuid: Uuid::new_v4(),
-            value: transaction.value,
+            value: format!("{}", transaction.value),
             paid_by: transaction.from_address,
             store_id: payment.store_id,
             // iss: String::from(""),

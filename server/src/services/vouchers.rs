@@ -16,7 +16,7 @@ pub fn create(
     let store = payment.store(&postgres).from_err();
 
     match payment.status {
-        PaymentStatus::Paid => Box::new(transaction.join(store).and_then(
+        PaymentStatus::PaidOut => Box::new(transaction.join(store).and_then(
             move |(transaction, store)| {
                 Voucher::new(payment, transaction)
                     .encode(&store.private_key)

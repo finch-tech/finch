@@ -85,6 +85,11 @@ pub fn run(
                     r.method(http::Method::GET)
                         .with_async(controllers::payments::get_status)
                 })
+                .resource("/vouchers", |r| {
+                    middleware::cors::Cors::build().finish().register(r);
+                    r.method(http::Method::POST)
+                        .with_async(controllers::vouchers::create);
+                })
         }).bind(format!("{}:{}", host, port))
             .expect(&format!("Can not bind {}:{}", host, port))
             .start();
