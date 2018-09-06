@@ -1,4 +1,11 @@
 table! {
+    app_statuses (id) {
+        id -> Int2,
+        block_height -> Nullable<Numeric>,
+    }
+}
+
+table! {
     client_tokens (id) {
         id -> Uuid,
         name -> Varchar,
@@ -19,6 +26,7 @@ table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         price -> Numeric,
+        confirmations_required -> Numeric,
     }
 }
 
@@ -36,6 +44,8 @@ table! {
         eth_price -> Nullable<Numeric>,
         btc_address -> Nullable<Varchar>,
         btc_price -> Nullable<Numeric>,
+        confirmations_required -> Numeric,
+        block_height_required -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
         payout_transaction_hash -> Nullable<Varchar>,
     }
@@ -90,6 +100,7 @@ table! {
 }
 
 allow_tables_to_appear_in_same_query!(
+    app_statuses,
     client_tokens,
     items,
     payments,

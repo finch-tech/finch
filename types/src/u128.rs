@@ -1,9 +1,17 @@
 use std::fmt;
+use std::io::Write;
 use std::ops::Deref;
+use std::str::FromStr;
 
+use bigdecimal::BigDecimal;
+use diesel::deserialize::{self, FromSql};
+use diesel::pg::Pg;
+use diesel::serialize::{self, Output, ToSql};
+use diesel::sql_types::Numeric;
 use ethereum_types::U128 as _U128;
 
-#[derive(FromSqlRow, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[sql_type = "Numeric"]
 pub struct U128(pub _U128);
 
 impl U128 {
@@ -17,6 +25,22 @@ impl U128 {
 impl fmt::Debug for U128 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.0)
+    }
+}
+
+impl ToSql<Numeric, Pg> for U128 {
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+        let num = BigDecimal::from_str(&format!("{}", self))?;
+        ToSql::<Numeric, Pg>::to_sql(&num, out)
+    }
+}
+
+impl FromSql<Numeric, Pg> for U128 {
+    fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
+        let num: BigDecimal = FromSql::<Numeric, Pg>::from_sql(bytes)?;
+        let _u128 = _U128::from_dec_str(&format!("{}", num))
+            .map_err(|_| String::from("Failed to construct u128 from bigdecimal string"))?;
+        Ok(U128(_u128))
     }
 }
 

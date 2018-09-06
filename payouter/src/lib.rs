@@ -19,6 +19,7 @@ extern crate types;
 
 mod errors;
 mod ethereum;
+mod monitor;
 mod payouter;
 
 pub mod service;

@@ -6,14 +6,14 @@ use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindAllByEthAddress, FindById, Insert, UpdateById};
+use db::payments::{FindAllByEthAddress, FindAllConfirmed, FindById, Insert, UpdateById};
 use db::postgres::PgExecutorAddr;
 use models::item::Item;
 use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, H256, PaymentStatus};
+use types::{H160, H256, PaymentStatus, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
@@ -32,6 +32,8 @@ pub struct PaymentPayload {
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
     // TODO: Add watch status and expiration
+    pub confirmations_required: U128,
+    pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
     pub payout_transaction_hash: Option<H256>,
 }
@@ -61,6 +63,8 @@ impl From<Payment> for PaymentPayload {
             eth_price: payment.eth_price,
             btc_address: payment.btc_address,
             btc_price: payment.btc_price,
+            confirmations_required: payment.confirmations_required,
+            block_height_required: payment.block_height_required,
             transaction_hash: payment.transaction_hash,
             payout_transaction_hash: payment.payout_transaction_hash,
         }
@@ -84,6 +88,8 @@ pub struct Payment {
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
+    pub confirmations_required: U128,
+    pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
     pub payout_transaction_hash: Option<H256>,
 }
@@ -139,6 +145,16 @@ impl Payment {
     ) -> impl Future<Item = Payment, Error = Error> {
         (*postgres)
             .send(UpdateById(id, payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_all_confirmed(
+        block_height: U128,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Vec<Payment>, Error = Error> {
+        (*postgres)
+            .send(FindAllConfirmed(block_height))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

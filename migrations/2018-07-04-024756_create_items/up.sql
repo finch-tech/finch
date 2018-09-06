@@ -7,5 +7,6 @@ CREATE TABLE items
     store_id uuid NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    price DECIMAL NOT NULL
+    price DECIMAL NOT NULL,
+    confirmations_required NUMERIC NOT NULL
 )

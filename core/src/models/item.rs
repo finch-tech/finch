@@ -9,6 +9,7 @@ use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
 use schema::items;
+use types::U128;
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "items"]
@@ -20,6 +21,7 @@ pub struct ItemPayload {
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub price: BigDecimal,
+    pub confirmations_required: U128,
 }
 
 impl ItemPayload {
@@ -42,6 +44,7 @@ pub struct Item {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub price: BigDecimal,
+    pub confirmations_required: U128,
 }
 
 impl Item {

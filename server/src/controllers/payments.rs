@@ -6,7 +6,9 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use auth::{AuthClient, JWTPayload};
+use core::app_status::AppStatus;
 use core::client_token::ClientToken;
+use core::item::Item;
 use core::payment::{Payment, PaymentPayload};
 use server::AppState;
 use services::{self, Error};
@@ -18,54 +20,70 @@ pub struct CreateParams {
     pub item_id: Uuid,
 }
 
+fn validate_item(item: &Item, client: &AuthClient) -> Result<bool, Error> {
+    if item.store_id != client.store_id {
+        return Err(Error::InvalidRequestAccount);
+    }
+
+    Ok(true)
+}
+
 pub fn create(
     (state, client_token, params): (State<AppState>, ClientToken, Json<CreateParams>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
     // TODO: Check params.currencies length.
 
-    let auth_client = AuthClient::new(client_token);
+    services::items::get(params.item_id, &state.postgres).and_then(move |item| {
+        let auth_client = AuthClient::new(client_token);
 
-    let payload = PaymentPayload {
-        id: None,
-        status: None,
-        store_id: auth_client.store_id,
-        item_id: params.item_id,
-        created_by: auth_client.id,
-        created_at: None,
-        paid_at: None,
-        index: None,
-        eth_address: None,
-        eth_price: None,
-        btc_address: None,
-        btc_price: None,
-        transaction_hash: None,
-        payout_transaction_hash: None,
-    };
+        validate_item(&item, &auth_client)
+            .into_future()
+            .and_then(move |_| {
+                let payload = PaymentPayload {
+                    id: None,
+                    status: None,
+                    store_id: auth_client.store_id,
+                    item_id: item.id,
+                    created_by: auth_client.id,
+                    created_at: None,
+                    paid_at: None,
+                    index: None,
+                    eth_address: None,
+                    eth_price: None,
+                    btc_address: None,
+                    btc_price: None,
+                    confirmations_required: item.confirmations_required,
+                    block_height_required: None,
+                    transaction_hash: None,
+                    payout_transaction_hash: None,
+                };
 
-    services::payments::create(params.currencies, payload, &state.postgres).and_then(
-        move |payment| {
-            payment
-                .item(&state.postgres)
-                .from_err()
-                .and_then(move |item| {
-                    JWTPayload::new(None, Some(auth_client))
-                // TODO: Set expiration etc.
-                .encode(&state.jwt_private)
-                .map_err(|e| Error::from(e))
-                .into_future()
-                .then(move |res| {
-                    res.and_then(|auth_token| {
-                        Ok(Json(json!({
-                            "payment": payment.export(),
-                            "item": item.export(),
-                            "token": auth_token
-                        })))
-                    })
-                })
-                })
-        },
-    )
+                services::payments::create(params.currencies, payload, &state.postgres).and_then(
+                    move |payment| {
+                        payment
+                            .item(&state.postgres)
+                            .from_err()
+                            .and_then(move |item| {
+                                JWTPayload::new(None, Some(auth_client))
+                                // TODO: Set expiration etc.
+                                .encode(&state.jwt_private)
+                                .map_err(|e| Error::from(e))
+                                .into_future()
+                                .then(move |res| {
+                                    res.and_then(|auth_token| {
+                                        Ok(Json(json!({
+                                            "payment": payment.export(),
+                                            "item": item.export(),
+                                            "token": auth_token
+                                        })))
+                                    })
+                                })
+                            })
+                    },
+                )
+            })
+    })
 }
 
 fn validate_client(payment: &Payment, client: &AuthClient) -> Result<bool, Error> {
@@ -85,20 +103,21 @@ pub fn get_status(
         validate_client(&payment, &client)
             .into_future()
             .and_then(move |_| {
-                services::vouchers::create(payment.clone(), &state.postgres).then(move |res| {
-                    match res {
-                        Ok(voucher) => Ok(Json(json!({
-                                    "status": payment.status,
-                                    "voucher": voucher,
-                                }))),
-                        Err(e) => {
-                            println!("{:?}", e);
-                            Ok(Json(json!({
-                                    "status": payment.status,
-                                })))
-                        }
-                    }
-                })
+                AppStatus::find(&state.postgres)
+                    .from_err()
+                    .and_then(move |status| match payment.block_height_required {
+                        Some(block_height_required) => Ok(Json(json!({
+                            "status": payment.status,
+                            "confirmations_required": format!("{}", payment.confirmations_required),
+                            "block_height": format!("{}", status.block_height.unwrap()),
+                            "block_height_required": format!("{}", block_height_required)
+                        }))),
+                        None => Ok(Json(json!({
+                            "status": payment.status,
+                            "confirmations_required": format!("{}", payment.confirmations_required),
+                            "block_height": format!("{}", status.block_height.unwrap()),
+                        }))),
+                    })
             })
     })
 }

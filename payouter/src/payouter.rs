@@ -7,10 +7,12 @@ use errors::Error;
 use ethereum::{Client, Transaction};
 
 use core::db::postgres::PgExecutorAddr;
-use core::db::redis::{Event, RedisSubscriberAddr, Subscribe};
-use core::payment::Payment;
+use core::db::redis::RedisSubscriberAddr;
+use core::payment::{Payment, PaymentPayload};
 use hd_keyring::HdKeyring;
-use types::{H256, U256};
+use types::{H256, PaymentStatus, U256};
+
+pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub subscriber: RedisSubscriberAddr,
@@ -99,35 +101,31 @@ impl Payouter {
 
 impl Actor for Payouter {
     type Context = Context<Self>;
-
-    fn started(&mut self, ctx: &mut Context<Self>) {
-        match self.subscriber.try_send(Subscribe {
-            key: "payment",
-            recipient: ctx.address().recipient(),
-        }) {
-            Ok(_) => println!("Started payouter"),
-            Err(_) => panic!("Failed to start payouter"),
-        }
-    }
 }
 
-impl<'a> Handler<Event<'a>> for Payouter {
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Payout(pub Payment);
+
+impl Handler<Payout> for Payouter {
     type Result = ();
 
-    fn handle(&mut self, msg: Event, _: &mut Self::Context) -> Self::Result {
-        let payment = match serde_json::from_str::<Payment>(&msg.value) {
-            Ok(payment) => payment,
-            _ => return (),
-        };
-
-        // Check whether amount should be paidout or refunded.
+    fn handle(&mut self, Payout(payment): Payout, _: &mut Self::Context) -> Self::Result {
+        let postgres = self.postgres.clone();
 
         spawn(
-            self.payout(payment)
+            self.payout(payment.clone())
                 .map_err(|_| ())
-                .and_then(|hash| {
-                    println!("Paid out: {:?}", hash);
-                    ok(())
+                .and_then(move |hash| {
+                    println!("Paid out {:?}", hash);
+                    let mut payload = PaymentPayload::from(payment.clone());
+                    payload.payout_transaction_hash = Some(hash);
+                    payload.status = Some(PaymentStatus::PaidOut);
+
+                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|e| {
+                        // TODO: Handle error.
+                        ()
+                    })
                 })
                 .map(|_| ()),
         );

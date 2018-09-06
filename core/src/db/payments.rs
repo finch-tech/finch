@@ -6,7 +6,7 @@ use db::Error;
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::H160;
+use types::{H160, PaymentStatus, U128};
 
 #[derive(Message)]
 #[rtype(result = "Result<Payment, Error>")]
@@ -43,6 +43,33 @@ impl Handler<FindById> for PgExecutor {
         payments
             .filter(id.eq(payment_id))
             .first::<Payment>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Vec<Payment>, Error>")]
+pub struct FindAllConfirmed(pub U128);
+
+impl Handler<FindAllConfirmed> for PgExecutor {
+    type Result = Result<Vec<Payment>, Error>;
+
+    fn handle(
+        &mut self,
+        FindAllConfirmed(block_height): FindAllConfirmed,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::payments::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        payments
+            .filter(
+                status
+                    .eq(PaymentStatus::Paid)
+                    .and(block_height_required.le(block_height)),
+            )
+            .load::<Payment>(pg_conn)
             .map_err(|e| Error::from(e))
     }
 }

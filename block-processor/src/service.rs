@@ -4,20 +4,15 @@ use actix_web::ws::Client;
 use futures::Future;
 
 use consumer::Consumer;
-use core::db::{postgres, redis};
+use core::db::postgres;
 use subscriber::Subscriber;
 
-pub fn run(postgres_url: String, redis_url: String, ethereum_ws_url: String) {
+pub fn run(postgres_url: String, ethereum_ws_url: String) {
     System::run(move || {
         let pg_pool = postgres::init_pool(&postgres_url);
         let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
 
-        let redis_addr = SyncArbiter::start(1, move || {
-            redis::RedisExecutor(redis::init_pool(&redis_url))
-        });
-
         let consumer_address = SyncArbiter::start(1, move || Consumer {
-            redis: redis_addr.clone(),
             postgres: pg_addr.clone(),
         });
 
