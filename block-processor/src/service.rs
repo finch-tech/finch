@@ -11,8 +11,9 @@ pub fn run(postgres_url: String, ethereum_ws_url: String) {
     System::run(move || {
         let pg_pool = postgres::init_pool(&postgres_url);
         let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
+        let postgres = pg_addr.clone();
 
-        let consumer_address = SyncArbiter::start(1, move || Consumer {
+        let consumer_address = Arbiter::start(move |_| Consumer {
             postgres: pg_addr.clone(),
         });
 
@@ -24,10 +25,10 @@ pub fn run(postgres_url: String, ethereum_ws_url: String) {
                     println!("{:?}", e);
                     ()
                 })
-                .map(|(reader, writer)| {
-                    let _addr: Addr<_> = Subscriber::create(|ctx| {
+                .map(move |(reader, writer)| {
+                    let _addr: Addr<_> = Subscriber::create(move |ctx| {
                         Subscriber::add_stream(reader, ctx);
-                        Subscriber::new(writer, consumer_address)
+                        Subscriber::new(writer, postgres.clone(), consumer_address)
                     });
 
                     ()
