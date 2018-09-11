@@ -11,6 +11,7 @@ extern crate serde_json;
 extern crate tokio;
 
 extern crate core;
+extern crate ethereum_client;
 extern crate types;
 
 mod consumer;

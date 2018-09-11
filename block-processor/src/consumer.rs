@@ -11,12 +11,14 @@ use core::block::Block;
 use core::db::postgres::PgExecutorAddr;
 use core::payment::{Payment, PaymentPayload};
 use core::transaction::Transaction;
+use ethereum_client::Client;
 use types::{PaymentStatus, U128};
 
 pub type ConsumerAddr = Addr<Consumer>;
 
 pub struct Consumer {
     pub postgres: PgExecutorAddr,
+    pub ethereum_rpc_url: String,
 }
 
 impl Actor for Consumer {
@@ -27,14 +29,8 @@ impl Actor for Consumer {
     }
 }
 
-#[derive(Message)]
-#[rtype(result = "()")]
-pub struct NewBlock(pub Block);
-
-impl Handler<NewBlock> for Consumer {
-    type Result = ();
-
-    fn handle(&mut self, NewBlock(block): NewBlock, _: &mut Self::Context) -> Self::Result {
+impl Consumer {
+    pub fn process_block(&self, block: Block) -> impl Future<Item = (), Error = ()> {
         println!("Processing block: {}", block.number.clone().unwrap());
 
         let mut addresses = Vec::new();
@@ -49,68 +45,132 @@ impl Handler<NewBlock> for Consumer {
 
         let postgres = self.postgres.clone();
 
-        spawn(
-            Payment::find_all_by_eth_address(addresses, &postgres)
-                .map_err(|_| ())
-                .and_then(move |payments| {
-                    for (_, payment) in payments.iter().enumerate() {
-                        // Start processing payment.id
-                        if let Some(transaction) =
-                            transactions.get(&payment.eth_address.clone().unwrap())
-                        {
-                            let ether_paid =
-                                match BigDecimal::from_str(&format!("{}", transaction.value)) {
-                                    Ok(value) => {
-                                        value / BigDecimal::from_str("1000000000000000000").unwrap()
-                                    }
-                                    Err(_) => {
-                                        // TODO: Handle error.
-                                        continue;
-                                    }
-                                };
+        Payment::find_all_by_eth_address(addresses, &postgres)
+            .map_err(|_| ())
+            .and_then(move |payments| {
+                for (_, payment) in payments.iter().enumerate() {
+                    if let Some(transaction) =
+                        transactions.get(&payment.eth_address.clone().unwrap())
+                    {
+                        let ether_paid =
+                            match BigDecimal::from_str(&format!("{}", transaction.value)) {
+                                Ok(value) => {
+                                    value / BigDecimal::from_str("1000000000000000000").unwrap()
+                                }
+                                Err(_) => {
+                                    // TODO: Handle error.
+                                    continue;
+                                }
+                            };
 
-                            let transaction =
-                                match Transaction::insert((*transaction).clone(), &postgres).wait()
-                                {
-                                    Ok(transaction) => transaction,
-                                    Err(_) => {
-                                        // TODO: Handle error
-                                        continue;
-                                    }
-                                };
+                        let transaction =
+                            match Transaction::insert((*transaction).clone(), &postgres).wait() {
+                                Ok(transaction) => transaction,
+                                Err(_) => {
+                                    // TODO: Handle error
+                                    continue;
+                                }
+                            };
 
-                            if ether_paid >= payment.clone().eth_price.unwrap() {
-                                let mut payload = PaymentPayload::from(payment.clone());
+                        if ether_paid >= payment.clone().eth_price.unwrap() {
+                            let mut payload = PaymentPayload::from(payment.clone());
 
-                                let block_height_required = block.number.clone().unwrap().0
-                                    + payment.confirmations_required.0;
+                            let block_height_required =
+                                block.number.clone().unwrap().0 + payment.confirmations_required.0;
 
-                                payload.transaction_hash = Some(transaction.hash.clone());
-                                payload.status = Some(PaymentStatus::Paid);
-                                payload.block_height_required = Some(U128(block_height_required));
-                                payload.set_paid_at();
+                            payload.transaction_hash = Some(transaction.hash.clone());
+                            payload.status = Some(PaymentStatus::Paid);
+                            payload.block_height_required = Some(U128(block_height_required));
+                            payload.set_paid_at();
 
-                                match Payment::update_by_id(payment.id, payload, &postgres).wait() {
-                                    Ok(_) => (),
-                                    Err(_) => {
-                                        // TODO: Handle error
-                                        continue;
-                                    }
-                                };
-                            }
+                            match Payment::update_by_id(payment.id, payload, &postgres).wait() {
+                                Ok(_) => (),
+                                Err(_) => {
+                                    // TODO: Handle error
+                                    continue;
+                                }
+                            };
                         }
                     }
+                }
 
-                    let payload = AppStatusPayload {
-                        id: 1,
-                        block_height: block.number,
-                    };
+                let payload = AppStatusPayload {
+                    id: 1,
+                    block_height: block.number,
+                };
 
-                    AppStatus::update(payload, &postgres).map_err(|_| {
-                        // TODO: Handle error.
-                    })
+                AppStatus::update(payload, &postgres).map_err(|_| {
+                    // TODO: Handle error.
                 })
-                .map(|_| ()),
-        );
+            })
+            .map(|_| ())
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Startup(pub Recipient<Ready>);
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Ready;
+
+impl Handler<Startup> for Consumer {
+    type Result = ();
+
+    fn handle(&mut self, Startup(caller): Startup, ctx: &mut Self::Context) -> Self::Result {
+        let eth_client = Client::new(self.ethereum_rpc_url.clone());
+
+        match AppStatus::find(&self.postgres).wait() {
+            Ok(status) => match eth_client.get_block_number().wait() {
+                Ok(current_block_number) => {
+                    if let Some(block_height) = status.block_height {
+                        if block_height == current_block_number {
+                            caller.try_send(Ready).unwrap();
+                            return;
+                        }
+
+                        println!(
+                            "Fetching missed blocks: {} ~ {}",
+                            block_height, current_block_number
+                        );
+
+                        for x in block_height.0.low_u64() + 1..=current_block_number.0.low_u64() {
+                            let block = eth_client
+                                .get_block_by_number(U128::from(x))
+                                .wait()
+                                .expect("Failed to get block by number");
+
+                            match self.process_block(block).wait() {
+                                Ok(_) => (),
+                                Err(_) => {
+                                    // TODO: Handle error.
+                                    ()
+                                }
+                            };
+                        }
+
+                        ctx.notify(Startup(caller));
+                        return;
+                    };
+                }
+                Err(_) => {
+                    panic!();
+                }
+            },
+            Err(_) => panic!(),
+        }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct NewBlock(pub Block);
+
+impl Handler<NewBlock> for Consumer {
+    type Result = ();
+
+    fn handle(&mut self, NewBlock(block): NewBlock, _: &mut Self::Context) -> Self::Result {
+        spawn(self.process_block(block).map_err(|_| ()));
     }
 }

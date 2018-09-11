@@ -1,33 +1,30 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use actix::prelude::*;
 use actix_web::actix::spawn;
 use actix_web::ws::{ClientWriter, Message, ProtocolError};
-use futures::{future, Future};
-use serde::de::{self, Deserializer, Unexpected};
-use serde::Deserialize;
+use futures::Future;
 use serde_json;
 
-use consumer::{ConsumerAddr, NewBlock};
-use core::app_status::AppStatus;
+use consumer::{ConsumerAddr, NewBlock, Ready, Startup};
 use core::block::{Block, BlockHeader};
-use core::db::postgres::PgExecutorAddr;
 use types::U128;
 
 pub struct Subscriber {
     writer: ClientWriter,
     consumer: ConsumerAddr,
-    postgres: PgExecutorAddr,
     previous_block_number: Option<U128>,
+    buffer: HashMap<U128, Block>,
 }
 
 impl Subscriber {
-    pub fn new(writer: ClientWriter, postgres: PgExecutorAddr, consumer: ConsumerAddr) -> Self {
+    pub fn new(writer: ClientWriter, consumer: ConsumerAddr) -> Self {
         Subscriber {
             writer,
             consumer,
-            postgres,
             previous_block_number: None,
+            buffer: HashMap::new(),
         }
     }
 
@@ -39,7 +36,6 @@ impl Subscriber {
     }
 
     pub fn subscribe_new_blocks(&mut self) {
-        println!("Started subscriber");
         let message = json!({
             "id": 1,
             "method": "eth_subscribe",
@@ -54,10 +50,21 @@ impl Actor for Subscriber {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
-        // TODO: Check previously obtained block number from DB,
-        // and send `GetBlockByNumber` for each missed blocks.
+        println!("Started subscriber");
+        spawn(
+            self.consumer
+                .send(Startup(ctx.address().recipient()))
+                .map_err(|_| ()),
+        )
+    }
+}
 
-        ctx.notify(GetBlockNumber);
+impl<'a> Handler<Ready> for Subscriber {
+    type Result = ();
+
+    fn handle(&mut self, _: Ready, ctx: &mut Self::Context) -> Self::Result {
+        self.hb(ctx);
+        self.subscribe_new_blocks();
     }
 }
 
@@ -89,47 +96,9 @@ struct BlockResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct BlockNumberResponse {
-    jsonrpc: String,
-    id: u32,
-    #[serde(deserialize_with = "string_to_u128")]
-    result: U128,
-}
-
-fn string_to_u128<'de, D>(deserializer: D) -> Result<U128, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    match i64::from_str_radix(&s[2..], 16) {
-        Ok(decimal) => Ok(U128::from_dec_str(&format!("{}", decimal)).unwrap()),
-        Err(_) => Err(de::Error::invalid_value(Unexpected::Str(&s), &"U128")),
-    }
-}
-
-#[derive(Debug, Deserialize)]
 struct EmptyResponse {
     jsonrpc: String,
     id: u64,
-}
-
-#[derive(Debug, Message)]
-#[rtype(result = "()")]
-struct GetBlockNumber;
-
-impl Handler<GetBlockNumber> for Subscriber {
-    type Result = ();
-
-    fn handle(&mut self, _: GetBlockNumber, _: &mut Context<Self>) -> Self::Result {
-        let message = json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "eth_blockNumber",
-            "params": (),
-        }).to_string();
-
-        self.writer.text(message)
-    }
 }
 
 #[derive(Debug, Message)]
@@ -159,50 +128,52 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
     fn handle(&mut self, msg: Message, ctx: &mut Self::Context) {
         match msg {
             Message::Text(txt) => {
-                if let Ok(response) = serde_json::from_str::<BlockNumberResponse>(&txt) {
-                    let result = response.result;
-                    let address = ctx.address();
-
-                    spawn(
-                        AppStatus::find(&self.postgres)
-                            .and_then(move |status| match status.block_height {
-                                Some(block_height) => {
-                                    println!(
-                                        "Fetching missed blocks: {} ~ {}",
-                                        block_height, result
-                                    );
-
-                                    for x in block_height.0.low_u64()..=result.0.low_u64() {
-                                        spawn(
-                                            address
-                                                .send(GetBlockByNumber(U128::from(x)))
-                                                .map_err(|_| ()),
-                                        )
-                                    }
-
-                                    future::ok(())
-                                }
-                                None => future::ok(()),
-                            })
-                            .map_err(|_| ()),
-                    );
-
-                    self.subscribe_new_blocks();
-                    self.hb(ctx);
-                    return;
-                }
-
                 if let Ok(response) = serde_json::from_str::<SubscriptionResponse>(&txt) {
                     println!("Subscribed: {:?}", response.result);
                     return;
                 }
 
                 if let Ok(response) = serde_json::from_str::<BlockResponse>(&txt) {
+                    if let Some(ref previous_block_number) = self.previous_block_number {
+                        if previous_block_number.0 + U128::from(1).0
+                            != response.result.number.clone().unwrap().0
+                        {
+                            self.buffer.insert(
+                                response.result.number.clone().unwrap(),
+                                response.result.clone(),
+                            );
+                            return;
+                        }
+                    };
+
+                    self.previous_block_number = response.result.number.clone();
+
                     spawn(
                         self.consumer
-                            .send(NewBlock(response.result))
-                            .map_err(|_| ()),
+                            .send(NewBlock(response.result.clone()))
+                            .map_err(|e| {
+                                println!("failed to send {:?}", e);
+                                ()
+                            }),
                     );
+
+                    let mut incremental = 1;
+                    while let Some(buffered) = self.buffer.get(&U128::from(
+                        response.result.number.clone().unwrap().0.low_u64() + incremental,
+                    )) {
+                        self.previous_block_number = buffered.number.clone();
+
+                        spawn(
+                            self.consumer
+                                .send(NewBlock((*buffered).clone()))
+                                .map_err(|e| {
+                                    println!("failed to send {:?}", e);
+                                    ()
+                                }),
+                        );
+                        incremental += 1;
+                    }
+
                     return;
                 }
 
@@ -217,18 +188,13 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
 
                     if let Some(previous_block_number) = &self.previous_block_number {
                         if &block_number == previous_block_number {
+                            // Already processed block.
                             return;
                         }
                     }
 
-                    self.previous_block_number = Some(block_number.clone());
-
                     ctx.run_later(Duration::from_secs(4), move |_, ctx| {
-                        spawn(
-                            ctx.address()
-                                .send(GetBlockByNumber(block_number))
-                                .map_err(|_| ()),
-                        )
+                        ctx.notify(GetBlockByNumber(block_number))
                     });
                     return;
                 }
@@ -236,11 +202,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                 if let Ok(empty_response) = serde_json::from_str::<EmptyResponse>(&txt) {
                     // Retry request for block with empty response.
                     ctx.run_later(Duration::from_secs(4), move |_, ctx| {
-                        spawn(
-                            ctx.address()
-                                .send(GetBlockByNumber(U128::from(empty_response.id)))
-                                .map_err(|_| ()),
-                        )
+                        ctx.notify(GetBlockByNumber(U128::from(empty_response.id)))
                     });
                     return;
                 }
@@ -249,9 +211,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
         }
     }
 
-    fn started(&mut self, _: &mut Context<Self>) {
-        println!("Connected");
-    }
+    fn started(&mut self, _: &mut Context<Self>) {}
 
     fn finished(&mut self, ctx: &mut Context<Self>) {
         println!("Server disconnected");

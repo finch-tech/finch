@@ -17,6 +17,8 @@ fn main() {
         env::var("DATABASE_URL").expect("DATABASE_URL environment variable must be set.");
     let ethereum_ws_url =
         env::var("ETHEREUM_WS_URL").expect("ETHEREUM_WS_URL environment variable must be set.");
+    let ethereum_rpc_url =
+        env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
 
-    service::run(postgres_url, ethereum_ws_url);
+    service::run(postgres_url, ethereum_ws_url, ethereum_rpc_url);
 }
