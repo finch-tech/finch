@@ -1,4 +1,4 @@
-use ethereum::Error as EthError;
+use ethereum_client::Error as EthError;
 
 use core::ModelError;
 use hd_keyring::Error as KeyringError;

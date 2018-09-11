@@ -1,2 +1,2 @@
 [workspace]
-members = ["server", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter"]
+members = ["server", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "ethereum_client"]

@@ -4,7 +4,7 @@ use futures::future::{ok, Future, IntoFuture};
 use serde_json;
 
 use errors::Error;
-use ethereum::{Client, Transaction};
+use ethereum_client::{Client, Transaction};
 
 use core::db::postgres::PgExecutorAddr;
 use core::db::redis::RedisSubscriberAddr;
@@ -17,7 +17,7 @@ pub type PayouterAddr = Addr<Payouter>;
 pub struct Payouter {
     pub subscriber: RedisSubscriberAddr,
     pub postgres: PgExecutorAddr,
-    pub etheretun_rpc_url: String,
+    pub ethereum_rpc_url: String,
     pub chain_id: u64,
 }
 
@@ -25,19 +25,19 @@ impl Payouter {
     pub fn new(
         pg_addr: PgExecutorAddr,
         subscriber_addr: RedisSubscriberAddr,
-        etheretun_rpc_url: String,
+        ethereum_rpc_url: String,
         chain_id: u64,
     ) -> Self {
         Payouter {
             subscriber: subscriber_addr,
             postgres: pg_addr,
-            etheretun_rpc_url,
+            ethereum_rpc_url,
             chain_id,
         }
     }
 
     pub fn payout(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
-        let eth_client = Client::new(self.etheretun_rpc_url.clone());
+        let eth_client = Client::new(self.ethereum_rpc_url.clone());
         let chain_id = self.chain_id.clone();
 
         let store = payment.store(&self.postgres).from_err();

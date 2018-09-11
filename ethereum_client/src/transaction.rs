@@ -4,7 +4,8 @@ use secp256k1::key::SecretKey;
 use secp256k1::{Message, Secp256k1};
 use tiny_keccak::keccak256;
 
-use ethereum::{Error, Signature};
+use Error;
+use Signature;
 
 use types::{H160, H256, U128, U256};
 
