@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::client_tokens::{FindById, FindByToken, Insert};
+use db::client_tokens::{Delete, FindById, FindByToken, Insert};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -76,7 +76,12 @@ impl ClientToken {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    // TODO: delete_by_id
+    pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+        (*postgres)
+            .send(Delete(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
 
     pub fn export(&self) -> Value {
         let token = encode(self.token.as_bytes());

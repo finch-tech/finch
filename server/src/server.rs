@@ -63,6 +63,10 @@ pub fn run(
                     r.method(http::Method::POST)
                         .with_async(controllers::client_tokens::create);
                 })
+                .resource("/client_tokens/{id}", |r| {
+                    r.method(http::Method::DELETE)
+                        .with_async(controllers::client_tokens::delete);
+                })
                 .resource("/stores", |r| {
                     r.method(http::Method::GET)
                         .with_async(controllers::stores::list);

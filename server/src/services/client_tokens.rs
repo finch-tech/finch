@@ -18,3 +18,11 @@ pub fn get_by_token(
 ) -> impl Future<Item = ClientToken, Error = Error> {
     ClientToken::find_by_token(token, postgres).from_err()
 }
+
+pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = ClientToken, Error = Error> {
+    ClientToken::find_by_id(id, postgres).from_err()
+}
+
+pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+    ClientToken::delete(id, postgres).from_err()
+}
