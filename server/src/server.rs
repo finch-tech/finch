@@ -60,6 +60,8 @@ pub fn run(
                         .with_async(controllers::auth::profile);
                 })
                 .resource("/client_tokens", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::client_tokens::list);
                     r.method(http::Method::POST)
                         .with_async(controllers::client_tokens::create);
                 })

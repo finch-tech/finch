@@ -73,6 +73,29 @@ impl Handler<FindByToken> for PgExecutor {
 }
 
 #[derive(Message)]
+#[rtype(result = "Result<Vec<ClientToken>, Error>")]
+pub struct FindByStore(pub Uuid);
+
+impl Handler<FindByStore> for PgExecutor {
+    type Result = Result<Vec<ClientToken>, Error>;
+
+    fn handle(
+        &mut self,
+        FindByStore(store_id_query): FindByStore,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::client_tokens::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        client_tokens
+            .filter(store_id.eq(store_id_query))
+            .load::<ClientToken>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
 #[rtype(result = "Result<usize, Error>")]
 pub struct Delete(pub Uuid);
 

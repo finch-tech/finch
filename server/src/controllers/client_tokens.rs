@@ -1,4 +1,4 @@
-use actix_web::{Json, Path, State};
+use actix_web::{Json, Path, Query, State};
 use futures::future::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
@@ -47,6 +47,31 @@ pub fn create(
 
                 services::client_tokens::create(payload, &state.postgres)
                     .then(|res| res.and_then(|client_token| Ok(Json(client_token.export()))))
+            })
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListParams {
+    pub store_id: Uuid,
+}
+
+pub fn list(
+    (state, params, user): (State<AppState>, Query<ListParams>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    services::stores::get(params.store_id, &state.postgres).and_then(move |store| {
+        validate_store_owner(&store, &user)
+            .into_future()
+            .and_then(move |_| {
+                services::client_tokens::find_by_store(store.id, &state.postgres).then(|res| {
+                    res.and_then(|client_tokens| {
+                        let mut exported = Vec::new();
+                        client_tokens
+                            .into_iter()
+                            .for_each(|client_token| exported.push(client_token.export()));
+                        Ok(Json(json!(exported)))
+                    })
+                })
             })
     })
 }

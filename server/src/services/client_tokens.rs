@@ -19,6 +19,13 @@ pub fn get_by_token(
     ClientToken::find_by_token(token, postgres).from_err()
 }
 
+pub fn find_by_store(
+    store_id: Uuid,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
+    ClientToken::find_by_store(store_id, postgres).from_err()
+}
+
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = ClientToken, Error = Error> {
     ClientToken::find_by_id(id, postgres).from_err()
 }

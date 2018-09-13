@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::client_tokens::{Delete, FindById, FindByToken, Insert};
+use db::client_tokens::{Delete, FindById, FindByStore, FindByToken, Insert};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -52,6 +52,16 @@ impl ClientToken {
 
         (*postgres)
             .send(Insert(payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_by_store(
+        store_id: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
+        (*postgres)
+            .send(FindByStore(store_id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
