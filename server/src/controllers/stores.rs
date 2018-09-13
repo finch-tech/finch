@@ -29,6 +29,44 @@ pub fn create(
 
     let payload = StorePayload {
         id: None,
+        name: Some(params.name),
+        description: Some(params.description),
+        owner_id: user.id,
+        private_key: None,
+        public_key: None,
+        created_at: None,
+        updated_at: None,
+        payout_addresses: Some(params.payout_addresses),
+        mnemonic: None,
+        hd_path: None,
+        base_currency: Some(params.base_currency),
+        currency_api: Some(params.currency_api),
+        currency_api_key: Some(params.currency_api_key),
+        active: true,
+    };
+
+    services::stores::create(payload, &state.postgres)
+        .then(|res| res.and_then(|store| Ok(Json(store.export()))))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PatchParams {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub payout_addresses: Option<Vec<H160>>,
+    pub base_currency: Option<Currency>,
+    pub currency_api: Option<CurrencyApi>,
+    pub currency_api_key: Option<String>,
+}
+
+pub fn patch(
+    (state, path, params, user): (State<AppState>, Path<Uuid>, Json<PatchParams>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let id = path.into_inner();
+    let params = params.into_inner();
+
+    let payload = StorePayload {
+        id: None,
         name: params.name,
         description: params.description,
         owner_id: user.id,
@@ -45,7 +83,7 @@ pub fn create(
         active: true,
     };
 
-    services::stores::create(payload, &state.postgres)
+    services::stores::patch(id, payload, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 

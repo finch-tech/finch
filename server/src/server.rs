@@ -70,6 +70,8 @@ pub fn run(
                 .resource("/stores/{id}", |r| {
                     r.method(http::Method::GET)
                         .with_async(controllers::stores::get);
+                    r.method(http::Method::PATCH)
+                        .with_async(controllers::stores::patch);
                 })
                 .resource("/items", |r| {
                     r.method(http::Method::POST)

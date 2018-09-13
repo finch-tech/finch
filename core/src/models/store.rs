@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use currency_api_client::Api as CurrencyApi;
 use db::postgres::PgExecutorAddr;
-use db::stores::{FindById, Insert};
+use db::stores::{FindById, Insert, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
@@ -15,19 +15,19 @@ use types::{Currency, H160, PrivateKey, PublicKey};
 #[table_name = "stores"]
 pub struct StorePayload {
     pub id: Option<Uuid>,
-    pub name: String,
-    pub description: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
     pub owner_id: Uuid,
     pub private_key: Option<PrivateKey>,
     pub public_key: Option<PublicKey>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub payout_addresses: Vec<H160>,
+    pub payout_addresses: Option<Vec<H160>>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
-    pub base_currency: Currency,
-    pub currency_api: CurrencyApi,
-    pub currency_api_key: String,
+    pub base_currency: Option<Currency>,
+    pub currency_api: Option<CurrencyApi>,
+    pub currency_api_key: Option<String>,
     pub active: bool,
 }
 
@@ -72,6 +72,19 @@ impl Store {
 
         (*postgres)
             .send(Insert(payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn update(
+        store_id: Uuid,
+        mut payload: StorePayload,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Store, Error = Error> {
+        payload.set_updated_at();
+
+        (*postgres)
+            .send(Update { store_id, payload })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

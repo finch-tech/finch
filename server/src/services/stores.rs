@@ -36,6 +36,16 @@ pub fn create(
         })
 }
 
+pub fn patch(
+    id: Uuid,
+    payload: StorePayload,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = Store, Error = Error> {
+    let postgres = postgres.clone();
+
+    Store::update(id, payload, &postgres).from_err()
+}
+
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
     Store::find_by_id(id, postgres).from_err()
 }
