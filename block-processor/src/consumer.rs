@@ -124,6 +124,11 @@ impl Handler<Startup> for Consumer {
         match AppStatus::find(&self.postgres).wait() {
             Ok(status) => match eth_client.get_block_number().wait() {
                 Ok(current_block_number) => {
+                    if status.block_height.is_none() {
+                        caller.try_send(Ready).unwrap();
+                        return;
+                    }
+
                     if let Some(block_height) = status.block_height {
                         if block_height == current_block_number {
                             caller.try_send(Ready).unwrap();
