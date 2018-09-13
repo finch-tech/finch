@@ -46,6 +46,13 @@ pub fn patch(
     Store::update(id, payload, &postgres).from_err()
 }
 
+pub fn find_by_owner(
+    owner_id: Uuid,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = Vec<Store>, Error = Error> {
+    Store::find_by_owner(owner_id, postgres).from_err()
+}
+
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
     Store::find_by_id(id, postgres).from_err()
 }

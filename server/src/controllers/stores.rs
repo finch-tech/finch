@@ -87,9 +87,22 @@ pub fn patch(
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 
-// TODO: Client auth
+pub fn list(
+    (state, user): (State<AppState>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    services::stores::find_by_owner(user.id, &state.postgres).then(|res| {
+        res.and_then(|stores| {
+            let mut exported = Vec::new();
+            stores
+                .into_iter()
+                .for_each(|store| exported.push(store.export()));
+            Ok(Json(json!(exported)))
+        })
+    })
+}
+
 pub fn get(
-    (state, path): (State<AppState>, Path<Uuid>),
+    (state, path, _): (State<AppState>, Path<Uuid>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let id = path.into_inner();
 

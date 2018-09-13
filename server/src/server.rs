@@ -64,6 +64,8 @@ pub fn run(
                         .with_async(controllers::client_tokens::create);
                 })
                 .resource("/stores", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::stores::list);
                     r.method(http::Method::POST)
                         .with_async(controllers::stores::create);
                 })

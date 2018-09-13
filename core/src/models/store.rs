@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use currency_api_client::Api as CurrencyApi;
 use db::postgres::PgExecutorAddr;
-use db::stores::{Delete, FindById, Insert, Update};
+use db::stores::{Delete, FindById, FindByOwner, Insert, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
@@ -85,6 +85,16 @@ impl Store {
 
         (*postgres)
             .send(Update { store_id, payload })
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_by_owner(
+        owner_id: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Vec<Store>, Error = Error> {
+        (*postgres)
+            .send(FindByOwner(owner_id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

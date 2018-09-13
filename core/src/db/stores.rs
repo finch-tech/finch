@@ -74,6 +74,30 @@ impl Handler<FindById> for PgExecutor {
 }
 
 #[derive(Message)]
+#[rtype(result = "Result<Vec<Store>, Error>")]
+pub struct FindByOwner(pub Uuid);
+
+impl Handler<FindByOwner> for PgExecutor {
+    type Result = Result<Vec<Store>, Error>;
+
+    fn handle(
+        &mut self,
+        FindByOwner(store_owner_id): FindByOwner,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::stores::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        stores
+            .filter(owner_id.eq(store_owner_id))
+            .filter(active.ne(false))
+            .load::<Store>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
 #[rtype(result = "Result<usize, Error>")]
 pub struct Delete(pub Uuid);
 
