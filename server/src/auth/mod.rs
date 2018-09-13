@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+// use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use actix_web::{error, Error as ActixError, FromRequest, HttpMessage, HttpRequest};
 use base64::decode;
@@ -20,23 +20,11 @@ pub struct JWTPayload {
 }
 
 impl JWTPayload {
-    pub fn new(user: Option<AuthUser>, client: Option<AuthClient>) -> Self {
-        let mut timer = SystemTime::now();
-
-        if user.is_some() {
-            // 1 day
-            timer += Duration::from_secs(86400);
-        };
-
-        if client.is_some() {
-            // 30 mins
-            timer += Duration::from_secs(1800);
-        }
-
+    pub fn new(user: Option<AuthUser>, client: Option<AuthClient>, exp: DateTime<Utc>) -> Self {
         JWTPayload {
             client,
             user,
-            exp: timer.duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            exp: exp.timestamp() as u64,
         }
     }
 

@@ -1,3 +1,4 @@
+use chrono::{prelude::*, Duration};
 use data_encoding::BASE64;
 use futures::future::{Future, IntoFuture};
 use ring::rand::SecureRandom;
@@ -73,7 +74,8 @@ pub fn authenticate(
                         .into_future()
                 })
                 .and_then(move |_| {
-                    JWTPayload::new(Some(AuthUser { id: user.id }), None)
+                    let expires_at = Utc::now() + Duration::days(1);
+                    JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
                         .encode(&jwt_private)
                         .map_err(|e| Error::from(e))
                 })
