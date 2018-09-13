@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::items::{Delete, FindById, Insert, Update};
+use db::items::{Delete, FindById, FindByStore, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -74,6 +74,16 @@ impl Item {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
+    pub fn find_by_store(
+        store_id: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Vec<Item>, Error = Error> {
+        (*postgres)
+            .send(FindByStore(store_id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
     pub fn find_by_id(
         id: Uuid,
         postgres: &PgExecutorAddr,
@@ -97,6 +107,7 @@ impl Item {
             "name": self.name,
             "description": self.description,
             "price": format!("{}", self.price),
+            "store_id": self.store_id
         })
     }
 }

@@ -73,6 +73,29 @@ impl Handler<FindById> for PgExecutor {
 }
 
 #[derive(Message)]
+#[rtype(result = "Result<Vec<Item>, Error>")]
+pub struct FindByStore(pub Uuid);
+
+impl Handler<FindByStore> for PgExecutor {
+    type Result = Result<Vec<Item>, Error>;
+
+    fn handle(
+        &mut self,
+        FindByStore(store_id_query): FindByStore,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::items::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        items
+            .filter(store_id.eq(store_id_query))
+            .load::<Item>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
 #[rtype(result = "Result<usize, Error>")]
 pub struct Delete(pub Uuid);
 

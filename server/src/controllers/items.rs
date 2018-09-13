@@ -1,4 +1,4 @@
-use actix_web::{Json, Path, State};
+use actix_web::{Json, Path, Query, State};
 use bigdecimal::BigDecimal;
 use futures::future::{Future, IntoFuture};
 use serde_json::Value;
@@ -88,6 +88,31 @@ pub fn patch(
                         .then(|res| res.and_then(|item| Ok(Json(item.export()))))
                 })
         })
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListParams {
+    pub store_id: Uuid,
+}
+
+pub fn list(
+    (state, params, user): (State<AppState>, Query<ListParams>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    services::stores::get(params.store_id, &state.postgres).and_then(move |store| {
+        validate_store_owner(&store, &user)
+            .into_future()
+            .and_then(move |_| {
+                services::items::find_by_store(store.id, &state.postgres).then(|res| {
+                    res.and_then(|items| {
+                        let mut exported = Vec::new();
+                        items
+                            .into_iter()
+                            .for_each(|item| exported.push(item.export()));
+                        Ok(Json(json!(exported)))
+                    })
+                })
+            })
     })
 }
 

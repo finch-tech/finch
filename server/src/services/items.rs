@@ -22,6 +22,13 @@ pub fn patch(
     Item::update(id, payload, &postgres).from_err()
 }
 
+pub fn find_by_store(
+    store_id: Uuid,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = Vec<Item>, Error = Error> {
+    Item::find_by_store(store_id, postgres).from_err()
+}
+
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
     Item::find_by_id(id, postgres).from_err()
 }

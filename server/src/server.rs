@@ -78,6 +78,8 @@ pub fn run(
                         .with_async(controllers::stores::delete);
                 })
                 .resource("/items", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::items::list);
                     r.method(http::Method::POST)
                         .with_async(controllers::items::create);
                 })
