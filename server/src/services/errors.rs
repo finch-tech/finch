@@ -38,8 +38,6 @@ pub enum Error {
     IncorrectPassword,
     #[fail(display = "Invalid request account")]
     InvalidRequestAccount,
-    #[fail(display = "Invalid request")]
-    InvalidRequest,
     #[fail(display = "{}", _0)]
     SendRequestError(#[cause] SendRequestError),
     #[fail(display = "{}", _0)]
@@ -54,8 +52,6 @@ impl error::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
         match *self {
             Error::IncorrectPassword => HttpResponse::new(http::StatusCode::BAD_REQUEST),
-
-            Error::InvalidRequest => HttpResponse::new(http::StatusCode::BAD_REQUEST),
 
             Error::InvalidRequestAccount => HttpResponse::new(http::StatusCode::FORBIDDEN),
 

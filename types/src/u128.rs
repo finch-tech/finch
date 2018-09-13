@@ -9,8 +9,11 @@ use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Numeric;
 use ethereum_types::U128 as _U128;
+use serde::{
+    de::{self, Deserializer, Visitor}, Deserialize,
+};
 
-#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone)]
 #[sql_type = "Numeric"]
 pub struct U128(pub _U128);
 
@@ -60,5 +63,16 @@ impl Deref for U128 {
     type Target = _U128;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for U128 {
+    fn deserialize<D>(deserializer: D) -> Result<U128, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?.to_lowercase();
+        U128::from_dec_str(&format!("{}", s))
+            .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &r#""U128""#))
     }
 }

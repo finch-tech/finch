@@ -28,6 +28,33 @@ impl Handler<Insert> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<Item, Error>")]
+pub struct Update {
+    pub item_id: Uuid,
+    pub payload: ItemPayload,
+}
+
+impl Handler<Update> for PgExecutor {
+    type Result = Result<Item, Error>;
+
+    fn handle(
+        &mut self,
+        Update { item_id, payload }: Update,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use diesel::update;
+        use schema::items::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        update(items.filter(id.eq(item_id)))
+            .set(&payload)
+            .get_result(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Item, Error>")]
 pub struct FindById(pub Uuid);
 
 impl Handler<FindById> for PgExecutor {

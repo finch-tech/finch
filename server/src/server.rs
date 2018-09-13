@@ -81,6 +81,10 @@ pub fn run(
                     r.method(http::Method::POST)
                         .with_async(controllers::items::create);
                 })
+                .resource("/items/{id}", |r| {
+                    r.method(http::Method::PATCH)
+                        .with_async(controllers::items::patch);
+                })
                 .resource("/payments", |r| {
                     middleware::cors::Cors::build().finish().register(r);
                     r.method(http::Method::POST)

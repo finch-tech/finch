@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::items::{FindById, Insert};
+use db::items::{FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -15,13 +15,13 @@ use types::U128;
 #[table_name = "items"]
 pub struct ItemPayload {
     pub id: Option<Uuid>,
-    pub name: String,
+    pub name: Option<String>,
     pub description: Option<String>,
-    pub store_id: Uuid,
+    pub store_id: Option<Uuid>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub price: BigDecimal,
-    pub confirmations_required: U128,
+    pub price: Option<BigDecimal>,
+    pub confirmations_required: Option<U128>,
 }
 
 impl ItemPayload {
@@ -57,6 +57,19 @@ impl Item {
 
         (*postgres)
             .send(Insert(payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn update(
+        item_id: Uuid,
+        mut payload: ItemPayload,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Item, Error = Error> {
+        payload.set_updated_at();
+
+        (*postgres)
+            .send(Update { item_id, payload })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
