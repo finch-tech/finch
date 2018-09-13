@@ -10,7 +10,7 @@ use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Numeric;
 use ethereum_types::U128 as _U128;
 use serde::{
-    de::{self, Deserializer, Visitor}, Deserialize,
+    de::{self, Deserializer}, Deserialize,
 };
 
 #[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone)]
@@ -22,6 +22,12 @@ impl U128 {
         let u =
             _U128::from_dec_str(value).map_err(|_| String::from("Failed to convert str to U128"))?;
         Ok(U128(u))
+    }
+
+    pub fn from_hex_str(value: &str) -> Result<U128, String> {
+        let i = i64::from_str_radix(&value[2..], 16)
+            .map_err(|_| String::from("Failed to convert hex str to U128"))?;
+        U128::from_dec_str(&format!("{}", i))
     }
 }
 
@@ -72,6 +78,12 @@ impl<'de> Deserialize<'de> for U128 {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?.to_lowercase();
+
+        if s.len() > 2 && &s[..2] == "0x" {
+            return U128::from_hex_str(&s)
+                .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &r#""U128""#));
+        }
+
         U128::from_dec_str(&format!("{}", s))
             .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &r#""U128""#))
     }
