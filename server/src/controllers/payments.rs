@@ -47,6 +47,7 @@ pub fn create(
                     item_id: item.id,
                     created_by: auth_client.id,
                     created_at: None,
+                    expires_at: None,
                     paid_at: None,
                     index: None,
                     eth_address: None,
@@ -65,20 +66,19 @@ pub fn create(
                             .item(&state.postgres)
                             .from_err()
                             .and_then(move |item| {
-                                JWTPayload::new(None, Some(auth_client))
-                                // TODO: Set expiration etc.
-                                .encode(&state.jwt_private)
-                                .map_err(|e| Error::from(e))
-                                .into_future()
-                                .then(move |res| {
-                                    res.and_then(|auth_token| {
-                                        Ok(Json(json!({
+                                JWTPayload::new(None, Some(auth_client), payment.expires_at)
+                                    .encode(&state.jwt_private)
+                                    .map_err(|e| Error::from(e))
+                                    .into_future()
+                                    .then(move |res| {
+                                        res.and_then(|auth_token| {
+                                            Ok(Json(json!({
                                             "payment": payment.export(),
                                             "item": item.export(),
                                             "token": auth_token
                                         })))
+                                        })
                                     })
-                                })
                             })
                     },
                 )

@@ -38,6 +38,7 @@ table! {
         item_id -> Uuid,
         created_by -> Uuid,
         created_at -> Timestamptz,
+        expires_at -> Timestamptz,
         paid_at -> Nullable<Timestamptz>,
         index -> Int4,
         eth_address -> Nullable<Varchar>,

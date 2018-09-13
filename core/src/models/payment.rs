@@ -1,7 +1,7 @@
 use std::convert::From;
 
 use bigdecimal::BigDecimal;
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
@@ -24,6 +24,7 @@ pub struct PaymentPayload {
     pub item_id: Uuid,
     pub created_by: Uuid, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: Option<i32>,
     pub eth_address: Option<H160>,
@@ -31,7 +32,6 @@ pub struct PaymentPayload {
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
-    // TODO: Add watch status and expiration
     pub confirmations_required: U128,
     pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
@@ -46,6 +46,10 @@ impl PaymentPayload {
     pub fn set_paid_at(&mut self) {
         self.paid_at = Some(Utc::now());
     }
+
+    pub fn set_expires_at(&mut self) {
+        self.expires_at = Some(Utc::now() + Duration::seconds(900))
+    }
 }
 
 impl From<Payment> for PaymentPayload {
@@ -57,6 +61,7 @@ impl From<Payment> for PaymentPayload {
             item_id: payment.item_id,
             created_by: payment.created_by,
             created_at: Some(payment.created_at),
+            expires_at: Some(payment.expires_at),
             paid_at: payment.paid_at,
             index: Some(payment.index),
             eth_address: payment.eth_address,
@@ -81,6 +86,7 @@ pub struct Payment {
     pub item_id: Uuid,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: i32,
     pub eth_address: Option<H160>,
@@ -100,6 +106,7 @@ impl Payment {
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
         payload.set_created_at();
+        payload.set_expires_at();
 
         (*postgres)
             .send(Insert(payload))
@@ -192,7 +199,8 @@ impl Payment {
             "status": self.status,
             "store_id": self.store_id,
             "eth": eth,
-            "btc": btc
+            "btc": btc,
+            "expires_at": self.expires_at.timestamp()
         })
     }
 }

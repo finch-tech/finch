@@ -7,6 +7,7 @@ CREATE TABLE payments
     item_id uuid NOT NULL,
     created_by uuid NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
     paid_at TIMESTAMPTZ,
     index INTEGER
     NOT NULL,
