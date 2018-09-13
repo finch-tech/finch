@@ -72,6 +72,8 @@ pub fn run(
                         .with_async(controllers::stores::get);
                     r.method(http::Method::PATCH)
                         .with_async(controllers::stores::patch);
+                    r.method(http::Method::DELETE)
+                        .with_async(controllers::stores::delete);
                 })
                 .resource("/items", |r| {
                     r.method(http::Method::POST)

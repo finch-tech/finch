@@ -72,3 +72,22 @@ impl Handler<FindById> for PgExecutor {
             .map_err(|e| Error::from(e))
     }
 }
+
+#[derive(Message)]
+#[rtype(result = "Result<usize, Error>")]
+pub struct Delete(pub Uuid);
+
+impl Handler<Delete> for PgExecutor {
+    type Result = Result<usize, Error>;
+
+    fn handle(&mut self, Delete(store_id): Delete, _: &mut Self::Context) -> Self::Result {
+        use diesel::delete;
+        use schema::stores::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        delete(stores.filter(id.eq(store_id)))
+            .execute(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}

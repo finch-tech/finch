@@ -96,3 +96,12 @@ pub fn get(
     services::stores::get(id, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
+
+pub fn delete(
+    (state, path, _): (State<AppState>, Path<Uuid>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let id = path.into_inner();
+
+    services::stores::delete(id, &state.postgres)
+        .then(|res| res.and_then(|res| Ok(Json(json!({ "deleted": res })))))
+}

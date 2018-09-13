@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use currency_api_client::Api as CurrencyApi;
 use db::postgres::PgExecutorAddr;
-use db::stores::{FindById, Insert, Update};
+use db::stores::{Delete, FindById, Insert, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
@@ -95,6 +95,13 @@ impl Store {
     ) -> impl Future<Item = Store, Error = Error> {
         (*postgres)
             .send(FindById(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+        (*postgres)
+            .send(Delete(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

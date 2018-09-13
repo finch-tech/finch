@@ -49,3 +49,7 @@ pub fn patch(
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
     Store::find_by_id(id, postgres).from_err()
 }
+
+pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+    Store::delete(id, postgres).from_err()
+}
