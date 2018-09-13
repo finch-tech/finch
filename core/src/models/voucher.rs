@@ -5,7 +5,7 @@ use uuid::Uuid;
 use models::payment::Payment;
 use models::transaction::Transaction;
 use models::Error;
-use types::{H160, H256, U256};
+use types::{H160, H256};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Voucher {
@@ -43,7 +43,7 @@ impl Voucher {
             "uuid": self.uuid,
             "value": self.value,
             "paid_by": self.paid_by,
-            "store_address": self.store_id,
+            "store_id": self.store_id,
         })
     }
 }
