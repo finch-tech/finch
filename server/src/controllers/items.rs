@@ -90,3 +90,20 @@ pub fn patch(
         })
     })
 }
+
+pub fn delete(
+    (state, path, user): (State<AppState>, Path<Uuid>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let id = path.into_inner();
+
+    services::items::get(id, &state.postgres).and_then(move |item| {
+        services::stores::get(item.store_id, &state.postgres).and_then(move |store| {
+            validate_store_owner(&store, &user)
+                .into_future()
+                .and_then(move |_| {
+                    services::items::delete(id, &state.postgres)
+                        .then(|res| res.and_then(|res| Ok(Json(json!({ "deleted": res })))))
+                })
+        })
+    })
+}

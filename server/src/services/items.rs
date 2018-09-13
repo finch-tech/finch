@@ -25,3 +25,7 @@ pub fn patch(
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
     Item::find_by_id(id, postgres).from_err()
 }
+
+pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+    Item::delete(id, postgres).from_err()
+}

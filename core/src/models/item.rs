@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::items::{FindById, Insert, Update};
+use db::items::{Delete, FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -80,6 +80,13 @@ impl Item {
     ) -> impl Future<Item = Item, Error = Error> {
         (*postgres)
             .send(FindById(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+        (*postgres)
+            .send(Delete(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
