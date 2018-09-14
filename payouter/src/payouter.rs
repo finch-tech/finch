@@ -1,7 +1,6 @@
 use actix::prelude::*;
 use actix_web::actix::spawn;
 use futures::future::{ok, Future, IntoFuture};
-use serde_json;
 
 use errors::Error;
 use ethereum_client::{Client, Transaction};
@@ -9,8 +8,10 @@ use ethereum_client::{Client, Transaction};
 use core::db::postgres::PgExecutorAddr;
 use core::db::redis::RedisSubscriberAddr;
 use core::payment::{Payment, PaymentPayload};
-use hd_keyring::HdKeyring;
-use types::{H256, PayoutStatus, U256};
+use core::store::Store;
+use core::transaction::Transaction as _Transaction;
+use hd_keyring::{HdKeyring, Wallet};
+use types::{H256, PayoutStatus, U128, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
@@ -36,9 +37,11 @@ impl Payouter {
         }
     }
 
-    pub fn payout(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
+    pub fn prepare_payout(
+        &self,
+        payment: Payment,
+    ) -> impl Future<Item = (Wallet, _Transaction, Store, U256, U128), Error = Error> {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
-        let chain_id = self.chain_id.clone();
 
         let store = payment.store(&self.postgres).from_err();
         let transaction = payment.transaction(&self.postgres).from_err();
@@ -72,28 +75,67 @@ impl Payouter {
                             .into_future()
                             .from_err()
                             .and_then(move |wallet| {
-                                let value =
-                                    U256(transaction.value.0 - gas_price.0 * U256::from(21_000).0);
-
-                                let raw_transaction = Transaction {
-                                    nonce,
-                                    gas_price,
-                                    gas: U256::from(21_000),
-                                    to: store.payout_addresses[0].clone(),
-                                    value,
-                                    data: b"".to_vec(),
-                                };
-
-                                raw_transaction
-                                    .sign(wallet.secret_key, chain_id)
-                                    .into_future()
-                                    .from_err()
-                                    .and_then(move |signed_transaction| {
-                                        eth_client
-                                            .send_raw_transaction(signed_transaction)
-                                            .from_err()
-                                    })
+                                ok((wallet, transaction, store, gas_price, nonce))
                             })
+                    })
+            })
+    }
+
+    pub fn payout(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
+        let eth_client = Client::new(self.ethereum_rpc_url.clone());
+        let chain_id = self.chain_id.clone();
+
+        self.prepare_payout(payment).and_then(
+            move |(wallet, transaction, store, gas_price, nonce)| {
+                let value = U256(transaction.value.0 - gas_price.0 * U256::from(21_000).0);
+
+                let raw_transaction = Transaction {
+                    nonce,
+                    gas_price,
+                    gas: U256::from(21_000),
+                    to: store.payout_addresses[0].clone(),
+                    value,
+                    data: b"".to_vec(),
+                };
+
+                raw_transaction
+                    .sign(wallet.secret_key, chain_id)
+                    .into_future()
+                    .from_err()
+                    .and_then(move |signed_transaction| {
+                        eth_client
+                            .send_raw_transaction(signed_transaction)
+                            .from_err()
+                    })
+            },
+        )
+    }
+
+    pub fn refund(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
+        let eth_client = Client::new(self.ethereum_rpc_url.clone());
+        let chain_id = self.chain_id.clone();
+
+        self.prepare_payout(payment)
+            .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
+                let value = U256(transaction.value.0 - gas_price.0 * U256::from(21_000).0);
+
+                let raw_transaction = Transaction {
+                    nonce,
+                    gas_price,
+                    gas: U256::from(21_000),
+                    to: transaction.from_address,
+                    value,
+                    data: b"".to_vec(),
+                };
+
+                raw_transaction
+                    .sign(wallet.secret_key, chain_id)
+                    .into_future()
+                    .from_err()
+                    .and_then(move |signed_transaction| {
+                        eth_client
+                            .send_raw_transaction(signed_transaction)
+                            .from_err()
                     })
             })
     }
@@ -122,7 +164,36 @@ impl Handler<Payout> for Payouter {
                     payload.payout_transaction_hash = Some(hash);
                     payload.payout_status = Some(PayoutStatus::PaidOut);
 
-                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|e| {
+                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|_| {
+                        // TODO: Handle error.
+                        ()
+                    })
+                })
+                .map(|_| ()),
+        );
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Refund(pub Payment);
+
+impl Handler<Refund> for Payouter {
+    type Result = ();
+
+    fn handle(&mut self, Refund(payment): Refund, _: &mut Self::Context) -> Self::Result {
+        let postgres = self.postgres.clone();
+
+        spawn(
+            self.refund(payment.clone())
+                .map_err(|_| ())
+                .and_then(move |hash| {
+                    println!("Refunded {:?}", hash);
+                    let mut payload = PaymentPayload::from(payment.clone());
+                    payload.payout_transaction_hash = Some(hash);
+                    payload.payout_status = Some(PayoutStatus::Refunded);
+
+                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|_| {
                         // TODO: Handle error.
                         ()
                     })

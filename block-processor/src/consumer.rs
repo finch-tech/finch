@@ -4,6 +4,7 @@ use std::str::FromStr;
 use actix::prelude::*;
 use actix_web::actix::spawn;
 use bigdecimal::BigDecimal;
+use chrono::prelude::*;
 use futures::Future;
 
 use core::app_status::{AppStatus, AppStatusPayload};
@@ -19,6 +20,7 @@ pub type ConsumerAddr = Addr<Consumer>;
 pub struct Consumer {
     pub postgres: PgExecutorAddr,
     pub ethereum_rpc_url: String,
+    pub skip_missed_blocks: bool,
 }
 
 impl Actor for Consumer {
@@ -59,7 +61,7 @@ impl Consumer {
                                 }
                                 Err(_) => {
                                     // TODO: Handle error.
-                                    continue;
+                                    panic!("Failed to parse transaction amount.");
                                 }
                             };
 
@@ -67,30 +69,41 @@ impl Consumer {
                             match Transaction::insert((*transaction).clone(), &postgres).wait() {
                                 Ok(transaction) => transaction,
                                 Err(_) => {
-                                    // TODO: Handle error
-                                    continue;
+                                    // TODO: Handle error.
+                                    panic!("Failed to insert new transaction to db.");
                                 }
                             };
 
+                        let mut payload = PaymentPayload::from(payment.clone());
+                        let block_height_required =
+                            block.number.clone().unwrap().0 + payment.confirmations_required.0;
+
+                        payload.transaction_hash = Some(transaction.hash.clone());
+                        payload.block_height_required = Some(U128(block_height_required));
+                        payload.set_paid_at();
+
+                        // Paid enough.
                         if ether_paid >= payment.clone().eth_price.unwrap() {
-                            let mut payload = PaymentPayload::from(payment.clone());
-
-                            let block_height_required =
-                                block.number.clone().unwrap().0 + payment.confirmations_required.0;
-
-                            payload.transaction_hash = Some(transaction.hash.clone());
                             payload.status = Some(PaymentStatus::Paid);
-                            payload.block_height_required = Some(U128(block_height_required));
-                            payload.set_paid_at();
-
-                            match Payment::update_by_id(payment.id, payload, &postgres).wait() {
-                                Ok(_) => (),
-                                Err(_) => {
-                                    // TODO: Handle error
-                                    continue;
-                                }
-                            };
                         }
+
+                        // Insufficient amount paid.
+                        if ether_paid < payment.clone().eth_price.unwrap() {
+                            payload.status = Some(PaymentStatus::InsufficientAmount);
+                        }
+
+                        // Expired
+                        if payment.expires_at < Utc::now() {
+                            payload.status = Some(PaymentStatus::Expired);
+                        }
+
+                        match Payment::update_by_id(payment.id, payload, &postgres).wait() {
+                            Ok(_) => (),
+                            Err(_) => {
+                                // TODO: Handle error.
+                                panic!("Failed to update payment status.");
+                            }
+                        };
                     }
                 }
 
@@ -101,6 +114,7 @@ impl Consumer {
 
                 AppStatus::update(payload, &postgres).map_err(|_| {
                     // TODO: Handle error.
+                    panic!("Failed to update app status.");
                 })
             })
             .map(|_| ())
@@ -119,6 +133,12 @@ impl Handler<Startup> for Consumer {
     type Result = ();
 
     fn handle(&mut self, Startup(caller): Startup, ctx: &mut Self::Context) -> Self::Result {
+        if self.skip_missed_blocks {
+            println!("Not processing missed blocks.");
+            caller.try_send(Ready).unwrap();
+            return;
+        }
+
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
 
         match AppStatus::find(&self.postgres).wait() {

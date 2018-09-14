@@ -7,13 +7,19 @@ use consumer::Consumer;
 use core::db::postgres;
 use subscriber::Subscriber;
 
-pub fn run(postgres_url: String, ethereum_ws_url: String, ethereum_rpc_url: String) {
+pub fn run(
+    postgres_url: String,
+    ethereum_ws_url: String,
+    ethereum_rpc_url: String,
+    skip_missed_blocks: bool,
+) {
     System::run(move || {
         let pg_pool = postgres::init_pool(&postgres_url);
         let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
         let consumer_address = Arbiter::start(move |_| Consumer {
             postgres: pg_addr.clone(),
             ethereum_rpc_url,
+            skip_missed_blocks,
         });
 
         spawn(

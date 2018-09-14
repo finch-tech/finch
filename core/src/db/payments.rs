@@ -6,7 +6,7 @@ use db::Error;
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::{H160, PaymentStatus, U128};
+use types::{H160, PaymentStatus, PayoutStatus, U128};
 
 #[derive(Message)]
 #[rtype(result = "Result<Payment, Error>")]
@@ -66,7 +66,8 @@ impl Handler<FindAllConfirmed> for PgExecutor {
         payments
             .filter(
                 status
-                    .eq(PaymentStatus::Paid)
+                    .ne(PaymentStatus::Pending)
+                    .and(payout_status.eq(PayoutStatus::Pending))
                     .and(block_height_required.le(block_height)),
             )
             .load::<Payment>(pg_conn)

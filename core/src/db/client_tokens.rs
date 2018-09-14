@@ -72,8 +72,7 @@ impl Handler<FindByTokenAndDomain> for PgExecutor {
         let pg_conn = &self.get()?;
 
         client_tokens
-            .filter(token.eq(client_token))
-            .filter(domain.eq(request_domain))
+            .filter(token.eq(client_token).and(domain.eq(request_domain)))
             .first::<ClientToken>(pg_conn)
             .map_err(|e| Error::from(e))
     }
