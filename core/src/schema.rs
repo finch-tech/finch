@@ -48,6 +48,7 @@ table! {
         confirmations_required -> Numeric,
         block_height_required -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
+        payout_status -> Varchar,
         payout_transaction_hash -> Nullable<Varchar>,
     }
 }

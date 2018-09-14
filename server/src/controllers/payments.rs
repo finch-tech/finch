@@ -57,6 +57,7 @@ pub fn create(
                     confirmations_required: item.confirmations_required,
                     block_height_required: None,
                     transaction_hash: None,
+                    payout_status: None,
                     payout_transaction_hash: None,
                 };
 

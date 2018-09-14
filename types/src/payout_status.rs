@@ -13,69 +13,64 @@ use diesel::types::FromSqlRow;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[serde(rename_all = "snake_case")]
-pub enum PaymentStatus {
+pub enum PayoutStatus {
     Pending,
-    Paid,
-    InsufficientAmount,
-    Expired,
+    PaidOut,
+    Refunded,
 }
 
-impl fmt::Display for PaymentStatus {
+impl fmt::Display for PayoutStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{}",
             match *self {
-                PaymentStatus::Pending => "pending",
-                PaymentStatus::Paid => "paid",
-                PaymentStatus::InsufficientAmount => "insufficient_amount",
-                PaymentStatus::Expired => "expired",
+                PayoutStatus::Pending => "pending",
+                PayoutStatus::PaidOut => "paid_out",
+                PayoutStatus::Refunded => "refunded",
             }
         )
     }
 }
 
-impl FromSqlRow<Text, Pg> for PaymentStatus {
+impl FromSqlRow<Text, Pg> for PayoutStatus {
     fn build_from_row<R: Row<Pg>>(row: &mut R) -> Result<Self, Box<Error + Send + Sync>> {
         match String::build_from_row(row)?.as_ref() {
-            "pending" => Ok(PaymentStatus::Pending),
-            "paid" => Ok(PaymentStatus::Paid),
-            "insufficient_amount" => Ok(PaymentStatus::InsufficientAmount),
-            "expired" => Ok(PaymentStatus::Expired),
-            v => Err(format!("Unknown value {} for PaymentStatus found", v).into()),
+            "pending" => Ok(PayoutStatus::Pending),
+            "paid_out" => Ok(PayoutStatus::PaidOut),
+            "refunded" => Ok(PayoutStatus::Refunded),
+            v => Err(format!("Unknown value {} for PayoutStatus found", v).into()),
         }
     }
 }
 
-impl ToSql<Text, Pg> for PaymentStatus {
+impl ToSql<Text, Pg> for PayoutStatus {
     fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         let text = match *self {
-            PaymentStatus::Pending => "pending",
-            PaymentStatus::Paid => "paid",
-            PaymentStatus::InsufficientAmount => "insufficient_amount",
-            PaymentStatus::Expired => "expired",
+            PayoutStatus::Pending => "pending",
+            PayoutStatus::PaidOut => "paid_out",
+            PayoutStatus::Refunded => "refunded",
         };
 
         ToSql::<Text, Pg>::to_sql(&text, out)
     }
 }
 
-impl FromSql<Text, Pg> for PaymentStatus {
+impl FromSql<Text, Pg> for PayoutStatus {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let text: String = FromSql::<Text, Pg>::from_sql(bytes)
             .map_err(|_| String::from("Failed to convert to text."))?;
 
         match text.as_ref() {
-            "pending" => Ok(PaymentStatus::Pending),
-            "paid" => Ok(PaymentStatus::Paid),
-            "insufficient_amount" => Ok(PaymentStatus::InsufficientAmount),
-            "expired" => Ok(PaymentStatus::Expired),
+            "pending" => Ok(PayoutStatus::Pending),
+            "paid_out" => Ok(PayoutStatus::PaidOut),
+            "refunded" => Ok(PayoutStatus::Refunded),
             v => Err(format!("Unknown value {} for Currency found", v).into()),
         }
     }
 }
 
-impl Queryable<Text, Pg> for PaymentStatus {
+impl Queryable<Text, Pg> for PayoutStatus {
     type Row = Self;
 
     fn build(row: Self::Row) -> Self {
@@ -83,14 +78,14 @@ impl Queryable<Text, Pg> for PaymentStatus {
     }
 }
 
-impl AsExpression<Text> for PaymentStatus {
+impl AsExpression<Text> for PayoutStatus {
     type Expression = AsExprOf<String, Text>;
     fn as_expression(self) -> Self::Expression {
         <String as AsExpression<Text>>::as_expression(self.to_string())
     }
 }
 
-impl<'a> AsExpression<Text> for &'a PaymentStatus {
+impl<'a> AsExpression<Text> for &'a PayoutStatus {
     type Expression = AsExprOf<String, Text>;
     fn as_expression(self) -> Self::Expression {
         <String as AsExpression<Text>>::as_expression(self.to_string())

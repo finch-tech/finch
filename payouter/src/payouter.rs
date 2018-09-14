@@ -10,7 +10,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::db::redis::RedisSubscriberAddr;
 use core::payment::{Payment, PaymentPayload};
 use hd_keyring::HdKeyring;
-use types::{H256, PaymentStatus, U256};
+use types::{H256, PayoutStatus, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
@@ -120,7 +120,7 @@ impl Handler<Payout> for Payouter {
                     println!("Paid out {:?}", hash);
                     let mut payload = PaymentPayload::from(payment.clone());
                     payload.payout_transaction_hash = Some(hash);
-                    payload.status = Some(PaymentStatus::PaidOut);
+                    payload.payout_status = Some(PayoutStatus::PaidOut);
 
                     Payment::update_by_id(payment.id, payload, &postgres).map_err(|e| {
                         // TODO: Handle error.

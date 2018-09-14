@@ -18,5 +18,6 @@ CREATE TABLE payments
     confirmations_required NUMERIC NOT NULL,
     block_height_required NUMERIC,
     transaction_hash VARCHAR,
+    payout_status VARCHAR NOT NULL,
     payout_transaction_hash VARCHAR
 )

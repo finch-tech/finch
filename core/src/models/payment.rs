@@ -13,7 +13,7 @@ use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, H256, PaymentStatus, U128};
+use types::{H160, H256, PaymentStatus, PayoutStatus, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
@@ -35,6 +35,7 @@ pub struct PaymentPayload {
     pub confirmations_required: U128,
     pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
+    pub payout_status: Option<PayoutStatus>,
     pub payout_transaction_hash: Option<H256>,
 }
 
@@ -71,6 +72,7 @@ impl From<Payment> for PaymentPayload {
             confirmations_required: payment.confirmations_required,
             block_height_required: payment.block_height_required,
             transaction_hash: payment.transaction_hash,
+            payout_status: Some(payment.payout_status),
             payout_transaction_hash: payment.payout_transaction_hash,
         }
     }
@@ -97,6 +99,7 @@ pub struct Payment {
     pub confirmations_required: U128,
     pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
+    pub payout_status: PayoutStatus,
     pub payout_transaction_hash: Option<H256>,
 }
 
@@ -197,6 +200,7 @@ impl Payment {
         json!({
             "id": self.id,
             "status": self.status,
+            "payout_status": self.payout_status,
             "store_id": self.store_id,
             "eth": eth,
             "btc": btc,

@@ -7,7 +7,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::payment::{Payment, PaymentPayload};
 use currency_api_client::Client as CurrencyApiClient;
 use services::{self, Error};
-use types::{Currency, PaymentStatus};
+use types::{Currency, PaymentStatus, PayoutStatus};
 
 const BTC_SCALE: i64 = 8;
 const ETH_SCALE: i64 = 6;
@@ -24,6 +24,7 @@ pub fn create(
 
     payload.index = Some(index);
     payload.status = Some(PaymentStatus::Pending);
+    payload.payout_status = Some(PayoutStatus::Pending);
     payload.index = Some(index);
 
     Payment::insert(payload, &postgres)
