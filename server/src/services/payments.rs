@@ -9,6 +9,9 @@ use currency_api_client::Client as CurrencyApiClient;
 use services::{self, Error};
 use types::{Currency, PaymentStatus};
 
+const BTC_SCALE: i64 = 8;
+const ETH_SCALE: i64 = 6;
+
 pub fn create(
     currencies: HashSet<Currency>,
     mut payload: PaymentPayload,
@@ -33,19 +36,22 @@ pub fn create(
                 let item = payment.item(&postgres).from_err();
 
                 store.join(item).and_then(move |(store, item)| {
-                    let btc_rate =
-                        CurrencyApiClient::new(&store.currency_api, &store.currency_api_key)
-                            .get_rate(&store.base_currency, &Currency::Btc)
-                            .from_err();
+                    let currency_api_client =
+                        CurrencyApiClient::new(&store.currency_api, &store.currency_api_key);
 
-                    let eth_rate =
-                        CurrencyApiClient::new(&store.currency_api, &store.currency_api_key)
-                            .get_rate(&store.base_currency, &Currency::Eth)
-                            .from_err();
+                    let btc_rate = currency_api_client
+                        .get_rate(&store.base_currency, &Currency::Btc)
+                        .from_err();
+
+                    let eth_rate = currency_api_client
+                        .get_rate(&store.base_currency, &Currency::Eth)
+                        .from_err();
 
                     btc_rate
                         .join(eth_rate)
-                        .and_then(move |(btc_rate, eth_rate)| {
+                        .and_then(move |(mut btc_rate, mut eth_rate)| {
+                            btc_rate = btc_rate.with_scale(BTC_SCALE);
+                            eth_rate = eth_rate.with_scale(ETH_SCALE);
                             for (_, c) in currencies.iter().enumerate() {
                                 match c {
                                     Currency::Btc => {
