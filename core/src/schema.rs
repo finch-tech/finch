@@ -11,7 +11,7 @@ table! {
         name -> Varchar,
         token -> Uuid,
         store_id -> Uuid,
-        referer -> Varchar,
+        domain -> Varchar,
         created_at -> Timestamptz,
         typ -> Varchar,
     }

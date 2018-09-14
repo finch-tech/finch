@@ -1,5 +1,3 @@
-// use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use actix_web::{error, Error as ActixError, FromRequest, HttpMessage, HttpRequest};
 use base64::decode;
 use chrono::prelude::*;
@@ -121,8 +119,9 @@ impl FromRequest<AppState> for ClientToken {
 
     fn from_request(req: &HttpRequest<AppState>, _cfg: &Self::Config) -> Self::Result {
         let state = req.state();
+        let headers = req.headers();
 
-        let auth_header = match req.headers().get("authorization") {
+        let auth_header = match headers.get("authorization") {
             Some(auth_header) => auth_header,
             None => {
                 return Box::new(err(error::ErrorUnauthorized(
@@ -161,7 +160,23 @@ impl FromRequest<AppState> for ClientToken {
             }
         };
 
-        // TODO: Check referer.
-        Box::new(services::client_tokens::get_by_token(token, &state.postgres).from_err())
+        let origin_header = match headers.get("origin") {
+            Some(origin_header) => origin_header,
+            None => return Box::new(err(error::ErrorUnauthorized("Invalid origin header."))),
+        };
+
+        let origin_header_parts: Vec<_> = origin_header.to_str().unwrap().split("://").collect();
+
+        if origin_header_parts.len() != 2 {
+            return Box::new(err(error::ErrorUnauthorized("Invalid origin header.")));
+        }
+
+        Box::new(
+            services::client_tokens::get_by_token_and_domain(
+                token,
+                origin_header_parts[1].to_string(),
+                &state.postgres,
+            ).from_err(),
+        )
     }
 }

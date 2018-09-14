@@ -4,7 +4,7 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::client_tokens::{Delete, FindById, FindByStore, FindByToken, Insert};
+use db::client_tokens::{Delete, FindById, FindByStore, FindByTokenAndDomain, Insert};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
@@ -18,8 +18,7 @@ pub struct ClientTokenPayload {
     pub name: String,
     pub token: Option<Uuid>,
     pub store_id: Uuid,
-    // TODO: Use more strict type.
-    pub referer: String,
+    pub domain: String,
     pub created_at: Option<DateTime<Utc>>,
     pub typ: Client,
 }
@@ -37,8 +36,7 @@ pub struct ClientToken {
     pub name: String,
     pub token: Uuid,
     pub store_id: Uuid,
-    // TODO: Use more strict type.
-    pub referer: String,
+    pub domain: String,
     pub created_at: DateTime<Utc>,
     pub typ: Client,
 }
@@ -76,12 +74,16 @@ impl ClientToken {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn find_by_token(
-        token: Uuid,
+    pub fn find_by_token_and_domain(
+        client_token: Uuid,
+        request_domain: String,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = ClientToken, Error = Error> {
         (*postgres)
-            .send(FindByToken(token))
+            .send(FindByTokenAndDomain {
+                client_token,
+                request_domain,
+            })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
@@ -100,7 +102,7 @@ impl ClientToken {
             "name": self.name,
             "token": token,
             "store_id": self.store_id,
-            "referer": self.referer,
+            "domain": self.domain,
             "created_at": self.created_at.timestamp(),
             "typ": self.typ,
         })

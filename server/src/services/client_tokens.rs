@@ -12,11 +12,12 @@ pub fn create(
     ClientToken::insert(payload, postgres).from_err()
 }
 
-pub fn get_by_token(
+pub fn get_by_token_and_domain(
     token: Uuid,
+    domain: String,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = ClientToken, Error = Error> {
-    ClientToken::find_by_token(token, postgres).from_err()
+    ClientToken::find_by_token_and_domain(token, domain, postgres).from_err()
 }
 
 pub fn find_by_store(

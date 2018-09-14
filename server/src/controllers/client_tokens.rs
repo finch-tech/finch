@@ -13,7 +13,7 @@ use types::Client;
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
     pub name: String,
-    pub referer: String,
+    pub domain: String,
     pub typ: Client,
     pub store_id: Uuid,
 }
@@ -40,7 +40,7 @@ pub fn create(
                     name: params.name,
                     token: None,
                     store_id: store.id,
-                    referer: params.referer,
+                    domain: params.domain,
                     created_at: None,
                     typ: params.typ,
                 };

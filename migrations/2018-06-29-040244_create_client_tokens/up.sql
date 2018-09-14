@@ -5,7 +5,7 @@ CREATE TABLE client_tokens
     name VARCHAR NOT NULL,
     token uuid NOT NULL DEFAULT uuid_generate_v4(),
     store_id uuid NOT NULL,
-    referer VARCHAR NOT NULL,
+    domain VARCHAR NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     typ VARCHAR NOT NULL
 )
