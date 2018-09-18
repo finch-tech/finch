@@ -174,7 +174,7 @@ impl FromRequest<AppState> for ClientToken {
         Box::new(
             services::client_tokens::get_by_token_and_domain(
                 token,
-                origin_header_parts[1].to_string(),
+                origin_header_parts[1].trim_matches('/').to_string(),
                 &state.postgres,
             ).from_err(),
         )
