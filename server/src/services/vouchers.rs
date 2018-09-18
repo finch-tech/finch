@@ -4,7 +4,7 @@ use core::db::postgres::PgExecutorAddr;
 use core::payment::Payment;
 use core::voucher::Voucher;
 use services::Error;
-use types::PayoutStatus;
+use types::PaymentStatus;
 
 pub fn create(
     payment: Payment,
@@ -15,9 +15,8 @@ pub fn create(
     let transaction = payment.transaction(&postgres).from_err();
     let store = payment.store(&postgres).from_err();
 
-    // TODO: Check PaymentStatus::Paid and confirmation status.
-    match payment.payout_status {
-        PayoutStatus::PaidOut => Box::new(transaction.join(store).and_then(
+    match payment.status {
+        PaymentStatus::Paid => Box::new(transaction.join(store).and_then(
             move |(transaction, store)| {
                 Voucher::new(payment, transaction)
                     .encode(&store.private_key)
