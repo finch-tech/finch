@@ -12,12 +12,15 @@ use serde_json::Error as SerdeError;
 use core::db::Error as DbError;
 use core::ModelError;
 use currency_api_client::Error as CurrencyApiClientError;
+use ethereum_client::Error as EthereumClientError;
 use hd_keyring::Error as KeyringError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
+    #[fail(display = "{}", _0)]
+    EthereumClientError(#[cause] EthereumClientError),
     #[fail(display = "{}", _0)]
     CurrencyApiClientError(#[cause] CurrencyApiClientError),
     #[fail(display = "{}", _0)]
@@ -80,6 +83,12 @@ impl error::ResponseError for Error {
 impl From<ModelError> for Error {
     fn from(e: ModelError) -> Error {
         Error::ModelError(e)
+    }
+}
+
+impl From<EthereumClientError> for Error {
+    fn from(e: EthereumClientError) -> Error {
+        Error::EthereumClientError(e)
     }
 }
 

@@ -9,8 +9,9 @@ CREATE TABLE stores
     public_key BYTEA NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    payout_addresses TEXT
+    eth_payout_addresses TEXT
     [] NOT NULL,
+    eth_confirmations_required NUMERIC NOT NULL,
     mnemonic VARCHAR NOT NULL,
     hd_path VARCHAR NOT NULL,
     base_currency VARCHAR NOT NULL,

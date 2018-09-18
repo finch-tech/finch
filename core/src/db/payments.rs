@@ -68,7 +68,7 @@ impl Handler<FindAllConfirmed> for PgExecutor {
                 status
                     .ne(PaymentStatus::Pending)
                     .and(payout_status.eq(PayoutStatus::Pending))
-                    .and(block_height_required.le(block_height)),
+                    .and(eth_block_height_required.le(block_height)),
             )
             .load::<Payment>(pg_conn)
             .map_err(|e| Error::from(e))

@@ -8,13 +8,14 @@ use core::store::{Store, StorePayload};
 use currency_api_client::Api as CurrencyApi;
 use server::AppState;
 use services::{self, Error};
-use types::{Currency, H160};
+use types::{Currency, H160, U128};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
     pub name: String,
     pub description: String,
-    pub payout_addresses: Vec<H160>,
+    pub eth_payout_addresses: Vec<H160>,
+    pub eth_confirmations_required: U128,
     pub base_currency: Currency,
     pub currency_api: CurrencyApi,
     pub currency_api_key: String,
@@ -36,7 +37,8 @@ pub fn create(
         public_key: None,
         created_at: None,
         updated_at: None,
-        payout_addresses: Some(params.payout_addresses),
+        eth_payout_addresses: Some(params.eth_payout_addresses),
+        eth_confirmations_required: Some(params.eth_confirmations_required),
         mnemonic: None,
         hd_path: None,
         base_currency: Some(params.base_currency),
@@ -53,7 +55,8 @@ pub fn create(
 pub struct PatchParams {
     pub name: Option<String>,
     pub description: Option<String>,
-    pub payout_addresses: Option<Vec<H160>>,
+    pub eth_payout_addresses: Option<Vec<H160>>,
+    pub eth_confirmations_required: Option<U128>,
     pub base_currency: Option<Currency>,
     pub currency_api: Option<CurrencyApi>,
     pub currency_api_key: Option<String>,
@@ -86,7 +89,8 @@ pub fn patch(
                     public_key: None,
                     created_at: None,
                     updated_at: None,
-                    payout_addresses: params.payout_addresses,
+                    eth_payout_addresses: params.eth_payout_addresses,
+                    eth_confirmations_required: params.eth_confirmations_required,
                     mnemonic: None,
                     hd_path: None,
                     base_currency: params.base_currency,

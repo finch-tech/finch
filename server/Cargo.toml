@@ -26,6 +26,7 @@ serde_json = "1.0"
 serde_derive = "1.0"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 
+ethereum_client = { path = "../ethereum_client" }
 currency-api-client = { path = "../currency-api-client" }
 hd-keyring = { path = "../hd-keyring" }
 types = { path = "../types" }

@@ -76,10 +76,10 @@ impl Consumer {
 
                         let mut payload = PaymentPayload::from(payment.clone());
                         let block_height_required =
-                            block.number.clone().unwrap().0 + payment.confirmations_required.0;
+                            block.number.clone().unwrap().0 + payment.eth_confirmations_required.0;
 
                         payload.transaction_hash = Some(transaction.hash.clone());
-                        payload.block_height_required = Some(U128(block_height_required));
+                        payload.eth_block_height_required = Some(U128(block_height_required));
                         payload.set_paid_at();
 
                         // Paid enough.

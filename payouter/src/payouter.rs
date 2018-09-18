@@ -93,7 +93,7 @@ impl Payouter {
                     nonce,
                     gas_price,
                     gas: U256::from(21_000),
-                    to: store.payout_addresses[0].clone(),
+                    to: store.eth_payout_addresses[0].clone(),
                     value,
                     data: b"".to_vec(),
                 };

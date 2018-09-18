@@ -9,7 +9,7 @@ use db::stores::{Delete, FindById, FindByOwner, Insert, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
-use types::{Currency, H160, PrivateKey, PublicKey};
+use types::{Currency, H160, PrivateKey, PublicKey, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "stores"]
@@ -22,7 +22,8 @@ pub struct StorePayload {
     pub public_key: Option<PublicKey>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub payout_addresses: Option<Vec<H160>>,
+    pub eth_payout_addresses: Option<Vec<H160>>,
+    pub eth_confirmations_required: Option<U128>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
     pub base_currency: Option<Currency>,
@@ -52,7 +53,8 @@ pub struct Store {
     pub public_key: PublicKey,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub payout_addresses: Vec<H160>,
+    pub eth_payout_addresses: Vec<H160>,
+    pub eth_confirmations_required: U128,
     // TODO: Encryption.
     pub mnemonic: String,
     pub hd_path: String,

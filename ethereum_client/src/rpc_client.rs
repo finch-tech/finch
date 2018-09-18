@@ -20,6 +20,40 @@ impl Client {
         Client { url }
     }
 
+    pub fn get_balance(&self, account: H160) -> Box<Future<Item = U256, Error = Error>> {
+        let req = match client::ClientRequest::post(&self.url)
+            .content_type("application/json")
+            .json(json!({
+                "jsonrpc": "2.0",
+                "method": "eth_getBalance",
+                "params": (format!("{:?}", &account.0), "pending"),
+                "id": 1
+            })) {
+            Ok(req) => req,
+            Err(_) => return Box::new(err(Error::ResponseError)),
+        };
+
+        Box::new(req.send().from_err().and_then(move |resp| {
+            resp.body().from_err().and_then(move |body| {
+                let body: Value = match serde_json::from_slice(&body) {
+                    Ok(body) => body,
+                    Err(e) => {
+                        return err(Error::from(e));
+                    }
+                };
+
+                match body.get("result") {
+                    Some(result) => {
+                        let decimal =
+                            i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
+                        ok(U256::from_dec_str(&format!("{}", decimal)).unwrap())
+                    }
+                    None => err(Error::ResponseError),
+                }
+            })
+        }))
+    }
+
     pub fn get_block_number(&self) -> Box<Future<Item = U128, Error = Error>> {
         let req = match client::ClientRequest::post(&self.url)
             .content_type("application/json")
