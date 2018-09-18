@@ -14,6 +14,7 @@ pub struct AppState {
     pub redis: redis::RedisExecutorAddr,
     pub jwt_private: PrivateKey,
     pub jwt_public: PublicKey,
+    pub ethereum_rpc_url: String,
 }
 
 pub fn run(
@@ -23,6 +24,7 @@ pub fn run(
     public_key_path: String,
     postgres_url: String,
     redis_url: String,
+    ethereum_rpc_url: String,
 ) {
     System::run(move || {
         let jwt_private = fs::read(private_key_path).expect("Failed to open the private key file.");
@@ -43,6 +45,7 @@ pub fn run(
                 redis: redis_addr.clone(),
                 jwt_private: jwt_private.clone(),
                 jwt_public: jwt_public.clone(),
+                ethereum_rpc_url: ethereum_rpc_url.clone(),
             }).middleware(middleware::Logger::default())
                 .resource("/", |r| {
                     r.method(http::Method::GET).with(controllers::root::index);
@@ -82,18 +85,6 @@ pub fn run(
                         .with_async(controllers::stores::patch);
                     r.method(http::Method::DELETE)
                         .with_async(controllers::stores::delete);
-                })
-                .resource("/items", |r| {
-                    r.method(http::Method::GET)
-                        .with_async(controllers::items::list);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::items::create);
-                })
-                .resource("/items/{id}", |r| {
-                    r.method(http::Method::PATCH)
-                        .with_async(controllers::items::patch);
-                    r.method(http::Method::DELETE)
-                        .with_async(controllers::items::delete);
                 })
                 .resource("/payments", |r| {
                     middleware::cors::Cors::build().finish().register(r);

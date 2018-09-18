@@ -31,6 +31,6 @@ pub mod db;
 mod models;
 
 pub use models::{
-    app_status, block, client_token, item, payment, store, transaction, user, voucher,
+    app_status, block, client_token, payment, store, transaction, user, voucher,
     Error as ModelError,
 };

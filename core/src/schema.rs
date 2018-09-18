@@ -18,35 +18,22 @@ table! {
 }
 
 table! {
-    items (id) {
-        id -> Uuid,
-        name -> Varchar,
-        description -> Nullable<Varchar>,
-        store_id -> Uuid,
-        created_at -> Timestamptz,
-        updated_at -> Timestamptz,
-        price -> Numeric,
-        confirmations_required -> Numeric,
-    }
-}
-
-table! {
     payments (id) {
         id -> Uuid,
         status -> Varchar,
         store_id -> Uuid,
-        item_id -> Uuid,
         created_by -> Uuid,
         created_at -> Timestamptz,
         expires_at -> Timestamptz,
         paid_at -> Nullable<Timestamptz>,
         index -> Int4,
+        price -> Numeric,
         eth_address -> Nullable<Varchar>,
         eth_price -> Nullable<Numeric>,
         btc_address -> Nullable<Varchar>,
         btc_price -> Nullable<Numeric>,
-        confirmations_required -> Numeric,
-        block_height_required -> Nullable<Numeric>,
+        eth_confirmations_required -> Numeric,
+        eth_block_height_required -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
         payout_status -> Varchar,
         payout_transaction_hash -> Nullable<Varchar>,
@@ -63,7 +50,8 @@ table! {
         public_key -> Bytea,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        payout_addresses -> Array<Text>,
+        eth_payout_addresses -> Array<Text>,
+        eth_confirmations_required -> Numeric,
         mnemonic -> Varchar,
         hd_path -> Varchar,
         base_currency -> Varchar,
@@ -104,7 +92,6 @@ table! {
 allow_tables_to_appear_in_same_query!(
     app_statuses,
     client_tokens,
-    items,
     payments,
     stores,
     transactions,

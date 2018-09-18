@@ -33,10 +33,7 @@ pub fn create(
             services::wallets::create(payment.clone(), &postgres).and_then(move |wallet| {
                 let mut payload = PaymentPayload::from(payment.clone());
 
-                let store = payment.store(&postgres).from_err();
-                let item = payment.item(&postgres).from_err();
-
-                store.join(item).and_then(move |(store, item)| {
+                payment.store(&postgres).from_err().and_then(move |store| {
                     let currency_api_client =
                         CurrencyApiClient::new(&store.currency_api, &store.currency_api_key);
 
@@ -53,17 +50,18 @@ pub fn create(
                         .and_then(move |(mut btc_rate, mut eth_rate)| {
                             btc_rate = btc_rate.with_scale(BTC_SCALE);
                             eth_rate = eth_rate.with_scale(ETH_SCALE);
+
                             for (_, c) in currencies.iter().enumerate() {
                                 match c {
                                     Currency::Btc => {
                                         payload.btc_address = Some(wallet.get_btc_address());
                                         payload.btc_price =
-                                            Some(item.price.clone() * btc_rate.clone());
+                                            Some(payment.price.clone() * btc_rate.clone());
                                     }
                                     Currency::Eth => {
                                         payload.eth_address = Some(wallet.get_eth_address());
                                         payload.eth_price =
-                                            Some(item.price.clone() * eth_rate.clone());
+                                            Some(payment.price.clone() * eth_rate.clone());
                                     }
                                     _ => panic!(),
                                 }

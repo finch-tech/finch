@@ -8,7 +8,6 @@ use uuid::Uuid;
 
 use db::payments::{FindAllByEthAddress, FindAllConfirmed, FindById, Insert, UpdateById};
 use db::postgres::PgExecutorAddr;
-use models::item::Item;
 use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
@@ -21,19 +20,19 @@ pub struct PaymentPayload {
     pub id: Option<Uuid>,
     pub status: Option<PaymentStatus>,
     pub store_id: Uuid,
-    pub item_id: Uuid,
     pub created_by: Uuid, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: Option<i32>,
+    pub price: Option<BigDecimal>,
     pub eth_address: Option<H160>,
     pub eth_price: Option<BigDecimal>,
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
-    pub confirmations_required: U128,
-    pub block_height_required: Option<U128>,
+    pub eth_confirmations_required: U128,
+    pub eth_block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
     pub payout_status: Option<PayoutStatus>,
     pub payout_transaction_hash: Option<H256>,
@@ -59,18 +58,18 @@ impl From<Payment> for PaymentPayload {
             id: Some(payment.id),
             status: Some(payment.status),
             store_id: payment.store_id,
-            item_id: payment.item_id,
             created_by: payment.created_by,
             created_at: Some(payment.created_at),
             expires_at: Some(payment.expires_at),
             paid_at: payment.paid_at,
             index: Some(payment.index),
+            price: Some(payment.price),
             eth_address: payment.eth_address,
             eth_price: payment.eth_price,
             btc_address: payment.btc_address,
             btc_price: payment.btc_price,
-            confirmations_required: payment.confirmations_required,
-            block_height_required: payment.block_height_required,
+            eth_confirmations_required: payment.eth_confirmations_required,
+            eth_block_height_required: payment.eth_block_height_required,
             transaction_hash: payment.transaction_hash,
             payout_status: Some(payment.payout_status),
             payout_transaction_hash: payment.payout_transaction_hash,
@@ -80,24 +79,23 @@ impl From<Payment> for PaymentPayload {
 
 #[derive(Debug, Identifiable, Queryable, Associations, Clone, Serialize, Deserialize)]
 #[belongs_to(Store, foreign_key = "store_id")]
-#[belongs_to(Item, foreign_key = "item_id")]
 pub struct Payment {
     pub id: Uuid,
     pub status: PaymentStatus,
     pub store_id: Uuid,
-    pub item_id: Uuid,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: i32,
+    pub price: BigDecimal,
     pub eth_address: Option<H160>,
     pub eth_price: Option<BigDecimal>,
     // TODO: Use type for BTC address.
     pub btc_address: Option<String>,
     pub btc_price: Option<BigDecimal>,
-    pub confirmations_required: U128,
-    pub block_height_required: Option<U128>,
+    pub eth_confirmations_required: U128,
+    pub eth_block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
     pub payout_status: PayoutStatus,
     pub payout_transaction_hash: Option<H256>,
@@ -115,10 +113,6 @@ impl Payment {
             .send(Insert(payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
-    }
-
-    pub fn item(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Item, Error = Error> {
-        Item::find_by_id(self.item_id, postgres)
     }
 
     pub fn store(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
@@ -202,6 +196,7 @@ impl Payment {
             "status": self.status,
             "payout_status": self.payout_status,
             "store_id": self.store_id,
+            "price": self.price,
             "eth": eth,
             "btc": btc,
             "expires_at": self.expires_at.timestamp()

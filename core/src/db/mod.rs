@@ -6,7 +6,6 @@ pub mod redis;
 
 pub mod app_statuses;
 pub mod client_tokens;
-pub mod items;
 pub mod payments;
 pub mod stores;
 pub mod transactions;

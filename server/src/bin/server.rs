@@ -19,6 +19,9 @@ fn main() {
     let public_key_path =
         env::var("PUBLIC_KEY").expect("PUBLIC_KEY environment variable must be set.");
     let redis_url = env::var("REDIS_URL").expect("REDIS_URL environment variable must be set.");
+    let ethereum_rpc_url =
+        env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
+
     let host = env::var("HOST").expect("HOST environment variable must be set.");
     let port = env::var("PORT").expect("PORT environment variable must be set.");
 
@@ -29,5 +32,6 @@ fn main() {
         public_key_path,
         postgres_url,
         redis_url,
+        ethereum_rpc_url,
     );
 }
