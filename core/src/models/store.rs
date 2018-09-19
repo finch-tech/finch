@@ -93,10 +93,16 @@ impl Store {
 
     pub fn find_by_owner(
         owner_id: Uuid,
+        limit: i64,
+        offset: i64,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Store>, Error = Error> {
         (*postgres)
-            .send(FindByOwner(owner_id))
+            .send(FindByOwner {
+                owner_id,
+                limit,
+                offset,
+            })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

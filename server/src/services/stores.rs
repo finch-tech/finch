@@ -48,9 +48,11 @@ pub fn patch(
 
 pub fn find_by_owner(
     owner_id: Uuid,
+    limit: i64,
+    offset: i64,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = Vec<Store>, Error = Error> {
-    Store::find_by_owner(owner_id, postgres).from_err()
+    Store::find_by_owner(owner_id, limit, offset, postgres).from_err()
 }
 
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {

@@ -1,4 +1,4 @@
-use actix_web::{Json, Path, State};
+use actix_web::{Json, Path, Query, State};
 use futures::future::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
@@ -9,6 +9,9 @@ use currency_api_client::Api as CurrencyApi;
 use server::AppState;
 use services::{self, Error};
 use types::{Currency, H160, U128};
+
+const LIMIT: i64 = 15;
+const OFFSET: i64 = 0;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
@@ -105,16 +108,39 @@ pub fn patch(
     })
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ListParams {
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
 pub fn list(
-    (state, user): (State<AppState>, AuthUser),
+    (state, params, user): (State<AppState>, Query<ListParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    services::stores::find_by_owner(user.id, &state.postgres).then(|res| {
+    let mut limit = LIMIT;
+    let mut offset = OFFSET;
+
+    if let Some(_limit) = params.limit {
+        if _limit < LIMIT {
+            limit = _limit;
+        }
+    };
+
+    if let Some(_offset) = params.offset {
+        offset = _offset;
+    };
+
+    services::stores::find_by_owner(user.id, limit, offset, &state.postgres).then(move |res| {
         res.and_then(|stores| {
             let mut exported = Vec::new();
             stores
                 .into_iter()
                 .for_each(|store| exported.push(store.export()));
-            Ok(Json(json!(exported)))
+            Ok(Json(json!({
+                "stores": exported,
+                "limit": limit,
+                "offset": offset,
+            })))
         })
     })
 }
