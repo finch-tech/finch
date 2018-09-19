@@ -56,10 +56,16 @@ impl ClientToken {
 
     pub fn find_by_store(
         store_id: Uuid,
+        limit: i64,
+        offset: i64,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
         (*postgres)
-            .send(FindByStore(store_id))
+            .send(FindByStore {
+                store_id,
+                limit,
+                offset,
+            })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

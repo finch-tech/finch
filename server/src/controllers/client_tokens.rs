@@ -10,6 +10,9 @@ use server::AppState;
 use services::{self, Error};
 use types::Client;
 
+const LIMIT: i64 = 15;
+const OFFSET: i64 = 0;
+
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
     pub name: String,
@@ -54,24 +57,44 @@ pub fn create(
 #[derive(Debug, Deserialize)]
 pub struct ListParams {
     pub store_id: Uuid,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 pub fn list(
     (state, params, user): (State<AppState>, Query<ListParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
+    let mut limit = LIMIT;
+    let mut offset = OFFSET;
+
+    if let Some(_limit) = params.limit {
+        if _limit < LIMIT {
+            limit = _limit;
+        }
+    };
+
+    if let Some(_offset) = params.offset {
+        offset = _offset;
+    };
+
     services::stores::get(params.store_id, &state.postgres).and_then(move |store| {
         validate_store_owner(&store, &user)
             .into_future()
             .and_then(move |_| {
-                services::client_tokens::find_by_store(store.id, &state.postgres).then(|res| {
-                    res.and_then(|client_tokens| {
-                        let mut exported = Vec::new();
-                        client_tokens
-                            .into_iter()
-                            .for_each(|client_token| exported.push(client_token.export()));
-                        Ok(Json(json!(exported)))
+                services::client_tokens::find_by_store(store.id, limit, offset, &state.postgres)
+                    .then(move |res| {
+                        res.and_then(|client_tokens| {
+                            let mut exported = Vec::new();
+                            client_tokens
+                                .into_iter()
+                                .for_each(|client_token| exported.push(client_token.export()));
+                            Ok(Json(json!({
+                            "client_tokens": exported,
+                            "limit": limit,
+                            "offset": offset,
+                        })))
+                        })
                     })
-                })
             })
     })
 }

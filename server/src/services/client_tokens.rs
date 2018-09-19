@@ -22,9 +22,11 @@ pub fn get_by_token_and_domain(
 
 pub fn find_by_store(
     store_id: Uuid,
+    limit: i64,
+    offset: i64,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
-    ClientToken::find_by_store(store_id, postgres).from_err()
+    ClientToken::find_by_store(store_id, limit, offset, postgres).from_err()
 }
 
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = ClientToken, Error = Error> {
