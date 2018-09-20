@@ -1,22 +1,25 @@
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
 use db::postgres::PgExecutorAddr;
-use db::users::{FindByEmail, FindById, Insert};
+use db::users::{Activate, Delete, FindByEmail, FindById, Insert};
 use models::Error;
 use schema::users;
 
 #[derive(Insertable, AsChangeset, Deserialize)]
 #[table_name = "users"]
 pub struct UserPayload {
-    pub email: String,
-    pub password: String,
+    pub email: Option<String>,
+    pub password: Option<String>,
     pub salt: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub active: bool,
+    pub is_verified: Option<bool>,
+    pub verification_token: Option<Uuid>,
+    pub verification_token_expires_at: Option<DateTime<Utc>>,
+    pub active: Option<bool>,
 }
 
 impl UserPayload {
@@ -26,6 +29,12 @@ impl UserPayload {
 
     pub fn set_updated_at(&mut self) {
         self.updated_at = Some(Utc::now());
+    }
+
+    pub fn initialize_verification_token(&mut self) {
+        self.is_verified = Some(false);
+        self.verification_token = Some(Uuid::new_v4());
+        self.verification_token_expires_at = Some(Utc::now() + Duration::days(1));
     }
 }
 
@@ -37,6 +46,9 @@ pub struct User {
     pub salt: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub is_verified: bool,
+    pub verification_token: Uuid,
+    pub verification_token_expires_at: DateTime<Utc>,
     pub active: bool,
 }
 
@@ -47,6 +59,7 @@ impl User {
     ) -> impl Future<Item = User, Error = Error> {
         payload.set_created_at();
         payload.set_updated_at();
+        payload.initialize_verification_token();
 
         (*postgres)
             .send(Insert(payload))
@@ -70,6 +83,23 @@ impl User {
     ) -> impl Future<Item = User, Error = Error> {
         (*postgres)
             .send(FindById(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn activate(
+        token: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = User, Error = Error> {
+        (*postgres)
+            .send(Activate(token))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+        (*postgres)
+            .send(Delete(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

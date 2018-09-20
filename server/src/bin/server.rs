@@ -22,6 +22,19 @@ fn main() {
     let ethereum_rpc_url =
         env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
 
+    let smtp_host = env::var("SMTP_HOST").expect("SMTP_HOST environment variable must be set.");
+    let smtp_port = env::var("SMTP_PORT")
+        .expect("SMTP_PORT environment variable must be set.")
+        .parse::<u16>()
+        .expect("Invalid smtp port.");
+    let smtp_user = env::var("SMTP_USER").expect("SMTP_USER environment variable must be set.");
+    let smtp_pass = env::var("SMTP_PASS").expect("SMTP_PASS environment variable must be set.");
+    let registration_mail_sender = env::var("REGISTRATION_MAIL_SENDER")
+        .expect("REGISTRATION_MAIL_SENDER environment variable must be set.");
+
+    let web_client_url =
+        env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
+
     let host = env::var("HOST").expect("HOST environment variable must be set.");
     let port = env::var("PORT").expect("PORT environment variable must be set.");
 
@@ -33,5 +46,11 @@ fn main() {
         postgres_url,
         redis_url,
         ethereum_rpc_url,
+        smtp_host,
+        smtp_port,
+        smtp_user,
+        smtp_pass,
+        registration_mail_sender,
+        web_client_url,
     );
 }

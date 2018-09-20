@@ -14,6 +14,7 @@ use core::ModelError;
 use currency_api_client::Error as CurrencyApiClientError;
 use ethereum_client::Error as EthereumClientError;
 use hd_keyring::Error as KeyringError;
+use mailer::Error as MailerError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -49,6 +50,8 @@ pub enum Error {
     SerdeError(#[cause] SerdeError),
     #[fail(display = "Payment not yet confirmed")]
     PaymentNotConfirmed,
+    #[fail(display = "{}", _0)]
+    MailerError(#[cause] MailerError),
 }
 
 impl error::ResponseError for Error {
@@ -155,5 +158,11 @@ impl From<error::PayloadError> for Error {
 impl From<SerdeError> for Error {
     fn from(e: SerdeError) -> Error {
         Error::SerdeError(e)
+    }
+}
+
+impl From<MailerError> for Error {
+    fn from(e: MailerError) -> Error {
+        Error::MailerError(e)
     }
 }

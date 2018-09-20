@@ -85,6 +85,9 @@ table! {
         salt -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        is_verified -> Bool,
+        verification_token -> Uuid,
+        verification_token_expires_at -> Timestamptz,
         active -> Bool,
     }
 }

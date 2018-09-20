@@ -11,6 +11,9 @@ extern crate diesel;
 extern crate failure;
 extern crate futures;
 extern crate jsonwebtoken as jwt;
+extern crate lettre;
+extern crate lettre_email;
+extern crate native_tls;
 extern crate num_cpus;
 extern crate openssl;
 extern crate rand;
@@ -32,6 +35,7 @@ extern crate types;
 
 mod auth;
 mod controllers;
+mod mailer;
 mod services;
 
 pub mod server;

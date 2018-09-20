@@ -1,6 +1,6 @@
 use chrono::{prelude::*, Duration};
 use data_encoding::BASE64;
-use futures::future::{Future, IntoFuture};
+use futures::future::{err, Future, IntoFuture};
 use ring::rand::SecureRandom;
 use ring::{digest, pbkdf2, rand};
 use uuid::Uuid;
@@ -8,16 +8,21 @@ use uuid::Uuid;
 use auth::{AuthUser, JWTPayload};
 use core::db::postgres::PgExecutorAddr;
 use core::user::{User, UserPayload};
+use mailer::{MailerAddr, SendMail};
 use services::Error;
 use types::PrivateKey;
 
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
 const N_ITER: u32 = 100_000;
 
-pub fn register(
+pub fn register<'a>(
     mut payload: UserPayload,
+    mailer: MailerAddr,
+    web_client_url: String,
+    registration_mail_sender: String,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = User, Error = Error> {
+    let postgres = postgres.clone();
     let rng = rand::SystemRandom::new();
     let mut salt = [0u8; CREDENTIAL_LEN];
 
@@ -28,28 +33,60 @@ pub fn register(
         &digest::SHA512,
         N_ITER,
         &salt,
-        payload.password.as_bytes(),
+        payload.password.unwrap().as_bytes(),
         &mut pbkdf2_hash,
     );
 
-    payload.password = BASE64.encode(&pbkdf2_hash);
+    payload.password = Some(BASE64.encode(&pbkdf2_hash));
     payload.salt = Some(BASE64.encode(&salt));
 
-    User::insert(payload, postgres).from_err()
-}
+    User::insert(payload, &postgres)
+        .from_err()
+        .and_then(move |user| {
+            let user_id = user.id;
 
-#[derive(Deserialize)]
-pub struct LoginParams {
-    pub email: String,
-    pub password: String,
+            let url = format!(
+                "{}/activation?token={}",
+                web_client_url, user.verification_token
+            );
+
+            let html = format!(
+                "Please click the following link to activate your account: <a href=\"{}\">{}</a>.",
+                url, url
+            );
+
+            let text = format!(
+                "Please click the following link to activate your account: {}",
+                url
+            );
+
+            mailer
+                .send(SendMail {
+                    subject: String::from("Please activate your account."),
+                    from: registration_mail_sender,
+                    to: user.email.clone(),
+                    html,
+                    text,
+                })
+                .from_err()
+                .and_then(move |res| res.map_err(|e| Error::from(e)))
+                .then(move |res| res.and_then(|_| Ok(user)))
+                .from_err()
+                .or_else(move |e| {
+                    User::delete(user_id, &postgres)
+                        .from_err()
+                        .and_then(|_| err(e))
+                })
+        })
 }
 
 pub fn authenticate(
-    params: LoginParams,
+    email: String,
+    password: String,
     postgres: &PgExecutorAddr,
     jwt_private: PrivateKey,
 ) -> impl Future<Item = String, Error = Error> {
-    User::find_by_email(params.email.clone(), postgres)
+    User::find_by_email(email, postgres)
         .from_err()
         .and_then(move |user| {
             let salt = BASE64
@@ -68,17 +105,34 @@ pub fn authenticate(
                         &digest::SHA512,
                         N_ITER,
                         &salt,
-                        params.password.as_bytes(),
+                        password.as_bytes(),
                         &password_hash,
                     ).map_err(|_| Error::IncorrectPassword)
                         .into_future()
                 })
                 .and_then(move |_| {
                     let expires_at = Utc::now() + Duration::days(1);
+
                     JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
                         .encode(&jwt_private)
                         .map_err(|e| Error::from(e))
                 })
+        })
+}
+
+pub fn activate(
+    token: Uuid,
+    postgres: &PgExecutorAddr,
+    jwt_private: PrivateKey,
+) -> impl Future<Item = String, Error = Error> {
+    User::activate(token, postgres)
+        .from_err()
+        .and_then(move |user| {
+            let expires_at = Utc::now() + Duration::days(1);
+
+            JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
+                .encode(&jwt_private)
+                .map_err(|e| Error::from(e))
         })
 }
 

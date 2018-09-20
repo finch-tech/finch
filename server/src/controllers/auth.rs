@@ -1,11 +1,11 @@
 use actix_web::{Json, State};
 use futures::future::Future;
 use serde_json::Value;
+use uuid::Uuid;
 
 use auth::AuthUser;
 use core::user::UserPayload;
 use server::AppState;
-use services::users::LoginParams;
 use services::{self, Error};
 
 #[derive(Debug, Deserialize)]
@@ -20,26 +20,57 @@ pub fn registration(
     let params = params.into_inner();
 
     let payload = UserPayload {
-        email: params.email,
-        password: params.password,
+        email: Some(params.email),
+        password: Some(params.password),
         salt: None,
         created_at: None,
         updated_at: None,
-        active: true,
+        is_verified: None,
+        verification_token: None,
+        verification_token_expires_at: None,
+        active: Some(true),
     };
 
-    services::users::register(payload, &state.postgres)
-        .then(|res| res.and_then(|user| Ok(Json(user.export()))))
+    services::users::register(
+        payload,
+        state.mailer.clone(),
+        state.web_client_url.clone(),
+        state.registration_mail_sender.clone(),
+        &state.postgres,
+    ).then(|res| res.and_then(|user| Ok(Json(user.export()))))
+}
+
+#[derive(Deserialize)]
+pub struct LoginParams {
+    pub email: String,
+    pub password: String,
 }
 
 pub fn authentication(
     (state, params): (State<AppState>, Json<LoginParams>),
-) -> impl Future<Item = String, Error = Error> {
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let params = params.into_inner();
+
     services::users::authenticate(
-        params.into_inner(),
+        params.email,
+        params.password,
         &state.postgres,
         state.jwt_private.clone(),
-    )
+    ).then(|res| res.and_then(|token| Ok(Json(json!({ "token": token })))))
+}
+
+#[derive(Deserialize)]
+pub struct ActivationParams {
+    pub token: Uuid,
+}
+
+pub fn activation(
+    (state, params): (State<AppState>, Json<ActivationParams>),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let params = params.into_inner();
+
+    services::users::activate(params.token, &state.postgres, state.jwt_private.clone())
+        .then(|res| res.and_then(|token| Ok(Json(json!({ "token": token })))))
 }
 
 pub fn profile(
