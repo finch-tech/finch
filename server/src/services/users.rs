@@ -15,7 +15,7 @@ use types::PrivateKey;
 const CREDENTIAL_LEN: usize = digest::SHA512_OUTPUT_LEN;
 const N_ITER: u32 = 100_000;
 
-pub fn register<'a>(
+pub fn register(
     mut payload: UserPayload,
     mailer: MailerAddr,
     web_client_url: String,
