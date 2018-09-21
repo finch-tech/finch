@@ -134,3 +134,32 @@ impl Handler<Delete> for PgExecutor {
             .map_err(|e| Error::from(e))
     }
 }
+
+#[derive(Message)]
+#[rtype(result = "Result<usize, Error>")]
+pub struct DeleteExpired(pub String);
+
+impl Handler<DeleteExpired> for PgExecutor {
+    type Result = Result<usize, Error>;
+
+    fn handle(
+        &mut self,
+        DeleteExpired(user_email): DeleteExpired,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use diesel::delete;
+        use schema::users::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        delete(
+            users.filter(
+                email
+                    .eq(user_email)
+                    .and(is_verified.ne(true))
+                    .and(verification_token_expires_at.lt(Utc::now())),
+            ),
+        ).execute(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}

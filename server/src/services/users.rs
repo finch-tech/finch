@@ -40,42 +40,47 @@ pub fn register(
     payload.password = Some(BASE64.encode(&pbkdf2_hash));
     payload.salt = Some(BASE64.encode(&salt));
 
-    User::insert(payload, &postgres)
+    // Delete user with the same email if its verification_token is expired.
+    User::delete_expired(payload.email.clone().unwrap(), &postgres)
         .from_err()
-        .and_then(move |user| {
-            let user_id = user.id;
-
-            let url = format!(
-                "{}/activation?token={}",
-                web_client_url, user.verification_token
-            );
-
-            let html = format!(
-                "Please click the following link to activate your account: <a href=\"{}\">{}</a>.",
-                url, url
-            );
-
-            let text = format!(
-                "Please click the following link to activate your account: {}",
-                url
-            );
-
-            mailer
-                .send(SendMail {
-                    subject: String::from("Please activate your account."),
-                    from: registration_mail_sender,
-                    to: user.email.clone(),
-                    html,
-                    text,
-                })
+        .and_then(move |_| {
+            User::insert(payload, &postgres)
                 .from_err()
-                .and_then(move |res| res.map_err(|e| Error::from(e)))
-                .then(move |res| res.and_then(|_| Ok(user)))
-                .from_err()
-                .or_else(move |e| {
-                    User::delete(user_id, &postgres)
+                .and_then(move |user| {
+                    let user_id = user.id;
+
+                    let url = format!(
+                        "{}/activation?token={}",
+                        web_client_url, user.verification_token
+                    );
+
+                    let html = format!(
+                        "Please click the following link to activate your account: <a href=\"{}\">{}</a>.",
+                        url, url
+                    );
+
+                    let text = format!(
+                        "Please click the following link to activate your account: {}",
+                        url
+                    );
+
+                    mailer
+                        .send(SendMail {
+                            subject: String::from("Please activate your account."),
+                            from: registration_mail_sender,
+                            to: user.email.clone(),
+                            html,
+                            text,
+                        })
                         .from_err()
-                        .and_then(|_| err(e))
+                        .and_then(move |res| res.map_err(|e| Error::from(e)))
+                        .then(move |res| res.and_then(|_| Ok(user)))
+                        .from_err()
+                        .or_else(move |e| {
+                            User::delete(user_id, &postgres)
+                                .from_err()
+                                .and_then(|_| err(e))
+                        })
                 })
         })
 }
