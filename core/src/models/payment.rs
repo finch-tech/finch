@@ -17,7 +17,6 @@ use types::{H160, H256, PaymentStatus, PayoutStatus, U128};
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
 pub struct PaymentPayload {
-    pub id: Option<Uuid>,
     pub status: Option<PaymentStatus>,
     pub store_id: Uuid,
     pub created_by: Uuid, // AuthClient id
@@ -55,7 +54,7 @@ impl PaymentPayload {
 impl From<Payment> for PaymentPayload {
     fn from(payment: Payment) -> Self {
         PaymentPayload {
-            id: Some(payment.id),
+            // id: Some(payment.id),
             status: Some(payment.status),
             store_id: payment.store_id,
             created_by: payment.created_by,

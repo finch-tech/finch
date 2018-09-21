@@ -31,7 +31,6 @@ pub fn create(
         let auth_client = AuthClient::new(client_token);
 
         let payload = PaymentPayload {
-            id: None,
             status: None,
             store_id: auth_client.store_id,
             created_by: auth_client.id,
