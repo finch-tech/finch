@@ -28,6 +28,8 @@ pub fn registration(
         is_verified: None,
         verification_token: None,
         verification_token_expires_at: None,
+        reset_token: None,
+        reset_token_expires_at: None,
         active: Some(true),
     };
 
@@ -71,6 +73,35 @@ pub fn activation(
 
     services::users::activate(params.token, &state.postgres, state.jwt_private.clone())
         .then(|res| res.and_then(|token| Ok(Json(json!({ "token": token })))))
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordParams {
+    pub email: String,
+}
+
+pub fn reset_password(
+    (state, params): (State<AppState>, Json<ResetPasswordParams>),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let params = params.into_inner();
+
+    services::users::reset_password(params.email, &state.postgres)
+        .then(|res| res.and_then(|_| Ok(Json(json!({})))))
+}
+
+#[derive(Deserialize)]
+pub struct ChangePasswordParams {
+    pub token: Uuid,
+    pub password: String,
+}
+
+pub fn change_password(
+    (state, params): (State<AppState>, Json<ChangePasswordParams>),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let params = params.into_inner();
+
+    services::users::change_password(params.token, params.password, &state.postgres)
+        .then(|res| res.and_then(|user| Ok(Json(user.export()))))
 }
 
 pub fn profile(

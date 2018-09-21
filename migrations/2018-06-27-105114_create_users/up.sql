@@ -12,5 +12,7 @@ CREATE TABLE users
     is_verified BOOLEAN NOT NULL DEFAULT false,
     verification_token uuid NOT NULL,
     verification_token_expires_at TIMESTAMPTZ NOT NULL,
+    reset_token uuid,
+    reset_token_expires_at TIMESTAMPTZ,
     active BOOLEAN NOT NULL DEFAULT true
 )

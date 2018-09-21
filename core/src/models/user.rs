@@ -1,10 +1,14 @@
+use std::convert::From;
+
 use chrono::{prelude::*, Duration};
 use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
 use db::postgres::PgExecutorAddr;
-use db::users::{Activate, Delete, DeleteExpired, FindByEmail, FindById, Insert};
+use db::users::{
+    Activate, Delete, DeleteExpired, FindByEmail, FindById, FindByResetToken, Insert, Update,
+};
 use models::Error;
 use schema::users;
 
@@ -19,6 +23,8 @@ pub struct UserPayload {
     pub is_verified: Option<bool>,
     pub verification_token: Option<Uuid>,
     pub verification_token_expires_at: Option<DateTime<Utc>>,
+    pub reset_token: Option<Uuid>,
+    pub reset_token_expires_at: Option<DateTime<Utc>>,
     pub active: Option<bool>,
 }
 
@@ -31,14 +37,37 @@ impl UserPayload {
         self.updated_at = Some(Utc::now());
     }
 
-    pub fn initialize_verification_token(&mut self) {
+    pub fn set_verification_token(&mut self) {
         self.is_verified = Some(false);
         self.verification_token = Some(Uuid::new_v4());
-        self.verification_token_expires_at = Some(Utc::now() + Duration::seconds(30));
+        self.verification_token_expires_at = Some(Utc::now() + Duration::days(1));
+    }
+
+    pub fn set_reset_token(&mut self) {
+        self.reset_token = Some(Uuid::new_v4());
+        self.reset_token_expires_at = Some(Utc::now() + Duration::days(1));
     }
 }
 
-#[derive(Identifiable, Queryable, Serialize)]
+impl From<User> for UserPayload {
+    fn from(user: User) -> Self {
+        UserPayload {
+            email: Some(user.email),
+            password: Some(user.password),
+            salt: Some(user.salt),
+            created_at: Some(user.created_at),
+            updated_at: Some(user.updated_at),
+            is_verified: Some(user.is_verified),
+            verification_token: Some(user.verification_token),
+            verification_token_expires_at: Some(user.verification_token_expires_at),
+            reset_token: user.reset_token,
+            reset_token_expires_at: user.reset_token_expires_at,
+            active: Some(user.active),
+        }
+    }
+}
+
+#[derive(Identifiable, Queryable, Serialize, Clone)]
 pub struct User {
     pub id: Uuid,
     pub email: String,
@@ -49,6 +78,8 @@ pub struct User {
     pub is_verified: bool,
     pub verification_token: Uuid,
     pub verification_token_expires_at: DateTime<Utc>,
+    pub reset_token: Option<Uuid>,
+    pub reset_token_expires_at: Option<DateTime<Utc>>,
     pub active: bool,
 }
 
@@ -59,10 +90,33 @@ impl User {
     ) -> impl Future<Item = User, Error = Error> {
         payload.set_created_at();
         payload.set_updated_at();
-        payload.initialize_verification_token();
+        payload.set_verification_token();
 
         (*postgres)
             .send(Insert(payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn update(
+        user_id: Uuid,
+        mut payload: UserPayload,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = User, Error = Error> {
+        payload.set_updated_at();
+
+        (*postgres)
+            .send(Update { user_id, payload })
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_by_reset_token(
+        token: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = User, Error = Error> {
+        (*postgres)
+            .send(FindByResetToken(token))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

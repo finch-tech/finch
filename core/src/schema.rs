@@ -88,6 +88,8 @@ table! {
         is_verified -> Bool,
         verification_token -> Uuid,
         verification_token_expires_at -> Timestamptz,
+        reset_token -> Nullable<Uuid>,
+        reset_token_expires_at -> Nullable<Timestamptz>,
         active -> Bool,
     }
 }

@@ -84,6 +84,14 @@ pub fn run(
                     r.method(http::Method::POST)
                         .with_async(controllers::auth::authentication);
                 })
+                .resource("/reset_password", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::reset_password);
+                })
+                .resource("/change_password", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::change_password);
+                })
                 .resource("/profile", |r| {
                     r.method(http::Method::GET)
                         .with_async(controllers::auth::profile);

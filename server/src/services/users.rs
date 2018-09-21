@@ -141,6 +141,57 @@ pub fn activate(
         })
 }
 
+pub fn reset_password(
+    email: String,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = bool, Error = Error> {
+    let postgres = postgres.clone();
+
+    User::find_by_email(email, &postgres)
+        .from_err()
+        .and_then(move |user| {
+            let mut payload = UserPayload::from(user.clone());
+
+            payload.set_reset_token();
+            User::update(user.id, payload, &postgres)
+                .from_err()
+                .map(|_| true)
+        })
+}
+
+pub fn change_password(
+    token: Uuid,
+    password: String,
+    postgres: &PgExecutorAddr,
+) -> impl Future<Item = User, Error = Error> {
+    let postgres = postgres.clone();
+
+    User::find_by_reset_token(token, &postgres)
+        .from_err()
+        .and_then(move |user| {
+            let mut payload = UserPayload::from(user.clone());
+
+            let rng = rand::SystemRandom::new();
+            let mut salt = [0u8; CREDENTIAL_LEN];
+
+            rng.fill(&mut salt).unwrap();
+
+            let mut pbkdf2_hash = [0u8; CREDENTIAL_LEN];
+            pbkdf2::derive(
+                &digest::SHA512,
+                N_ITER,
+                &salt,
+                password.as_bytes(),
+                &mut pbkdf2_hash,
+            );
+
+            payload.password = Some(BASE64.encode(&pbkdf2_hash));
+            payload.salt = Some(BASE64.encode(&salt));
+
+            User::update(user.id, payload, &postgres).from_err()
+        })
+}
+
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = User, Error = Error> {
     User::find_by_id(id, postgres).from_err()
 }

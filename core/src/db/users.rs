@@ -29,6 +29,33 @@ impl Handler<Insert> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<User, Error>")]
+pub struct Update {
+    pub user_id: Uuid,
+    pub payload: UserPayload,
+}
+
+impl Handler<Update> for PgExecutor {
+    type Result = Result<User, Error>;
+
+    fn handle(
+        &mut self,
+        Update { user_id, payload }: Update,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use diesel::update;
+        use schema::users::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        update(users.filter(id.eq(user_id)))
+            .set(&payload)
+            .get_result(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<User, Error>")]
 pub struct FindByEmail(pub String);
 
 impl Handler<FindByEmail> for PgExecutor {
@@ -80,6 +107,33 @@ impl Handler<FindById> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<User, Error>")]
+pub struct FindByResetToken(pub Uuid);
+
+impl Handler<FindByResetToken> for PgExecutor {
+    type Result = Result<User, Error>;
+
+    fn handle(
+        &mut self,
+        FindByResetToken(token): FindByResetToken,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        use schema::users::dsl::*;
+
+        let pg_conn = &self.get()?;
+
+        users
+            .filter(
+                reset_token
+                    .eq(token)
+                    .and(reset_token_expires_at.gt(Utc::now())),
+            )
+            .first::<User>(pg_conn)
+            .map_err(|e| Error::from(e))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<User, Error>")]
 pub struct Activate(pub Uuid);
 
 impl Handler<Activate> for PgExecutor {
@@ -98,6 +152,8 @@ impl Handler<Activate> for PgExecutor {
             is_verified: Some(true),
             verification_token: None,
             verification_token_expires_at: None,
+            reset_token: None,
+            reset_token_expires_at: None,
             active: None,
         };
 
