@@ -58,7 +58,9 @@ pub fn authentication(
         params.password,
         &state.postgres,
         state.jwt_private.clone(),
-    ).then(|res| res.and_then(|token| Ok(Json(json!({ "token": token })))))
+    ).then(|res| {
+        res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
+    })
 }
 
 #[derive(Deserialize)]
@@ -71,8 +73,11 @@ pub fn activation(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::activate(params.token, &state.postgres, state.jwt_private.clone())
-        .then(|res| res.and_then(|token| Ok(Json(json!({ "token": token })))))
+    services::users::activate(params.token, &state.postgres, state.jwt_private.clone()).then(
+        |res| {
+            res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
+        },
+    )
 }
 
 #[derive(Deserialize)]

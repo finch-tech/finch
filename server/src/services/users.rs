@@ -90,7 +90,7 @@ pub fn authenticate(
     password: String,
     postgres: &PgExecutorAddr,
     jwt_private: PrivateKey,
-) -> impl Future<Item = String, Error = Error> {
+) -> impl Future<Item = (String, User), Error = Error> {
     User::find_by_email(email, postgres)
         .from_err()
         .and_then(move |user| {
@@ -121,6 +121,7 @@ pub fn authenticate(
                     JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
                         .encode(&jwt_private)
                         .map_err(|e| Error::from(e))
+                        .and_then(|token| Ok((token, user)))
                 })
         })
 }
@@ -129,7 +130,7 @@ pub fn activate(
     token: Uuid,
     postgres: &PgExecutorAddr,
     jwt_private: PrivateKey,
-) -> impl Future<Item = String, Error = Error> {
+) -> impl Future<Item = (String, User), Error = Error> {
     User::activate(token, postgres)
         .from_err()
         .and_then(move |user| {
@@ -138,6 +139,7 @@ pub fn activate(
             JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
                 .encode(&jwt_private)
                 .map_err(|e| Error::from(e))
+                .and_then(|token| Ok((token, user)))
         })
 }
 
