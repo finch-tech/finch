@@ -3,7 +3,6 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use currency_api_client::Api as CurrencyApi;
 use db::postgres::PgExecutorAddr;
 use db::stores::{Delete, FindById, FindByOwner, Insert, Update};
 use models::user::User;
@@ -27,8 +26,6 @@ pub struct StorePayload {
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
     pub base_currency: Option<Currency>,
-    pub currency_api: Option<CurrencyApi>,
-    pub currency_api_key: Option<String>,
     pub active: bool,
 }
 
@@ -53,18 +50,26 @@ pub struct Store {
     pub public_key: PublicKey,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub eth_payout_addresses: Vec<H160>,
-    pub eth_confirmations_required: U128,
+    pub eth_payout_addresses: Option<Vec<H160>>,
+    pub eth_confirmations_required: Option<U128>,
     // TODO: Encryption.
     pub mnemonic: String,
     pub hd_path: String,
     pub base_currency: Currency,
-    pub currency_api: CurrencyApi,
-    pub currency_api_key: String,
     pub active: bool,
 }
 
 impl Store {
+    pub fn can_accept(&self, currency: &Currency) -> bool {
+        match currency {
+            Currency::Btc => false,
+            Currency::Eth => {
+                self.eth_payout_addresses.is_some() && self.eth_confirmations_required.is_some()
+            }
+            _ => false,
+        }
+    }
+
     pub fn insert(
         mut payload: StorePayload,
         postgres: &PgExecutorAddr,
@@ -99,7 +104,7 @@ impl Store {
     ) -> impl Future<Item = Vec<Store>, Error = Error> {
         (*postgres)
             .send(FindByOwner {
-                owner_id,
+                owner_id_query: owner_id,
                 limit,
                 offset,
             })
@@ -125,10 +130,22 @@ impl Store {
     }
 
     pub fn export(&self) -> Value {
+        let eth_confirmations_required;
+        if let Some(ref confirmations_required) = self.eth_confirmations_required {
+            eth_confirmations_required = Some(format!("{}", confirmations_required));
+        } else {
+            eth_confirmations_required = None;
+        }
+
         json!({
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "eth_payout_addresses": self.eth_payout_addresses,
+            "eth_confirmations_required": eth_confirmations_required,
+            "public_key": String::from_utf8_lossy(&self.public_key),
+            "can_accept_eth": self.can_accept(&Currency::Eth),
+            "can_accept_btc": self.can_accept(&Currency::Btc),
             "created_at": self.created_at.timestamp(),
             "updated_at": self.updated_at.timestamp(),
         })

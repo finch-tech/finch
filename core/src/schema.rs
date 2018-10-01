@@ -50,13 +50,11 @@ table! {
         public_key -> Bytea,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        eth_payout_addresses -> Array<Text>,
-        eth_confirmations_required -> Numeric,
+        eth_payout_addresses -> Nullable<Array<Text>>,
+        eth_confirmations_required -> Nullable<Numeric>,
         mnemonic -> Varchar,
         hd_path -> Varchar,
         base_currency -> Varchar,
-        currency_api -> Varchar,
-        currency_api_key -> Varchar,
         active -> Bool,
     }
 }

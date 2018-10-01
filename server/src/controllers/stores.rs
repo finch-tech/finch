@@ -5,7 +5,6 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::store::{Store, StorePayload};
-use currency_api_client::Api as CurrencyApi;
 use server::AppState;
 use services::{self, Error};
 use types::{Currency, H160, U128};
@@ -17,19 +16,12 @@ const OFFSET: i64 = 0;
 pub struct CreateParams {
     pub name: String,
     pub description: String,
-    pub eth_payout_addresses: Vec<H160>,
-    pub eth_confirmations_required: U128,
-    pub base_currency: Currency,
-    pub currency_api: CurrencyApi,
-    pub currency_api_key: String,
 }
 
 pub fn create(
     (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
-
-    // TODO: Check if the currency is legal tender.
 
     let payload = StorePayload {
         id: None,
@@ -40,13 +32,11 @@ pub fn create(
         public_key: None,
         created_at: None,
         updated_at: None,
-        eth_payout_addresses: Some(params.eth_payout_addresses),
-        eth_confirmations_required: Some(params.eth_confirmations_required),
+        eth_payout_addresses: None,
+        eth_confirmations_required: None,
         mnemonic: None,
         hd_path: None,
-        base_currency: Some(params.base_currency),
-        currency_api: Some(params.currency_api),
-        currency_api_key: Some(params.currency_api_key),
+        base_currency: Some(Currency::Usd),
         active: true,
     };
 
@@ -60,9 +50,6 @@ pub struct PatchParams {
     pub description: Option<String>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<U128>,
-    pub base_currency: Option<Currency>,
-    pub currency_api: Option<CurrencyApi>,
-    pub currency_api_key: Option<String>,
 }
 
 fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
@@ -97,8 +84,6 @@ pub fn patch(
                     mnemonic: None,
                     hd_path: None,
                     base_currency: params.base_currency,
-                    currency_api: params.currency_api,
-                    currency_api_key: params.currency_api_key,
                     active: true,
                 };
 
