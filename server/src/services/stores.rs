@@ -11,7 +11,7 @@ use types::{PrivateKey, PublicKey};
 fn generate_rsa() -> Result<(PrivateKey, PublicKey), Error> {
     let rsa = Rsa::generate(2048)?;
     let private_key = rsa.private_key_to_der()?;
-    let public_key = rsa.public_key_to_der_pkcs1()?;
+    let public_key = rsa.public_key_to_pem_pkcs1()?;
 
     Ok((private_key, public_key))
 }
