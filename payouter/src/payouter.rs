@@ -6,7 +6,6 @@ use errors::Error;
 use ethereum_client::{Client, Transaction};
 
 use core::db::postgres::PgExecutorAddr;
-use core::db::redis::RedisSubscriberAddr;
 use core::payment::{Payment, PaymentPayload};
 use core::store::Store;
 use core::transaction::Transaction as _Transaction;
@@ -16,21 +15,14 @@ use types::{H256, PayoutStatus, U128, U256};
 pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
-    pub subscriber: RedisSubscriberAddr,
     pub postgres: PgExecutorAddr,
     pub ethereum_rpc_url: String,
     pub chain_id: u64,
 }
 
 impl Payouter {
-    pub fn new(
-        pg_addr: PgExecutorAddr,
-        subscriber_addr: RedisSubscriberAddr,
-        ethereum_rpc_url: String,
-        chain_id: u64,
-    ) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, ethereum_rpc_url: String, chain_id: u64) -> Self {
         Payouter {
-            subscriber: subscriber_addr,
             postgres: pg_addr,
             ethereum_rpc_url,
             chain_id,
@@ -93,7 +85,7 @@ impl Payouter {
                     nonce,
                     gas_price,
                     gas: U256::from(21_000),
-                    to: store.eth_payout_addresses[0].clone(),
+                    to: store.eth_payout_addresses.unwrap()[0].clone(),
                     value,
                     data: b"".to_vec(),
                 };
