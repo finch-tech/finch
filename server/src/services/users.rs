@@ -1,3 +1,5 @@
+use std::env;
+
 use chrono::{prelude::*, Duration};
 use data_encoding::BASE64;
 use futures::future::{err, Future, IntoFuture};
@@ -18,13 +20,16 @@ const N_ITER: u32 = 100_000;
 pub fn register(
     mut payload: UserPayload,
     mailer: MailerAddr,
-    web_client_url: String,
-    registration_mail_sender: String,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = User, Error = Error> {
     let postgres = postgres.clone();
     let rng = rand::SystemRandom::new();
     let mut salt = [0u8; CREDENTIAL_LEN];
+
+    let web_client_url =
+        env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
+    let registration_mail_sender = env::var("REGISTRATION_MAIL_SENDER")
+        .expect("REGISTRATION_MAIL_SENDER environment variable must be set.");
 
     rng.fill(&mut salt).unwrap();
 

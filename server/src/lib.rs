@@ -7,6 +7,7 @@ extern crate bigdecimal;
 extern crate chrono;
 extern crate data_encoding;
 extern crate diesel;
+extern crate dotenv;
 #[macro_use]
 extern crate failure;
 extern crate futures;

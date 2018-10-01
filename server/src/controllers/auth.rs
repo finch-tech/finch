@@ -33,13 +33,8 @@ pub fn registration(
         active: Some(true),
     };
 
-    services::users::register(
-        payload,
-        state.mailer.clone(),
-        state.web_client_url.clone(),
-        state.registration_mail_sender.clone(),
-        &state.postgres,
-    ).then(|res| res.and_then(|user| Ok(Json(user.export()))))
+    services::users::register(payload, state.mailer.clone(), &state.postgres)
+        .then(|res| res.and_then(|user| Ok(Json(user.export()))))
 }
 
 #[derive(Deserialize)]
