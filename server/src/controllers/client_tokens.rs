@@ -99,6 +99,20 @@ pub fn list(
     })
 }
 
+pub fn get(
+    (state, path, user): (State<AppState>, Path<Uuid>, AuthUser),
+) -> impl Future<Item = Json<Value>, Error = Error> {
+    let id = path.into_inner();
+
+    services::client_tokens::get(id, &state.postgres).and_then(move |client_token| {
+        services::stores::get(client_token.store_id, &state.postgres).and_then(move |store| {
+            validate_store_owner(&store, &user)
+                .into_future()
+                .then(move |_| Ok(Json(client_token.export())))
+        })
+    })
+}
+
 pub fn delete(
     (state, path, user): (State<AppState>, Path<Uuid>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {

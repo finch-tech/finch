@@ -112,6 +112,8 @@ pub fn run(
                 })
                 .resource("/client_tokens/{id}", |r| {
                     middleware::cors::Cors::build().finish().register(r);
+                    r.method(http::Method::GET)
+                        .with_async(controllers::client_tokens::get);
                     r.method(http::Method::DELETE)
                         .with_async(controllers::client_tokens::delete);
                 })
