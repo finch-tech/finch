@@ -76,7 +76,7 @@ impl Handler<FindById> for PgExecutor {
 #[derive(Message)]
 #[rtype(result = "Result<Vec<Store>, Error>")]
 pub struct FindByOwner {
-    pub owner_id: Uuid,
+    pub owner_id_query: Uuid,
     pub limit: i64,
     pub offset: i64,
 }
@@ -87,19 +87,18 @@ impl Handler<FindByOwner> for PgExecutor {
     fn handle(
         &mut self,
         FindByOwner {
-            owner_id,
+            owner_id_query,
             limit,
             offset,
         }: FindByOwner,
         _: &mut Self::Context,
     ) -> Self::Result {
-        let _owner_id = owner_id;
         use schema::stores::dsl::*;
 
         let pg_conn = &self.get()?;
 
         stores
-            .filter(owner_id.eq(_owner_id).and(active.ne(false)))
+            .filter(owner_id.eq(owner_id_query).and(active.ne(false)))
             .limit(limit)
             .offset(offset)
             .load::<Store>(pg_conn)

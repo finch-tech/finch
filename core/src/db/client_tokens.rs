@@ -81,7 +81,7 @@ impl Handler<FindByTokenAndDomain> for PgExecutor {
 #[derive(Message)]
 #[rtype(result = "Result<Vec<ClientToken>, Error>")]
 pub struct FindByStore {
-    pub store_id: Uuid,
+    pub store_id_query: Uuid,
     pub limit: i64,
     pub offset: i64,
 }
@@ -92,19 +92,18 @@ impl Handler<FindByStore> for PgExecutor {
     fn handle(
         &mut self,
         FindByStore {
-            store_id,
+            store_id_query,
             limit,
             offset,
         }: FindByStore,
         _: &mut Self::Context,
     ) -> Self::Result {
-        let _store_id = store_id;
         use schema::client_tokens::dsl::*;
 
         let pg_conn = &self.get()?;
 
         client_tokens
-            .filter(store_id.eq(_store_id))
+            .filter(store_id.eq(store_id_query))
             .limit(limit)
             .offset(offset)
             .load::<ClientToken>(pg_conn)

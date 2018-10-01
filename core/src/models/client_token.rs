@@ -62,7 +62,7 @@ impl ClientToken {
     ) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
         (*postgres)
             .send(FindByStore {
-                store_id,
+                store_id_query: store_id,
                 limit,
                 offset,
             })
