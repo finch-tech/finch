@@ -32,7 +32,11 @@ fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
 pub fn create(
     (state, user, params): (State<AppState>, AuthUser, Json<CreateParams>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let params = params.into_inner();
+    let mut params = params.into_inner();
+
+    if params.name.len() == 0 {
+        params.name = String::from("My API Key");
+    }
 
     services::stores::get(params.store_id, &state.postgres).and_then(move |store| {
         validate_store_owner(&store, &user)

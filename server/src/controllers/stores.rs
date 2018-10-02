@@ -1,5 +1,5 @@
 use actix_web::{Json, Path, Query, State};
-use futures::future::{Future, IntoFuture};
+use futures::future::{err, Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -21,7 +21,11 @@ pub struct CreateParams {
 pub fn create(
     (state, params, user): (State<AppState>, Json<CreateParams>, AuthUser),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
-    let params = params.into_inner();
+    let mut params = params.into_inner();
+
+    if params.name.len() == 0 {
+        params.name = String::from("My Store");
+    }
 
     let payload = StorePayload {
         id: None,
@@ -62,35 +66,47 @@ fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
 
 pub fn patch(
     (state, path, params, user): (State<AppState>, Path<Uuid>, Json<PatchParams>, AuthUser),
-) -> impl Future<Item = Json<Value>, Error = Error> {
+) -> Box<Future<Item = Json<Value>, Error = Error>> {
     let id = path.into_inner();
-    let params = params.into_inner();
+    let mut params = params.into_inner();
 
-    services::stores::get(id, &state.postgres).and_then(move |store| {
-        validate_store_owner(&store, &user)
-            .into_future()
-            .and_then(move |_| {
-                let payload = StorePayload {
-                    id: None,
-                    name: params.name,
-                    description: params.description,
-                    owner_id: user.id,
-                    private_key: None,
-                    public_key: None,
-                    created_at: None,
-                    updated_at: None,
-                    eth_payout_addresses: params.eth_payout_addresses,
-                    eth_confirmations_required: params.eth_confirmations_required,
-                    mnemonic: None,
-                    hd_path: None,
-                    base_currency: params.base_currency,
-                    active: true,
-                };
+    if params.name.is_some() && params.name.clone().unwrap().len() == 0 {
+        params.name = Some(String::from("My Store"));
+    }
 
-                services::stores::patch(id, payload, &state.postgres)
-                    .then(|res| res.and_then(|store| Ok(Json(store.export()))))
-            })
-    })
+    if params.eth_confirmations_required.is_some()
+        && params.eth_confirmations_required.clone().unwrap().0 < U128::from(1).0
+    {
+        return Box::new(err(Error::BadRequest));
+    }
+
+    Box::new(
+        services::stores::get(id, &state.postgres).and_then(move |store| {
+            validate_store_owner(&store, &user)
+                .into_future()
+                .and_then(move |_| {
+                    let payload = StorePayload {
+                        id: None,
+                        name: params.name,
+                        description: params.description,
+                        owner_id: user.id,
+                        private_key: None,
+                        public_key: None,
+                        created_at: None,
+                        updated_at: None,
+                        eth_payout_addresses: params.eth_payout_addresses,
+                        eth_confirmations_required: params.eth_confirmations_required,
+                        mnemonic: None,
+                        hd_path: None,
+                        base_currency: None,
+                        active: true,
+                    };
+
+                    services::stores::patch(id, payload, &state.postgres)
+                        .then(|res| res.and_then(|store| Ok(Json(store.export()))))
+                })
+        }),
+    )
 }
 
 #[derive(Debug, Deserialize)]

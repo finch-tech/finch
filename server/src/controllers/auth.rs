@@ -1,5 +1,5 @@
 use actix_web::{Json, State};
-use futures::future::Future;
+use futures::future::{err, Future};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -16,8 +16,12 @@ pub struct RegistrationParams {
 
 pub fn registration(
     (state, params): (State<AppState>, Json<RegistrationParams>),
-) -> impl Future<Item = Json<Value>, Error = Error> {
+) -> Box<Future<Item = Json<Value>, Error = Error>> {
     let params = params.into_inner();
+
+    if params.email.len() == 0 || params.password.len() == 0 {
+        return Box::new(err(Error::BadRequest));
+    }
 
     let payload = UserPayload {
         email: Some(params.email),
@@ -33,8 +37,10 @@ pub fn registration(
         active: Some(true),
     };
 
-    services::users::register(payload, state.mailer.clone(), &state.postgres)
-        .then(|res| res.and_then(|user| Ok(Json(user.export()))))
+    Box::new(
+        services::users::register(payload, state.mailer.clone(), &state.postgres)
+            .then(|res| res.and_then(|user| Ok(Json(user.export())))),
+    )
 }
 
 #[derive(Deserialize)]
@@ -85,7 +91,7 @@ pub fn reset_password(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::reset_password(params.email, &state.postgres)
+    services::users::reset_password(params.email, state.mailer.clone(), &state.postgres)
         .then(|res| res.and_then(|_| Ok(Json(json!({})))))
 }
 
@@ -100,8 +106,14 @@ pub fn change_password(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::change_password(params.token, params.password, &state.postgres)
-        .then(|res| res.and_then(|user| Ok(Json(user.export()))))
+    services::users::change_password(
+        params.token,
+        params.password,
+        &state.postgres,
+        state.jwt_private.clone(),
+    ).then(|res| {
+        res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
+    })
 }
 
 pub fn profile(

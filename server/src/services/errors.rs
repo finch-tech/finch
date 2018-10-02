@@ -54,12 +54,16 @@ pub enum Error {
     PaymentNotConfirmed,
     #[fail(display = "{}", _0)]
     MailerError(#[cause] MailerError),
+    #[fail(display = "Bad request")]
+    BadRequest,
 }
 
 impl error::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
         match *self {
             Error::IncorrectPassword => HttpResponse::new(http::StatusCode::BAD_REQUEST),
+
+            Error::BadRequest => HttpResponse::new(http::StatusCode::BAD_REQUEST),
 
             Error::CurrencyNotSupported => HttpResponse::new(http::StatusCode::BAD_REQUEST),
 
