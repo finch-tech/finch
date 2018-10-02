@@ -48,8 +48,7 @@ fn main() {
     env::var("CURRENCY_API_KEY").expect("CURRENCY_API_KEY environment variable must be set.");
     env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
     env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
-    env::var("REGISTRATION_MAIL_SENDER")
-        .expect("REGISTRATION_MAIL_SENDER environment variable must be set.");
+    env::var("MAIL_SENDER").expect("MAIL_SENDER environment variable must be set.");
 
     web_server::run(
         host,

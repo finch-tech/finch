@@ -14,7 +14,7 @@ fn main() {
     dotenv::dotenv().ok();
 
     let postgres_url =
-        env::var("DATABASE_URL").expect("DATABASE_URL environment variable must be set.");
+        env::var("POSTGRES_URL").expect("POSTGRES_URL environment variable must be set.");
     let ethereum_rpc_url =
         env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
     let chain_id = env::var("CHAIN_ID").expect("CHAIN_ID environment variable must be set.");
