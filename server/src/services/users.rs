@@ -28,8 +28,8 @@ pub fn register(
 
     let web_client_url =
         env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
-    let registration_mail_sender = env::var("REGISTRATION_MAIL_SENDER")
-        .expect("REGISTRATION_MAIL_SENDER environment variable must be set.");
+    let mail_sender =
+        env::var("MAIL_SENDER").expect("MAIL_SENDER environment variable must be set.");
 
     rng.fill(&mut salt).unwrap();
 
@@ -72,7 +72,7 @@ pub fn register(
                     mailer
                         .send(SendMail {
                             subject: String::from("Please activate your account."),
-                            from: registration_mail_sender,
+                            from: mail_sender,
                             to: user.email.clone(),
                             html,
                             text,
@@ -150,18 +150,63 @@ pub fn activate(
 
 pub fn reset_password(
     email: String,
+    mailer: MailerAddr,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = bool, Error = Error> {
     let postgres = postgres.clone();
 
+    let web_client_url =
+        env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
+    let mail_sender =
+        env::var("MAIL_SENDER").expect("MAIL_SENDER environment variable must be set.");
+
     User::find_by_email(email, &postgres)
         .from_err()
         .and_then(move |user| {
+            // TODO: return error if user.reset_token is None.
+
             let mut payload = UserPayload::from(user.clone());
 
             payload.set_reset_token();
             User::update(user.id, payload, &postgres)
                 .from_err()
+                .and_then(move |user| {
+                    let user_id = user.id;
+
+                    let url = format!(
+                        "{}/reset_password?token={}",
+                        web_client_url,
+                        user.reset_token.unwrap()
+                    );
+
+                    let html = format!(
+                        "Please click the following link to reset your password: <a href=\"{}\">{}</a>.",
+                        url, url
+                    );
+
+                    let text = format!(
+                        "Please click the following link to reset your password: {}",
+                        url
+                    );
+
+                    mailer
+                        .send(SendMail {
+                            subject: String::from("Please reset your password."),
+                            from: mail_sender,
+                            to: user.email.clone(),
+                            html,
+                            text,
+                        })
+                        .from_err()
+                        .and_then(move |res| res.map_err(|e| Error::from(e)))
+                        .then(move |res| res.and_then(|_| Ok(user)))
+                        .from_err()
+                        .or_else(move |e| {
+                            User::delete(user_id, &postgres)
+                                .from_err()
+                                .and_then(|_| err(e))
+                        })
+                })
                 .map(|_| true)
         })
 }
@@ -170,7 +215,8 @@ pub fn change_password(
     token: Uuid,
     password: String,
     postgres: &PgExecutorAddr,
-) -> impl Future<Item = User, Error = Error> {
+    jwt_private: PrivateKey,
+) -> impl Future<Item = (String, User), Error = Error> {
     let postgres = postgres.clone();
 
     User::find_by_reset_token(token, &postgres)
@@ -195,7 +241,16 @@ pub fn change_password(
             payload.password = Some(BASE64.encode(&pbkdf2_hash));
             payload.salt = Some(BASE64.encode(&salt));
 
-            User::update(user.id, payload, &postgres).from_err()
+            User::update(user.id, payload, &postgres)
+                .from_err()
+                .and_then(move |user| {
+                    let expires_at = Utc::now() + Duration::days(1);
+
+                    JWTPayload::new(Some(AuthUser { id: user.id }), None, expires_at)
+                        .encode(&jwt_private)
+                        .map_err(|e| Error::from(e))
+                        .and_then(|token| Ok((token, user)))
+                })
         })
 }
 
