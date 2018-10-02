@@ -145,3 +145,14 @@ impl<'a> AsExpression<Text> for &'a Api {
         <String as AsExpression<Text>>::as_expression(self.to_string())
     }
 }
+
+impl FromStr for Api {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "coin_api" => Ok(Api::CoinApi),
+            v => Err(format!("Unknown value {} for currency api found", v).into()),
+        }
+    }
+}
