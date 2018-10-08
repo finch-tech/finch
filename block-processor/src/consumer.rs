@@ -49,9 +49,9 @@ impl Handler<ProcessBlocks> for Consumer {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
 
         Box::new(
-            stream::unfold(from.0.low_u64() + 1, move |block_number| {
-                if block_number <= to.0.low_u64() {
-                    let next_block_number = block_number + 1;
+            stream::unfold(from, move |block_number| {
+                if block_number <= to {
+                    let next_block_number = block_number.clone() + U128::from(1);
                     Some(future::ok::<_, _>((block_number, next_block_number)))
                 } else {
                     None
@@ -74,19 +74,15 @@ impl Handler<ProcessBlocks> for Consumer {
 }
 
 #[derive(Message)]
-#[rtype(result = "Result<(), Error>")]
+#[rtype(result = "Result<U128, Error>")]
 pub struct Startup;
 
 impl Handler<Startup> for Consumer {
-    type Result = Box<Future<Item = (), Error = Error>>;
+    type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(&mut self, _: Startup, ctx: &mut Self::Context) -> Self::Result {
         let address = ctx.address();
-
-        if self.skip_missed_blocks {
-            println!("Not processing missed blocks.");
-            return Box::new(future::ok(()));
-        }
+        let skip_missed_blocks = self.skip_missed_blocks;
 
         let app_status = AppStatus::find(&self.postgres).from_err();
         let current_block_number = Client::new(self.ethereum_rpc_url.clone())
@@ -95,20 +91,27 @@ impl Handler<Startup> for Consumer {
 
         let process = app_status.join(current_block_number).and_then(
             move |(status, current_block_number)| {
+                if skip_missed_blocks {
+                    println!("Not processing missed blocks.");
+                    return future::Either::A(future::ok(current_block_number));
+                }
+
                 if let Some(block_height) = status.block_height {
                     if block_height == current_block_number {
-                        return future::Either::A(future::ok(()));
+                        return future::Either::A(future::ok(current_block_number));
                     }
+
+                    let from = block_height + U128::from(1);
 
                     println!(
                         "Fetching missed blocks: {} ~ {}",
-                        block_height, current_block_number
+                        from, current_block_number
                     );
 
                     future::Either::B(
                         address
                             .send(ProcessBlocks {
-                                from: block_height,
+                                from,
                                 to: current_block_number,
                             })
                             .from_err()
@@ -121,7 +124,7 @@ impl Handler<Startup> for Consumer {
                             }),
                     )
                 } else {
-                    return future::Either::A(future::ok(()));
+                    return future::Either::A(future::ok(current_block_number));
                 }
             },
         );
@@ -169,12 +172,12 @@ impl Handler<ProcessBlock> for Consumer {
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
-                let block_height_required = block.number.clone().unwrap().0
-                    + payment.eth_confirmations_required.0
-                    - U128::from(1).0;
+                let block_height_required = block.number.clone().unwrap()
+                    + payment.eth_confirmations_required.clone()
+                    - U128::from(1);
 
                 payment_payload.transaction_hash = Some(transaction.hash.clone());
-                payment_payload.eth_block_height_required = Some(U128(block_height_required));
+                payment_payload.eth_block_height_required = Some(block_height_required);
                 payment_payload.set_paid_at();
 
                 // Prepare payout object.

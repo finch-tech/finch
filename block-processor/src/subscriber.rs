@@ -61,10 +61,10 @@ impl Actor for Subscriber {
                     .from_err()
                     .and_then(|res| res.map_err(|e| Error::from(e))),
             ).from_err::<Error>()
-                .and_then(|_, _, ctx: &mut Context<Self>| {
+                .and_then(|current_block_number, _, ctx: &mut Context<Self>| {
                     wrap_future(
                         ctx.address()
-                            .send(Ready)
+                            .send(Ready(current_block_number))
                             .from_err()
                             .and_then(|res| res.map_err(|e| Error::from(e))),
                     )
@@ -81,12 +81,17 @@ impl Actor for Subscriber {
 
 #[derive(Message)]
 #[rtype(result = "Result<(), Error>")]
-pub struct Ready;
+pub struct Ready(pub U128);
 
 impl<'a> Handler<Ready> for Subscriber {
     type Result = Box<Future<Item = (), Error = Error>>;
 
-    fn handle(&mut self, _: Ready, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        Ready(current_block_number): Ready,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        self.previous_block_number = Some(current_block_number);
         self.hb(ctx);
         self.subscribe_new_blocks();
         Box::new(future::ok(()))
@@ -116,14 +121,14 @@ struct PublicationParams {
 #[derive(Debug, Deserialize)]
 struct BlockResponse {
     jsonrpc: String,
-    id: u64,
+    id: U128,
     result: Block,
 }
 
 #[derive(Debug, Deserialize)]
 struct EmptyResponse {
     jsonrpc: String,
-    id: u64,
+    id: U128,
 }
 
 #[derive(Debug, Message)]
@@ -140,7 +145,7 @@ impl Handler<GetBlockByNumber> for Subscriber {
     ) -> Self::Result {
         let message = json!({
             "jsonrpc": "2.0",
-            "id": &block_number.0.low_u64(),
+            "id": format!("{}", block_number),
             "method": "eth_getBlockByNumber",
             "params": (format!("{:#x}", &block_number.0), true),
         }).to_string();
@@ -160,8 +165,14 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
 
                 if let Ok(response) = serde_json::from_str::<BlockResponse>(&txt) {
                     if let Some(ref previous_block_number) = self.previous_block_number {
-                        if previous_block_number.0 + U128::from(1).0
-                            != response.result.number.clone().unwrap().0
+                        if previous_block_number.clone() + U128::from(1)
+                            > response.result.number.clone().unwrap()
+                        {
+                            return;
+                        }
+
+                        if previous_block_number.clone() + U128::from(1)
+                            != response.result.number.clone().unwrap()
                         {
                             self.buffer.insert(
                                 response.result.number.clone().unwrap(),
@@ -169,7 +180,7 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                             );
                             return;
                         }
-                    };
+                    }
 
                     self.previous_block_number = response.result.number.clone();
 
@@ -184,10 +195,13 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                             }),
                     ));
 
+                    let mut remove_from_buffer = Vec::<U128>::new();
                     let mut incremental = 1;
-                    while let Some(buffered) = self.buffer.get(&U128::from(
-                        response.result.number.clone().unwrap().0.low_u64() + incremental,
-                    )) {
+
+                    while let Some(buffered) = self
+                        .buffer
+                        .get(&(response.result.number.clone().unwrap() + U128::from(incremental)))
+                    {
                         self.previous_block_number = buffered.number.clone();
 
                         ctx.spawn(wrap_future(
@@ -200,7 +214,16 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                                     ()
                                 }),
                         ));
+
+                        remove_from_buffer.push(
+                            response.result.number.clone().unwrap() + U128::from(incremental),
+                        );
+
                         incremental += 1;
+                    }
+
+                    for (_, ref x) in remove_from_buffer.iter().enumerate() {
+                        self.buffer.remove(x);
                     }
 
                     return;
