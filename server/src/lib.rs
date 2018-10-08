@@ -17,7 +17,6 @@ extern crate lettre_email;
 extern crate native_tls;
 extern crate num_cpus;
 extern crate openssl;
-extern crate rand;
 extern crate ring;
 extern crate rustc_hex;
 extern crate serde;
