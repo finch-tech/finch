@@ -112,7 +112,7 @@ impl Payouter {
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
-                let value = transaction.value - gas_price * U256::from(21_000);
+                let value = transaction.value - gas_price.clone() * U256::from(21_000);
 
                 let raw_transaction = Transaction {
                     nonce,
