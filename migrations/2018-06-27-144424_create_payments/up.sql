@@ -17,7 +17,5 @@ CREATE TABLE payments
     btc_price NUMERIC,
     eth_confirmations_required NUMERIC NOT NULL,
     eth_block_height_required NUMERIC,
-    transaction_hash VARCHAR,
-    payout_status VARCHAR NOT NULL,
-    payout_transaction_hash VARCHAR
+    transaction_hash VARCHAR
 )

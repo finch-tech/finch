@@ -3,6 +3,7 @@ use std::env;
 
 use actix_web::{Json, Path, State};
 use bigdecimal::BigDecimal;
+use futures::future;
 use futures::future::{err, ok, Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
@@ -57,8 +58,6 @@ pub fn create(
                 eth_confirmations_required: store.eth_confirmations_required.clone().unwrap(),
                 eth_block_height_required: None,
                 transaction_hash: None,
-                payout_status: None,
-                payout_transaction_hash: None,
             };
 
             services::payments::create(params.currencies, payload, &state.postgres).and_then(
@@ -96,36 +95,45 @@ pub fn get_status(
     let ethereum_rpc_url =
         env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
 
-    services::payments::get(id, &state.postgres).and_then(move |payment| {
+    let app_status = AppStatus::find(&state.postgres).from_err();
+    let payment = services::payments::get(id, &state.postgres).and_then(move |payment| {
         validate_client(&payment, &client)
             .into_future()
-            .and_then(move |_| {
-                AppStatus::find(&state.postgres)
-                    .from_err()
-                    .and_then(move |status| {
-                        Client::new(ethereum_rpc_url)
-                            .get_balance(payment.clone().eth_address.unwrap())
-                            .from_err()
-                            .and_then(move |balance| {
-                                let paid = balance.0 > U256::from(0).0;
+            .and_then(move |_| future::ok(payment))
+    });
 
-                                match payment.eth_block_height_required {
-                                    Some(eth_block_height_required) => Ok(Json(json!({
-                                        "payment_detected": paid,
-                                        "status": payment.status,
-                                        "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
-                                        "block_height": format!("{}", status.block_height.unwrap()),
-                                        "eth_block_height_required": format!("{}", eth_block_height_required)
-                                    }))),
-                                    None => Ok(Json(json!({
-                                        "payment_detected": paid,
-                                        "status": payment.status,
-                                        "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
-                                        "block_height": format!("{}", status.block_height.unwrap()),
-                                    }))),
-                                }
-                            })
-                    })
-            })
+    app_status.join(payment).and_then(move |(status, payment)| {
+        if let Some(block_height) = status.block_height {
+            if let Some(eth_address) = payment.eth_address.clone() {
+                return future::Either::B(
+                    Client::new(ethereum_rpc_url)
+                        .get_balance(eth_address)
+                        .from_err()
+                        .and_then(move |balance| {
+                            let detected = balance.0 > U256::from(0).0;
+
+                            match payment.eth_block_height_required {
+                                Some(eth_block_height_required) => Ok(Json(json!({
+                                    "payment_detected": detected,
+                                    "status": payment.status,
+                                    "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
+                                    "block_height": format!("{}", block_height),
+                                    "eth_block_height_required": format!("{}", eth_block_height_required)
+                                }))),
+                                None => Ok(Json(json!({
+                                    "payment_detected": detected,
+                                    "status": payment.status,
+                                    "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
+                                    "block_height": format!("{}", block_height),
+                                }))),
+                            }
+                        }),
+                );
+            } else {
+                return future::Either::A(future::err(Error::CurrencyNotSupported));
+            }
+        } else {
+            return future::Either::A(future::err(Error::InternalServerError));
+        }
     })
 }

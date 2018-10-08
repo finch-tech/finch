@@ -1,16 +1,15 @@
 use actix::prelude::*;
-use actix_web::actix::spawn;
 use futures::future::{ok, Future, IntoFuture};
 
 use errors::Error;
 use ethereum_client::{Client, Transaction};
 
 use core::db::postgres::PgExecutorAddr;
-use core::payment::{Payment, PaymentPayload};
+use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
 use core::transaction::Transaction as _Transaction;
 use hd_keyring::{HdKeyring, Wallet};
-use types::{H256, PayoutStatus, U128, U256};
+use types::{H256, PayoutAction, PayoutStatus, U128, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
@@ -31,53 +30,57 @@ impl Payouter {
 
     pub fn prepare_payout(
         &self,
-        payment: Payment,
+        payout: Payout,
     ) -> impl Future<Item = (Wallet, _Transaction, Store, U256, U128), Error = Error> {
+        let postgres = self.postgres.clone();
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
 
-        let store = payment.store(&self.postgres).from_err();
-        let transaction = payment.transaction(&self.postgres).from_err();
-
+        let store = payout.store(&postgres).from_err();
+        let payment = payout.payment(&postgres).from_err();
         let gas_price = eth_client.get_gas_price().from_err();
-        let nonce = eth_client
-            .get_transaction_count(payment.clone().eth_address.unwrap())
-            .from_err();
 
         store
-            .join(transaction)
-            .join(gas_price)
-            .join(nonce)
-            .and_then(move |(((store, transaction), gas_price), nonce)| {
-                let mut path = store.hd_path.clone();
-                let timestamp_nanos = payment.created_at.timestamp_nanos().to_string();
-                let second = &timestamp_nanos[..10];
-                let nano_second = &timestamp_nanos[10..];
+            .join3(payment, gas_price)
+            .and_then(move |(store, payment, gas_price)| {
+                let transaction = payment.transaction(&postgres).from_err();
+                let nonce = eth_client
+                    .get_transaction_count(payment.clone().eth_address.unwrap())
+                    .from_err();
 
-                path.push_str("/");
-                path.push_str(second);
-                path.push_str("/");
-                path.push_str(nano_second);
+                transaction
+                    .join(nonce)
+                    .and_then(move |(transaction, nonce)| {
+                        let mut path = store.hd_path.clone();
+                        let timestamp_nanos = payment.created_at.timestamp_nanos().to_string();
+                        let second = &timestamp_nanos[..10];
+                        let nano_second = &timestamp_nanos[10..];
 
-                HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0)
-                    .into_future()
-                    .from_err()
-                    .and_then(move |keyring| {
-                        keyring
-                            .get_wallet_by_index(payment.index as u32)
+                        path.push_str("/");
+                        path.push_str(second);
+                        path.push_str("/");
+                        path.push_str(nano_second);
+
+                        HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0)
                             .into_future()
                             .from_err()
-                            .and_then(move |wallet| {
-                                ok((wallet, transaction, store, gas_price, nonce))
+                            .and_then(move |keyring| {
+                                keyring
+                                    .get_wallet_by_index(payment.index as u32)
+                                    .into_future()
+                                    .from_err()
+                                    .and_then(move |wallet| {
+                                        ok((wallet, transaction, store, gas_price, nonce))
+                                    })
                             })
                     })
             })
     }
 
-    pub fn payout(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
+    pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
         let chain_id = self.chain_id.clone();
 
-        self.prepare_payout(payment).and_then(
+        self.prepare_payout(payout).and_then(
             move |(wallet, transaction, store, gas_price, nonce)| {
                 let value = U256(transaction.value.0 - gas_price.0 * U256::from(21_000).0);
 
@@ -103,11 +106,11 @@ impl Payouter {
         )
     }
 
-    pub fn refund(&self, payment: Payment) -> impl Future<Item = H256, Error = Error> {
+    pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
         let chain_id = self.chain_id.clone();
 
-        self.prepare_payout(payment)
+        self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
                 let value = U256(transaction.value.0 - gas_price.0 * U256::from(21_000).0);
 
@@ -138,59 +141,88 @@ impl Actor for Payouter {
 }
 
 #[derive(Message)]
-#[rtype(result = "()")]
-pub struct Payout(pub Payment);
+#[rtype(result = "Result<(), Error>")]
+pub struct ProcessPayout(pub Payout);
 
-impl Handler<Payout> for Payouter {
-    type Result = ();
+impl Handler<ProcessPayout> for Payouter {
+    type Result = Box<Future<Item = (), Error = Error>>;
 
-    fn handle(&mut self, Payout(payment): Payout, _: &mut Self::Context) -> Self::Result {
-        let postgres = self.postgres.clone();
+    fn handle(
+        &mut self,
+        ProcessPayout(payout): ProcessPayout,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let address = ctx.address();
 
-        spawn(
-            self.payout(payment.clone())
-                .map_err(|_| ())
-                .and_then(move |hash| {
-                    println!("Paid out {:?}", hash);
-                    let mut payload = PaymentPayload::from(payment.clone());
-                    payload.payout_transaction_hash = Some(hash);
-                    payload.payout_status = Some(PayoutStatus::PaidOut);
-
-                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|_| {
-                        // TODO: Handle error.
-                        ()
-                    })
-                })
-                .map(|_| ()),
-        );
+        match payout.action {
+            PayoutAction::Payout => Box::new(
+                address
+                    .send(PayOut(payout))
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e))),
+            ),
+            PayoutAction::Refund => Box::new(
+                address
+                    .send(Refund(payout))
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e))),
+            ),
+        }
     }
 }
 
 #[derive(Message)]
-#[rtype(result = "()")]
-pub struct Refund(pub Payment);
+#[rtype(result = "Result<(), Error>")]
+pub struct PayOut(pub Payout);
 
-impl Handler<Refund> for Payouter {
-    type Result = ();
+impl Handler<PayOut> for Payouter {
+    type Result = Box<Future<Item = (), Error = Error>>;
 
-    fn handle(&mut self, Refund(payment): Refund, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, PayOut(payout): PayOut, _: &mut Self::Context) -> Self::Result {
         let postgres = self.postgres.clone();
 
-        spawn(
-            self.refund(payment.clone())
-                .map_err(|_| ())
+        Box::new(
+            self.payout(payout.clone())
+                .from_err()
                 .and_then(move |hash| {
-                    println!("Refunded {:?}", hash);
-                    let mut payload = PaymentPayload::from(payment.clone());
-                    payload.payout_transaction_hash = Some(hash);
-                    payload.payout_status = Some(PayoutStatus::Refunded);
+                    println!("Paid out {:?}", hash);
+                    let mut payload = PayoutPayload::from(payout.clone());
+                    payload.transaction_hash = Some(hash);
+                    payload.status = Some(PayoutStatus::PaidOut);
 
-                    Payment::update_by_id(payment.id, payload, &postgres).map_err(|_| {
-                        // TODO: Handle error.
-                        ()
-                    })
+                    Payout::update_by_id(payout.id, payload, &postgres)
+                        .from_err()
+                        .map(|_| ())
                 })
                 .map(|_| ()),
-        );
+        )
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct Refund(pub Payout);
+
+impl Handler<Refund> for Payouter {
+    type Result = Box<Future<Item = (), Error = Error>>;
+
+    fn handle(&mut self, Refund(payout): Refund, _: &mut Self::Context) -> Self::Result {
+        let postgres = self.postgres.clone();
+
+        Box::new(
+            self.refund(payout.clone())
+                .from_err()
+                .and_then(move |hash| {
+                    println!("Refunded {:?}", hash);
+                    let mut payload = PayoutPayload::from(payout.clone());
+                    payload.transaction_hash = Some(hash);
+                    payload.status = Some(PayoutStatus::Refunded);
+
+                    Payout::update_by_id(payout.id, payload, &postgres)
+                        .from_err()
+                        .map(|_| ())
+                })
+                .map(|_| ()),
+        )
     }
 }

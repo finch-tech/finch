@@ -1,28 +1,68 @@
 use std::time::Duration;
 
+use actix::fut::{self, wrap_future};
 use actix::prelude::*;
-use actix_web::actix::spawn;
-use futures::{future, Future};
+use futures::{future, stream, Future, Stream};
 
 use core::app_status::AppStatus;
 use core::db::postgres::PgExecutorAddr;
-use core::payment::Payment;
-use payouter::{Payout, PayouterAddr, Refund};
-use types::{PaymentStatus, U256};
+use core::payout::Payout;
+use payouter::{PayouterAddr, ProcessPayout};
+use types::U128;
+
+use errors::Error;
 
 pub struct Monitor {
-    pub block_height: Option<U256>,
     pub payouter: PayouterAddr,
     pub postgres: PgExecutorAddr,
+    pub previous_block: Option<U128>,
 }
 
 impl Monitor {
     pub fn new(payouter: PayouterAddr, postgres: PgExecutorAddr) -> Self {
         Monitor {
-            block_height: None,
             payouter,
             postgres,
+            previous_block: None,
         }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct ProcessBlock(U128);
+
+impl Handler<ProcessBlock> for Monitor {
+    type Result = Box<Future<Item = (), Error = Error>>;
+
+    fn handle(
+        &mut self,
+        ProcessBlock(block_number): ProcessBlock,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let postgres = self.postgres.clone();
+        let payouter = self.payouter.clone();
+
+        println!("Payment check before {}", block_number);
+
+        let process_payouts = Payout::find_all_confirmed(block_number.clone(), &postgres)
+            .from_err()
+            .map(move |payouts| stream::iter_ok(payouts))
+            .flatten_stream()
+            .and_then(move |payout| payouter.send(ProcessPayout(payout)).from_err())
+            .for_each(move |res| {
+                match res {
+                    Ok(_) => (),
+                    Err(e) => {
+                        // TODO: Handle errors.
+                        println!("{:?}", e);
+                    }
+                };
+
+                future::ok(())
+            });
+
+        Box::new(process_payouts)
     }
 }
 
@@ -30,60 +70,39 @@ impl Actor for Monitor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
-        ctx.run_interval(Duration::new(10, 0), |monitor, _| {
-            let postgres = monitor.postgres.clone();
-            let payouter = monitor.payouter.clone();
+        ctx.run_interval(Duration::new(10, 0), move |monitor, ctx| {
+            let address = ctx.address();
 
-            spawn(
-                AppStatus::find(&postgres)
-                    .map_err(|_| ())
-                    .and_then(move |status| {
-                        // TODO: Skip already processed blocks.
+            let process_block_fut = wrap_future(AppStatus::find(&monitor.postgres))
+                .from_err::<Error>()
+                .and_then(move |status, m: &mut Monitor, _| {
+                    if let Some(block_height) = status.block_height {
+                        if let Some(ref previous_block) = m.previous_block {
+                            if block_height.clone() == *previous_block {
+                                return fut::Either::A(fut::ok(()));
+                            }
+                        };
 
-                        println!(
-                            "Checking confirmed payments on {}",
-                            status.block_height.clone().unwrap()
+                        return fut::Either::B(
+                            wrap_future(
+                                address.send(ProcessBlock(block_height.clone())).from_err(),
+                            ).and_then(|_, m: &mut Monitor, _| {
+                                m.previous_block = Some(block_height);
+                                fut::ok(())
+                            }),
                         );
-                        Payment::find_all_confirmed(status.block_height.unwrap(), &postgres)
-                            .map_err(|_| ())
-                            .and_then(move |payments| {
-                                for (_, payment) in payments.iter().enumerate() {
-                                    match payment.status {
-                                        PaymentStatus::Paid => {
-                                            match payouter.try_send(Payout((*payment).clone())) {
-                                                Ok(_) => (),
-                                                Err(_) => {
-                                                    // TODO: Handle error.
-                                                }
-                                            };
-                                        }
-                                        PaymentStatus::InsufficientAmount => {
-                                            match payouter.try_send(Refund((*payment).clone())) {
-                                                Ok(_) => (),
-                                                Err(_) => {
-                                                    // TODO: Handle error.
-                                                }
-                                            };
-                                        }
-                                        PaymentStatus::Expired => {
-                                            match payouter.try_send(Refund((*payment).clone())) {
-                                                Ok(_) => (),
-                                                Err(_) => {
-                                                    // TODO: Handle error.
-                                                }
-                                            };
-                                        }
-                                        _ => panic!(
-                                            "Found invalid payment status in payout monitor."
-                                        ),
-                                    }
-                                }
+                    };
 
-                                future::ok(())
-                            })
-                    })
-                    .map(|_| ()),
-            )
+                    fut::Either::A(fut::ok(()))
+                })
+                .map_err(|e, _, _| match e {
+                    Error::ModelError(err) => println!("Model error: {}", err),
+                    Error::MailboxError(err) => println!("Mailbox error: {}", err),
+                    _ => println!(""),
+                })
+                .map(|_, _, _| ());
+
+            ctx.spawn(process_block_fut);
         });
     }
 }

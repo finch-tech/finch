@@ -6,13 +6,13 @@ use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindAllByEthAddress, FindAllConfirmed, FindById, Insert, UpdateById};
+use db::payments::{FindAllByEthAddress, FindById, Insert, UpdateById};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, H256, PaymentStatus, PayoutStatus, U128};
+use types::{H160, H256, PaymentStatus, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
@@ -33,8 +33,6 @@ pub struct PaymentPayload {
     pub eth_confirmations_required: U128,
     pub eth_block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
-    pub payout_status: Option<PayoutStatus>,
-    pub payout_transaction_hash: Option<H256>,
 }
 
 impl PaymentPayload {
@@ -54,7 +52,6 @@ impl PaymentPayload {
 impl From<Payment> for PaymentPayload {
     fn from(payment: Payment) -> Self {
         PaymentPayload {
-            // id: Some(payment.id),
             status: Some(payment.status),
             store_id: payment.store_id,
             created_by: payment.created_by,
@@ -70,8 +67,6 @@ impl From<Payment> for PaymentPayload {
             eth_confirmations_required: payment.eth_confirmations_required,
             eth_block_height_required: payment.eth_block_height_required,
             transaction_hash: payment.transaction_hash,
-            payout_status: Some(payment.payout_status),
-            payout_transaction_hash: payment.payout_transaction_hash,
         }
     }
 }
@@ -96,8 +91,6 @@ pub struct Payment {
     pub eth_confirmations_required: U128,
     pub eth_block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
-    pub payout_status: PayoutStatus,
-    pub payout_transaction_hash: Option<H256>,
 }
 
 impl Payment {
@@ -152,16 +145,6 @@ impl Payment {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn find_all_confirmed(
-        block_height: U128,
-        postgres: &PgExecutorAddr,
-    ) -> impl Future<Item = Vec<Payment>, Error = Error> {
-        (*postgres)
-            .send(FindAllConfirmed(block_height))
-            .from_err()
-            .and_then(|res| res.map_err(|e| Error::from(e)))
-    }
-
     pub fn find_all_by_eth_address(
         addresses: Vec<H160>,
         postgres: &PgExecutorAddr,
@@ -193,7 +176,6 @@ impl Payment {
         json!({
             "id": self.id,
             "status": self.status,
-            "payout_status": self.payout_status,
             "store_id": self.store_id,
             "price": self.price,
             "eth": eth,

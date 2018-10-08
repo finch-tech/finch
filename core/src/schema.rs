@@ -35,8 +35,20 @@ table! {
         eth_confirmations_required -> Numeric,
         eth_block_height_required -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
-        payout_status -> Varchar,
-        payout_transaction_hash -> Nullable<Varchar>,
+    }
+}
+
+table! {
+    payouts (id) {
+        id -> Uuid,
+        status -> Varchar,
+        action -> Varchar,
+        store_id -> Uuid,
+        payment_id -> Uuid,
+        typ -> Varchar,
+        eth_block_height_required -> Numeric,
+        transaction_hash -> Nullable<Varchar>,
+        created_at -> Timestamptz,
     }
 }
 
@@ -96,6 +108,7 @@ allow_tables_to_appear_in_same_query!(
     app_statuses,
     client_tokens,
     payments,
+    payouts,
     stores,
     transactions,
     users,

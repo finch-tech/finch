@@ -56,6 +56,8 @@ pub enum Error {
     MailerError(#[cause] MailerError),
     #[fail(display = "Bad request")]
     BadRequest,
+    #[fail(display = "Internal server error")]
+    InternalServerError,
 }
 
 impl error::ResponseError for Error {

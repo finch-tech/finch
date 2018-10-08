@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use actix::fut::wrap_future;
 use actix::prelude::*;
-use actix_web::actix::spawn;
 use actix_web::ws::{ClientWriter, Message, ProtocolError};
-use futures::Future;
+use futures::{future, Future};
 use serde_json;
 
-use consumer::{ConsumerAddr, NewBlock, Ready, Startup};
+use consumer::{ConsumerAddr, ProcessBlock, Startup};
 use core::block::{Block, BlockHeader};
 use types::U128;
+
+use errors::Error;
 
 pub struct Subscriber {
     writer: ClientWriter,
@@ -51,20 +53,43 @@ impl Actor for Subscriber {
 
     fn started(&mut self, ctx: &mut Context<Self>) {
         println!("Started subscriber");
-        spawn(
-            self.consumer
-                .send(Startup(ctx.address().recipient()))
-                .map_err(|_| ()),
-        )
+
+        ctx.spawn(
+            wrap_future(
+                self.consumer
+                    .send(Startup)
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e))),
+            ).from_err::<Error>()
+                .and_then(|_, _, ctx: &mut Context<Self>| {
+                    wrap_future(
+                        ctx.address()
+                            .send(Ready)
+                            .from_err()
+                            .and_then(|res| res.map_err(|e| Error::from(e))),
+                    )
+                })
+                .map_err(|e, _, _| match e {
+                    Error::ModelError(err) => println!("Model error: {}", err),
+                    Error::MailboxError(err) => println!("Mailbox error: {}", err),
+                    _ => println!(""),
+                })
+                .map(|_, _, _| ()),
+        );
     }
 }
 
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct Ready;
+
 impl<'a> Handler<Ready> for Subscriber {
-    type Result = ();
+    type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, _: Ready, ctx: &mut Self::Context) -> Self::Result {
         self.hb(ctx);
         self.subscribe_new_blocks();
+        Box::new(future::ok(()))
     }
 }
 
@@ -148,14 +173,16 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
 
                     self.previous_block_number = response.result.number.clone();
 
-                    spawn(
+                    ctx.spawn(wrap_future(
                         self.consumer
-                            .send(NewBlock(response.result.clone()))
+                            .send(ProcessBlock(response.result.clone()))
+                            .from_err::<Error>()
+                            .and_then(|res| res.map_err(|e| Error::from(e)))
                             .map_err(|e| {
                                 println!("failed to send {:?}", e);
                                 ()
                             }),
-                    );
+                    ));
 
                     let mut incremental = 1;
                     while let Some(buffered) = self.buffer.get(&U128::from(
@@ -163,14 +190,16 @@ impl StreamHandler<Message, ProtocolError> for Subscriber {
                     )) {
                         self.previous_block_number = buffered.number.clone();
 
-                        spawn(
+                        ctx.spawn(wrap_future(
                             self.consumer
-                                .send(NewBlock((*buffered).clone()))
+                                .send(ProcessBlock((*buffered).clone()))
+                                .from_err::<Error>()
+                                .and_then(|res| res.map_err(|e| Error::from(e)))
                                 .map_err(|e| {
                                     println!("failed to send {:?}", e);
                                     ()
                                 }),
-                        );
+                        ));
                         incremental += 1;
                     }
 
