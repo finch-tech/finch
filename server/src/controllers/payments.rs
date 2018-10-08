@@ -110,7 +110,7 @@ pub fn get_status(
                         .get_balance(eth_address)
                         .from_err()
                         .and_then(move |balance| {
-                            let detected = balance.0 > U256::from(0).0;
+                            let detected = balance > U256::from(0);
 
                             match payment.eth_block_height_required {
                                 Some(eth_block_height_required) => Ok(Json(json!({

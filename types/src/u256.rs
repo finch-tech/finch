@@ -1,6 +1,7 @@
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
-use std::ops::Deref;
+use std::ops::{Add, Deref, Div, Mul, Sub};
 use std::str::FromStr;
 
 use bigdecimal::BigDecimal;
@@ -66,5 +67,58 @@ impl Deref for U256 {
     type Target = _U256;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Add for U256 {
+    type Output = U256;
+
+    fn add(self, other: U256) -> U256 {
+        U256(self.0 + other.0)
+    }
+}
+
+impl Sub for U256 {
+    type Output = U256;
+
+    fn sub(self, other: U256) -> U256 {
+        U256(self.0 - other.0)
+    }
+}
+
+impl Mul for U256 {
+    type Output = U256;
+
+    fn mul(self, other: U256) -> Self {
+        U256(self.0 * other.0)
+    }
+}
+
+impl Div for U256 {
+    type Output = U256;
+
+    fn div(self, other: U256) -> Self {
+        U256(self.0 / other.0)
+    }
+}
+
+impl PartialOrd for U256 {
+    fn partial_cmp(&self, other: &U256) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+
+    fn lt(&self, other: &U256) -> bool {
+        self.0.lt(&other.0)
+    }
+    fn le(&self, other: &U256) -> bool {
+        self.0.le(&other.0)
+    }
+
+    fn gt(&self, other: &U256) -> bool {
+        self.0.gt(&other.0)
+    }
+
+    fn ge(&self, other: &U256) -> bool {
+        self.0.ge(&other.0)
     }
 }

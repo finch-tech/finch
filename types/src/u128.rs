@@ -1,6 +1,7 @@
+use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
-use std::ops::Deref;
+use std::ops::{Add, Deref, Div, Mul, Sub};
 use std::str::FromStr;
 
 use bigdecimal::BigDecimal;
@@ -69,6 +70,59 @@ impl Deref for U128 {
     type Target = _U128;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Add for U128 {
+    type Output = U128;
+
+    fn add(self, other: U128) -> U128 {
+        U128(self.0 + other.0)
+    }
+}
+
+impl Sub for U128 {
+    type Output = U128;
+
+    fn sub(self, other: U128) -> U128 {
+        U128(self.0 - other.0)
+    }
+}
+
+impl Mul for U128 {
+    type Output = U128;
+
+    fn mul(self, other: U128) -> Self {
+        U128(self.0 * other.0)
+    }
+}
+
+impl Div for U128 {
+    type Output = U128;
+
+    fn div(self, other: U128) -> Self {
+        U128(self.0 / other.0)
+    }
+}
+
+impl PartialOrd for U128 {
+    fn partial_cmp(&self, other: &U128) -> Option<Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+
+    fn lt(&self, other: &U128) -> bool {
+        self.0.lt(&other.0)
+    }
+    fn le(&self, other: &U128) -> bool {
+        self.0.le(&other.0)
+    }
+
+    fn gt(&self, other: &U128) -> bool {
+        self.0.gt(&other.0)
+    }
+
+    fn ge(&self, other: &U128) -> bool {
+        self.0.ge(&other.0)
     }
 }
 

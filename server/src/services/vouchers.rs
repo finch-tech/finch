@@ -30,8 +30,7 @@ pub fn create(
                     return err(Error::PaymentNotConfirmed);
                 }
 
-                if status.block_height.unwrap().0
-                    < payment.eth_block_height_required.clone().unwrap().0
+                if status.block_height.unwrap() < payment.eth_block_height_required.clone().unwrap()
                 {
                     return err(Error::PaymentNotConfirmed);
                 }
