@@ -1,6 +1,8 @@
 mod errors;
 pub use self::errors::Error;
 
+use std::time::Duration;
+
 use actix::prelude::*;
 use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre::smtp::response::Response;
@@ -33,7 +35,8 @@ pub fn init_mailer(
     ).expect("Failed to create transport")
         .authentication_mechanism(Mechanism::Login)
         .credentials(Credentials::new(smtp_user.clone(), smtp_pass.clone()))
-        .connection_reuse(ConnectionReuseParameters::ReuseUnlimited)
+        .connection_reuse(ConnectionReuseParameters::NoReuse)
+        .timeout(Some(Duration::new(15, 0)))
         .build()
 }
 
