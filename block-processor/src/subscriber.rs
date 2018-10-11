@@ -39,6 +39,7 @@ impl Subscriber {
 
     pub fn subscribe_new_blocks(&mut self) {
         let message = json!({
+            "jsonrpc":"2.0",
             "id": 1,
             "method": "eth_subscribe",
             "params": ["newHeads"]
