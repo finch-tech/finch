@@ -160,17 +160,21 @@ impl Payment {
         let mut btc = None;
 
         if let Some(ref address) = self.eth_address {
-            eth = Some(json!({
-                "address": address,
-                "price": format!("{}", self.eth_price.clone().unwrap())
-            }));
+            if let Some(ref price) = self.eth_price {
+                eth = Some(json!({
+                    "address": address,
+                    "price": format!("{}", price)
+                }));
+            }
         }
 
         if let Some(ref address) = self.btc_address {
-            btc = Some(json!({
-                "address": address,
-                "price": format!("{}", self.btc_price.clone().unwrap())
-            }));
+            if let Some(ref price) = self.btc_price {
+                btc = Some(json!({
+                    "address": address,
+                    "price": format!("{}", price)
+                }));
+            }
         }
 
         json!({
