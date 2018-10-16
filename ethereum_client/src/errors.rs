@@ -7,6 +7,8 @@ use serde_json::Error as SerdeError;
 pub enum Error {
     #[fail(display = "Response error")]
     ResponseError,
+    #[fail(display = "Empty response error")]
+    EmptyResponseError,
     #[fail(display = "{}", _0)]
     SerdeError(#[cause] SerdeError),
     #[fail(display = "{}", _0)]

@@ -11,6 +11,7 @@ use SignedTransaction;
 use core::block::Block;
 use types::{H160, H256, U128, U256};
 
+#[derive(Clone)]
 pub struct Client {
     url: String,
 }
@@ -37,9 +38,7 @@ impl Client {
             resp.body().from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
-                    Err(e) => {
-                        return err(Error::from(e));
-                    }
+                    Err(e) => return err(Error::from(e)),
                 };
 
                 match body.get("result") {
@@ -48,7 +47,7 @@ impl Client {
                             i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
                         ok(U256::from_dec_str(&format!("{}", decimal)).unwrap())
                     }
-                    None => err(Error::ResponseError),
+                    None => err(Error::EmptyResponseError),
                 }
             })
         }))
@@ -71,9 +70,7 @@ impl Client {
             resp.body().from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
-                    Err(e) => {
-                        return err(Error::from(e));
-                    }
+                    Err(e) => return err(Error::from(e)),
                 };
 
                 match body.get("result") {
@@ -82,7 +79,7 @@ impl Client {
                             i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
                         ok(U128::from_dec_str(&format!("{}", decimal)).unwrap())
                     }
-                    None => err(Error::ResponseError),
+                    None => err(Error::EmptyResponseError),
                 }
             })
         }))
@@ -109,17 +106,15 @@ impl Client {
             resp.body().limit(4194304).from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
-                    Err(e) => {
-                        return err(Error::from(e));
-                    }
+                    Err(e) => return err(Error::from(e)),
                 };
 
                 match body.get("result") {
                     Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
                         Ok(block) => ok(block),
-                        Err(_) => return err(Error::ResponseError),
+                        Err(_) => return err(Error::EmptyResponseError),
                     },
-                    None => return err(Error::ResponseError),
+                    None => return err(Error::EmptyResponseError),
                 }
             })
         }))
@@ -153,7 +148,7 @@ impl Client {
                             i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
                         ok(U256::from_dec_str(&format!("{}", decimal)).unwrap())
                     }
-                    None => err(Error::ResponseError),
+                    None => err(Error::EmptyResponseError),
                 }
             })
         }))
@@ -176,9 +171,7 @@ impl Client {
             resp.body().from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
-                    Err(e) => {
-                        return err(Error::from(e));
-                    }
+                    Err(e) => return err(Error::from(e)),
                 };
 
                 match body.get("result") {
@@ -187,7 +180,7 @@ impl Client {
                             i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
                         ok(U128::from_dec_str(&format!("{}", decimal)).unwrap())
                     }
-                    None => err(Error::ResponseError),
+                    None => err(Error::EmptyResponseError),
                 }
             })
         }))
@@ -218,7 +211,7 @@ impl Client {
 
                 match body.get("result") {
                     Some(result) => ok(H256::from_str(&result.as_str().unwrap()).unwrap()),
-                    None => err(Error::ResponseError),
+                    None => err(Error::EmptyResponseError),
                 }
             })
         }))

@@ -6,10 +6,8 @@ extern crate chrono;
 #[macro_use]
 extern crate failure;
 extern crate futures;
+extern crate futures_timer;
 extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
 extern crate serde_json;
 extern crate tokio;
 
@@ -17,8 +15,8 @@ extern crate core;
 extern crate ethereum_client;
 extern crate types;
 
-mod consumer;
 mod errors;
-mod subscriber;
+mod poller;
+mod processor;
 
 pub mod service;

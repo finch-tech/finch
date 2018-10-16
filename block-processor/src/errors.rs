@@ -1,3 +1,5 @@
+use std::io::Error as IoError;
+
 use actix::MailboxError;
 use core::ModelError;
 
@@ -11,6 +13,8 @@ pub enum Error {
     MailboxError(#[cause] MailboxError),
     #[fail(display = "{}", _0)]
     EthereumClientError(#[cause] EthereumClientError),
+    #[fail(display = "{}", _0)]
+    IoError(#[cause] IoError),
 }
 
 impl From<ModelError> for Error {
@@ -28,5 +32,11 @@ impl From<MailboxError> for Error {
 impl From<EthereumClientError> for Error {
     fn from(e: EthereumClientError) -> Error {
         Error::EthereumClientError(e)
+    }
+}
+
+impl From<IoError> for Error {
+    fn from(e: IoError) -> Error {
+        Error::IoError(e)
     }
 }

@@ -1,41 +1,27 @@
 use actix::prelude::*;
-use actix_web::actix::spawn;
-use actix_web::ws::Client;
-use futures::Future;
 
-use consumer::Consumer;
 use core::db::postgres;
-use subscriber::Subscriber;
+use ethereum_client::Client as EthClient;
+use poller::Poller;
+use processor::Processor;
 
-pub fn run(
-    postgres_url: String,
-    ethereum_ws_url: String,
-    ethereum_rpc_url: String,
-    skip_missed_blocks: bool,
-) {
+pub fn run(postgres_url: String, ethereum_rpc_url: String, skip_missed_blocks: bool) {
     System::run(move || {
         let pg_pool = postgres::init_pool(&postgres_url);
         let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
-        let consumer_address = Arbiter::start(move |_| Consumer {
-            postgres: pg_addr.clone(),
-            ethereum_rpc_url,
-            skip_missed_blocks,
+
+        let pg_processor = pg_addr.clone();
+        let processor_address = Arbiter::start(move |_| Processor {
+            postgres: pg_processor,
         });
 
-        spawn(
-            Client::new(&ethereum_ws_url)
-                .max_frame_size(262_144)
-                .connect()
-                .map_err(|e| {
-                    println!("{:?}", e);
-                    ()
-                })
-                .map(move |(reader, writer)| {
-                    let _addr: Addr<_> = Subscriber::create(move |ctx| {
-                        Subscriber::add_stream(reader, ctx);
-                        Subscriber::new(writer, consumer_address)
-                    });
-                }),
-        );
+        Arbiter::start(move |_| {
+            Poller::new(
+                processor_address.clone(),
+                pg_addr.clone(),
+                EthClient::new(ethereum_rpc_url.clone()),
+                skip_missed_blocks,
+            )
+        });
     });
 }
