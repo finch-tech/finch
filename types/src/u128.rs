@@ -14,7 +14,7 @@ use serde::{
     de::{self, Deserializer}, Deserialize,
 };
 
-#[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone, Copy)]
 #[sql_type = "Numeric"]
 pub struct U128(pub _U128);
 

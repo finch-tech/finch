@@ -11,7 +11,7 @@ use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Numeric;
 use ethereum_types::U256 as _U256;
 
-#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Copy)]
 #[sql_type = "Numeric"]
 pub struct U256(pub _U256);
 
