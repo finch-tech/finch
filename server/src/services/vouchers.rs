@@ -1,3 +1,4 @@
+use chrono::{prelude::*, Duration};
 use futures::future::{err, ok, Future, IntoFuture};
 
 use core::app_status::AppStatus;
@@ -41,7 +42,8 @@ pub fn create(
                 }
             })
             .and_then(move |(payment, transaction, store)| {
-                Voucher::new(payment, transaction)
+                // Voucher JWT expires in 1 minute.
+                Voucher::new(payment, transaction, Utc::now() + Duration::minutes(1))
                     .encode(&store.private_key)
                     .into_future()
                     .from_err()

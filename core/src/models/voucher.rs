@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use jwt;
 use serde_json::Value;
 use uuid::Uuid;
@@ -14,10 +15,11 @@ pub struct Voucher {
     pub value: String,
     pub paid_by: H160,
     pub store_id: Uuid,
+    pub exp: u64,
 }
 
 impl Voucher {
-    pub fn new(payment: Payment, transaction: Transaction) -> Self {
+    pub fn new(payment: Payment, transaction: Transaction, exp: DateTime<Utc>) -> Self {
         Voucher {
             tx_hash: transaction.hash,
             uuid: Uuid::new_v4(),
@@ -26,7 +28,7 @@ impl Voucher {
             store_id: payment.store_id,
             // iss: String::from(""),
             // iat: Utc::now().timestamp(),
-            // exp: (Utc::now() + Duration::minutes(1)).timestamp(),
+            exp: exp.timestamp() as u64,
         }
     }
 
