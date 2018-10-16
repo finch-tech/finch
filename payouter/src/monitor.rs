@@ -28,6 +28,48 @@ impl Monitor {
     }
 }
 
+impl Actor for Monitor {
+    type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Context<Self>) {
+        ctx.run_interval(Duration::new(10, 0), move |monitor, ctx| {
+            let address = ctx.address();
+
+            let monitor_process = wrap_future(AppStatus::find(&monitor.postgres))
+                .from_err::<Error>()
+                .and_then(move |status, m: &mut Monitor, _| {
+                    if let Some(block_height) = status.block_height {
+                        if let Some(ref previous_block) = m.previous_block {
+                            if block_height.clone() == *previous_block {
+                                return fut::Either::A(fut::ok(()));
+                            }
+                        };
+
+                        return fut::Either::B(
+                            wrap_future(
+                                address
+                                    .send(ProcessBlock(block_height.clone()))
+                                    .from_err()
+                                    .and_then(|res| res.map_err(|e| Error::from(e))),
+                            ).and_then(move |_, m: &mut Monitor, _| {
+                                m.previous_block = Some(block_height);
+                                fut::ok(())
+                            }),
+                        );
+                    };
+
+                    fut::Either::A(fut::ok(()))
+                })
+                .map_err(|e, _, _| match e {
+                    _ => println!("Monitor error: {:?}", e),
+                })
+                .map(|_, _, _| ());
+
+            ctx.spawn(monitor_process);
+        });
+    }
+}
+
 #[derive(Message)]
 #[rtype(result = "Result<(), Error>")]
 pub struct ProcessBlock(U128);
@@ -49,60 +91,14 @@ impl Handler<ProcessBlock> for Monitor {
             .from_err()
             .map(move |payouts| stream::iter_ok(payouts))
             .flatten_stream()
-            .and_then(move |payout| payouter.send(ProcessPayout(payout)).from_err())
-            .for_each(move |res| {
-                match res {
-                    Ok(_) => (),
-                    Err(e) => {
-                        // TODO: Handle errors.
-                        println!("{:?}", e);
-                    }
-                };
-
-                future::ok(())
-            });
+            .and_then(move |payout| {
+                payouter
+                    .send(ProcessPayout(payout))
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e)))
+            })
+            .for_each(move |_| future::ok(()));
 
         Box::new(process_payouts)
-    }
-}
-
-impl Actor for Monitor {
-    type Context = Context<Self>;
-
-    fn started(&mut self, ctx: &mut Context<Self>) {
-        ctx.run_interval(Duration::new(10, 0), move |monitor, ctx| {
-            let address = ctx.address();
-
-            let process_block_fut = wrap_future(AppStatus::find(&monitor.postgres))
-                .from_err::<Error>()
-                .and_then(move |status, m: &mut Monitor, _| {
-                    if let Some(block_height) = status.block_height {
-                        if let Some(ref previous_block) = m.previous_block {
-                            if block_height.clone() == *previous_block {
-                                return fut::Either::A(fut::ok(()));
-                            }
-                        };
-
-                        return fut::Either::B(
-                            wrap_future(
-                                address.send(ProcessBlock(block_height.clone())).from_err(),
-                            ).and_then(|_, m: &mut Monitor, _| {
-                                m.previous_block = Some(block_height);
-                                fut::ok(())
-                            }),
-                        );
-                    };
-
-                    fut::Either::A(fut::ok(()))
-                })
-                .map_err(|e, _, _| match e {
-                    Error::ModelError(err) => println!("Model error: {}", err),
-                    Error::MailboxError(err) => println!("Mailbox error: {}", err),
-                    _ => println!(""),
-                })
-                .map(|_, _, _| ());
-
-            ctx.spawn(process_block_fut);
-        });
     }
 }
