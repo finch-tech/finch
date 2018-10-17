@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use actix::fut::wrap_future;
 use actix::prelude::*;
+use actix_web::client::SendRequestError;
+use actix_web::error::PayloadError;
 use futures::{future, stream, Future, Stream};
 use futures_timer::Delay;
 
@@ -160,8 +162,21 @@ impl<'a> Handler<Poll> for Poller {
             .or_else(move |e| match e {
                 Error::EthereumClientError(e) => match e {
                     EthereumClientError::EmptyResponseError => future::ok(block_number.clone()),
+                    EthereumClientError::SendRequestError(e) => match e {
+                        SendRequestError::Timeout => future::ok(block_number.clone()),
+                        _ => future::err(Error::EthereumClientError(
+                            EthereumClientError::SendRequestError(e),
+                        )),
+                    },
+                    EthereumClientError::PayloadError(e) => match e {
+                        PayloadError::Io(_) => future::ok(block_number.clone()),
+                        _ => future::err(Error::EthereumClientError(
+                            EthereumClientError::PayloadError(e),
+                        )),
+                    },
                     _ => future::err(Error::from(e)),
                 },
+
                 Error::ModelError(e) => future::err(Error::from(e)),
                 Error::MailboxError(e) => future::err(Error::from(e)),
                 Error::IoError(e) => future::err(Error::from(e)),
