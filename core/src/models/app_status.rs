@@ -10,14 +10,14 @@ use types::U128;
 #[table_name = "app_statuses"]
 pub struct AppStatusPayload {
     pub id: i16,
-    pub block_height: Option<U128>,
+    pub eth_block_height: Option<U128>,
 }
 
 #[derive(Identifiable, Queryable, Serialize)]
 #[table_name = "app_statuses"]
 pub struct AppStatus {
     pub id: i16,
-    pub block_height: Option<U128>,
+    pub eth_block_height: Option<U128>,
 }
 
 impl AppStatus {

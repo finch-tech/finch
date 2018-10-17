@@ -90,7 +90,7 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
                         return future::Either::A(future::ok(current_block_number));
                     }
 
-                    if let Some(block_height) = status.block_height {
+                    if let Some(block_height) = status.eth_block_height {
                         if block_height == current_block_number {
                             return future::Either::A(future::ok(block_height));
                         }

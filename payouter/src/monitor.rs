@@ -38,7 +38,7 @@ impl Actor for Monitor {
             let monitor_process = wrap_future(AppStatus::find(&monitor.postgres))
                 .from_err::<Error>()
                 .and_then(move |status, m: &mut Monitor, _| {
-                    if let Some(block_height) = status.block_height {
+                    if let Some(block_height) = status.eth_block_height {
                         if let Some(ref previous_block) = m.previous_block {
                             if block_height.clone() == *previous_block {
                                 return fut::Either::A(fut::ok(()));

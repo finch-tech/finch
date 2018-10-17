@@ -1,7 +1,7 @@
 table! {
     app_statuses (id) {
         id -> Int2,
-        block_height -> Nullable<Numeric>,
+        eth_block_height -> Nullable<Numeric>,
     }
 }
 

@@ -103,7 +103,7 @@ pub fn get_status(
     });
 
     app_status.join(payment).and_then(move |(status, payment)| {
-        if let Some(block_height) = status.block_height {
+        if let Some(block_height) = status.eth_block_height {
             if let Some(eth_address) = payment.eth_address.clone() {
                 return future::Either::B(
                     Client::new(ethereum_rpc_url)

@@ -23,7 +23,7 @@ pub fn create(
             .join(store)
             .join(status)
             .and_then(move |((transaction, store), status)| {
-                if let None = status.block_height {
+                if let None = status.eth_block_height {
                     return err(Error::PaymentNotConfirmed);
                 }
 
@@ -31,7 +31,8 @@ pub fn create(
                     return err(Error::PaymentNotConfirmed);
                 }
 
-                if status.block_height.unwrap() < payment.eth_block_height_required.clone().unwrap()
+                if status.eth_block_height.unwrap()
+                    < payment.eth_block_height_required.clone().unwrap()
                 {
                     return err(Error::PaymentNotConfirmed);
                 }

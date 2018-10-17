@@ -125,7 +125,7 @@ impl Handler<ProcessBlock> for Processor {
             .and_then(move |_| {
                 let payload = AppStatusPayload {
                     id: 1,
-                    block_height: block_number,
+                    eth_block_height: block_number,
                 };
 
                 AppStatus::update(payload, &_postgres).from_err()
