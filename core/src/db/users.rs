@@ -166,9 +166,10 @@ impl Handler<Activate> for PgExecutor {
                     .and(verification_token.eq(token))
                     .and(verification_token_expires_at.gt(Utc::now())),
             ),
-        ).set(&payload)
-            .get_result(pg_conn)
-            .map_err(|e| Error::from(e))
+        )
+        .set(&payload)
+        .get_result(pg_conn)
+        .map_err(|e| Error::from(e))
     }
 }
 
@@ -215,7 +216,8 @@ impl Handler<DeleteExpired> for PgExecutor {
                     .and(is_verified.ne(true))
                     .and(verification_token_expires_at.lt(Utc::now())),
             ),
-        ).execute(pg_conn)
-            .map_err(|e| Error::from(e))
+        )
+        .execute(pg_conn)
+        .map_err(|e| Error::from(e))
     }
 }

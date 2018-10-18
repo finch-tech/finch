@@ -176,7 +176,8 @@ impl FromRequest<AppState> for ClientToken {
                 token,
                 origin_header_parts[1].trim_matches('/').to_string(),
                 &state.postgres,
-            ).from_err(),
+            )
+            .from_err(),
         )
     }
 }

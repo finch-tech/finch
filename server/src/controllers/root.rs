@@ -7,5 +7,6 @@ pub fn index(_: (HttpRequest<AppState>)) -> FutureResponse<HttpResponse> {
     ok(HttpResponse::Ok().json(json!({
         "name": "Payment Gateway Server",
         "version": "0.0.1"
-    }))).responder()
+    })))
+    .responder()
 }

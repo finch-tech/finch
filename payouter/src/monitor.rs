@@ -51,7 +51,8 @@ impl Actor for Monitor {
                                     .send(ProcessBlock(block_height.clone()))
                                     .from_err()
                                     .and_then(|res| res.map_err(|e| Error::from(e))),
-                            ).and_then(move |_, m: &mut Monitor, _| {
+                            )
+                            .and_then(move |_, m: &mut Monitor, _| {
                                 m.previous_block = Some(block_height);
                                 fut::ok(())
                             }),

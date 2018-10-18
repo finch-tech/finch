@@ -109,7 +109,8 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
                                 } else {
                                     None
                                 }
-                            }).for_each(move |block_number| {
+                            })
+                            .for_each(move |block_number| {
                                 let processor = processor.clone();
 
                                 eth_client
@@ -122,12 +123,12 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
                                             .and_then(|res| res.map_err(|e| Error::from(e)))
                                     })
                             })
-                                .and_then(move |_| {
-                                    address
-                                        .send(ProcessMissedBlocks)
-                                        .from_err()
-                                        .and_then(|res| res.map_err(|e| Error::from(e)))
-                                }),
+                            .and_then(move |_| {
+                                address
+                                    .send(ProcessMissedBlocks)
+                                    .from_err()
+                                    .and_then(|res| res.map_err(|e| Error::from(e)))
+                            }),
                         )
                     } else {
                         return future::Either::A(future::ok(current_block_number));

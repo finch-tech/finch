@@ -1,6 +1,6 @@
+use Transaction;
 use H160;
 use H256;
-use Transaction;
 use U256;
 
 #[derive(Debug, Serialize, Deserialize)]

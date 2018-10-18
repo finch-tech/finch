@@ -76,7 +76,8 @@ impl Api {
                     Some(rate) => ok(BigDecimal::from_str(&format!(
                         "{}",
                         rate.as_f64().to_owned().unwrap()
-                    )).unwrap()),
+                    ))
+                    .unwrap()),
                     None => err(ApiClientError::ResponseError),
                 }
             })

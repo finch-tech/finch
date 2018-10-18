@@ -17,8 +17,8 @@ pub struct U256(pub _U256);
 
 impl U256 {
     pub fn from_dec_str(value: &str) -> Result<U256, String> {
-        let u =
-            _U256::from_dec_str(value).map_err(|_| String::from("Failed to convert str to U256"))?;
+        let u = _U256::from_dec_str(value)
+            .map_err(|_| String::from("Failed to convert str to U256"))?;
         Ok(U256(u))
     }
 }

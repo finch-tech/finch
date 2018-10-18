@@ -8,7 +8,7 @@ use db::stores::{Delete, FindById, FindByOwner, Insert, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
-use types::{Currency, H160, PrivateKey, PublicKey, U128};
+use types::{Currency, PrivateKey, PublicKey, H160, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "stores"]

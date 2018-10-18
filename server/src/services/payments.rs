@@ -38,7 +38,8 @@ pub fn create(
                     let currency_api = CurrencyApi::from_str(
                         &env::var("CURRENCY_API")
                             .expect("CURRENCY_API environment variable must be set."),
-                    ).unwrap();
+                    )
+                    .unwrap();
 
                     let currency_api_key = env::var("CURRENCY_API_KEY")
                         .expect("CURRENCY_API_KEY environment variable must be set.");

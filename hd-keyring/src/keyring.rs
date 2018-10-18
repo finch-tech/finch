@@ -90,7 +90,8 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
-        ).unwrap();
+        )
+        .unwrap();
 
         for (i, w) in keyring.wallets.into_iter().enumerate() {
             assert_eq!(addresses[i], w.get_eth_address());
@@ -105,7 +106,8 @@ mod tests {
             "m/44'/0'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
-        ).unwrap();
+        )
+        .unwrap();
 
         for (i, w) in keyring.wallets.into_iter().enumerate() {
             assert_eq!(addresses[i], w.get_btc_address());
@@ -121,7 +123,8 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let wallet = keyring.get_wallet_by_index(index).unwrap();
 

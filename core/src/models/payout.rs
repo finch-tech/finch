@@ -10,7 +10,7 @@ use models::payment::Payment;
 use models::store::Store;
 use models::Error;
 use schema::payouts;
-use types::{Currency, H256, PayoutAction, PayoutStatus, U128};
+use types::{Currency, PayoutAction, PayoutStatus, H256, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payouts"]

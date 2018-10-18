@@ -117,8 +117,9 @@ pub fn authenticate(
                         &salt,
                         password.as_bytes(),
                         &password_hash,
-                    ).map_err(|_| Error::IncorrectPassword)
-                        .into_future()
+                    )
+                    .map_err(|_| Error::IncorrectPassword)
+                    .into_future()
                 })
                 .and_then(move |_| {
                     let expires_at = Utc::now() + Duration::days(1);

@@ -59,7 +59,8 @@ pub fn authentication(
         params.password,
         &state.postgres,
         state.jwt_private.clone(),
-    ).then(|res| {
+    )
+    .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
     })
 }
@@ -111,7 +112,8 @@ pub fn change_password(
         params.password,
         &state.postgres,
         state.jwt_private.clone(),
-    ).then(|res| {
+    )
+    .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
     })
 }

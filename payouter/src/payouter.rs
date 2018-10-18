@@ -9,7 +9,7 @@ use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
 use core::transaction::Transaction as _Transaction;
 use hd_keyring::{HdKeyring, Wallet};
-use types::{H256, PayoutAction, PayoutStatus, U128, U256};
+use types::{PayoutAction, PayoutStatus, H256, U128, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 

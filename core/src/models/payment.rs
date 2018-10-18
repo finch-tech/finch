@@ -12,7 +12,7 @@ use models::store::Store;
 use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{H160, H256, PaymentStatus, U128};
+use types::{PaymentStatus, H160, H256, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]

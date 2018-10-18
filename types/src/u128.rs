@@ -11,7 +11,8 @@ use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Numeric;
 use ethereum_types::U128 as _U128;
 use serde::{
-    de::{self, Deserializer}, Deserialize,
+    de::{self, Deserializer},
+    Deserialize,
 };
 
 #[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone, Copy)]
@@ -20,8 +21,8 @@ pub struct U128(pub _U128);
 
 impl U128 {
     pub fn from_dec_str(value: &str) -> Result<U128, String> {
-        let u =
-            _U128::from_dec_str(value).map_err(|_| String::from("Failed to convert str to U128"))?;
+        let u = _U128::from_dec_str(value)
+            .map_err(|_| String::from("Failed to convert str to U128"))?;
         Ok(U128(u))
     }
 

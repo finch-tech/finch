@@ -32,12 +32,13 @@ pub fn init_mailer(
     SmtpTransportBuilder::new(
         (&smtp_host[..], smtp_port),
         ClientSecurity::Required(tls_parameters),
-    ).expect("Failed to create transport")
-        .authentication_mechanism(Mechanism::Login)
-        .credentials(Credentials::new(smtp_user.clone(), smtp_pass.clone()))
-        .connection_reuse(ConnectionReuseParameters::NoReuse)
-        .timeout(Some(Duration::new(15, 0)))
-        .build()
+    )
+    .expect("Failed to create transport")
+    .authentication_mechanism(Mechanism::Login)
+    .credentials(Credentials::new(smtp_user.clone(), smtp_pass.clone()))
+    .connection_reuse(ConnectionReuseParameters::NoReuse)
+    .timeout(Some(Duration::new(15, 0)))
+    .build()
 }
 
 pub struct Mailer(pub SmtpTransport);

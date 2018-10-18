@@ -43,7 +43,8 @@ fn main() {
     // Ensuring currency api type.
     CurrencyApi::from_str(
         &env::var("CURRENCY_API").expect("CURRENCY_API environment variable must be set."),
-    ).unwrap();
+    )
+    .unwrap();
 
     env::var("CURRENCY_API_KEY").expect("CURRENCY_API_KEY environment variable must be set.");
     env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");

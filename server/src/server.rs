@@ -52,88 +52,90 @@ pub fn run(
                 mailer: mailer_addr.clone(),
                 jwt_private: jwt_private.clone(),
                 jwt_public: jwt_public.clone(),
-            }).middleware(middleware::Logger::default())
-                .resource("/", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET).with(controllers::root::index);
-                })
-                .resource("/registration", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::auth::registration);
-                })
-                .resource("/activation", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::auth::activation);
-                })
-                .resource("/login", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::auth::authentication);
-                })
-                .resource("/reset_password", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::auth::reset_password);
-                })
-                .resource("/change_password", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::auth::change_password);
-                })
-                .resource("/profile", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::auth::profile);
-                })
-                .resource("/client_tokens", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::client_tokens::list);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::client_tokens::create);
-                })
-                .resource("/client_tokens/{id}", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::client_tokens::get);
-                    r.method(http::Method::DELETE)
-                        .with_async(controllers::client_tokens::delete);
-                })
-                .resource("/stores", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::stores::list);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::stores::create);
-                })
-                .resource("/stores/{id}", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::stores::get);
-                    r.method(http::Method::PATCH)
-                        .with_async(controllers::stores::patch);
-                    r.method(http::Method::DELETE)
-                        .with_async(controllers::stores::delete);
-                })
-                .resource("/payments", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::payments::create);
-                })
-                .resource("/payments/{id}/status", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::GET)
-                        .with_async(controllers::payments::get_status)
-                })
-                .resource("/vouchers", |r| {
-                    middleware::cors::Cors::build().finish().register(r);
-                    r.method(http::Method::POST)
-                        .with_async(controllers::vouchers::create);
-                })
-        }).bind(format!("{}:{}", host, port))
-            .expect(&format!("Can not bind {}:{}", host, port))
-            .start();
+            })
+            .middleware(middleware::Logger::default())
+            .resource("/", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET).with(controllers::root::index);
+            })
+            .resource("/registration", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::auth::registration);
+            })
+            .resource("/activation", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::auth::activation);
+            })
+            .resource("/login", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::auth::authentication);
+            })
+            .resource("/reset_password", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::auth::reset_password);
+            })
+            .resource("/change_password", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::auth::change_password);
+            })
+            .resource("/profile", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::auth::profile);
+            })
+            .resource("/client_tokens", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::client_tokens::list);
+                r.method(http::Method::POST)
+                    .with_async(controllers::client_tokens::create);
+            })
+            .resource("/client_tokens/{id}", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::client_tokens::get);
+                r.method(http::Method::DELETE)
+                    .with_async(controllers::client_tokens::delete);
+            })
+            .resource("/stores", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::stores::list);
+                r.method(http::Method::POST)
+                    .with_async(controllers::stores::create);
+            })
+            .resource("/stores/{id}", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::stores::get);
+                r.method(http::Method::PATCH)
+                    .with_async(controllers::stores::patch);
+                r.method(http::Method::DELETE)
+                    .with_async(controllers::stores::delete);
+            })
+            .resource("/payments", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::payments::create);
+            })
+            .resource("/payments/{id}/status", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::GET)
+                    .with_async(controllers::payments::get_status)
+            })
+            .resource("/vouchers", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::POST)
+                    .with_async(controllers::vouchers::create);
+            })
+        })
+        .bind(format!("{}:{}", host, port))
+        .expect(&format!("Can not bind {}:{}", host, port))
+        .start();
     });
 }
