@@ -7,6 +7,8 @@ use ethereum_client::Error as EthereumClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
+    #[fail(display = "Exceeded retry limit: {}", _0)]
+    RetryLimitError(i8),
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
     #[fail(display = "{}", _0)]

@@ -2,8 +2,6 @@ use std::time::Duration;
 
 use actix::fut::wrap_future;
 use actix::prelude::*;
-use actix_web::client::SendRequestError;
-use actix_web::error::PayloadError;
 use futures::{future, stream, Future, Stream};
 use futures_timer::Delay;
 
@@ -13,6 +11,8 @@ use errors::Error;
 use ethereum_client::{Client, Error as EthereumClientError};
 use processor::{ProcessBlock, ProcessorAddr};
 use types::U128;
+
+const RETRY_LIMIT: i8 = 10;
 
 pub struct Poller {
     processor: ProcessorAddr,
@@ -49,7 +49,10 @@ impl Actor for Poller {
             .and_then(|res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block| {
                 address
-                    .send(Poll(current_block))
+                    .send(Poll {
+                        block_number: current_block + U128::from(1),
+                        retry_count: 0,
+                    })
                     .from_err()
                     .and_then(|res| res.map_err(|e| Error::from(e)))
             })
@@ -140,54 +143,56 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
 
 #[derive(Message)]
 #[rtype(result = "Result<(), Error>")]
-pub struct Poll(pub U128);
+pub struct Poll {
+    pub block_number: U128,
+    pub retry_count: i8,
+}
 
 impl<'a> Handler<Poll> for Poller {
     type Result = Box<Future<Item = (), Error = Error>>;
 
-    fn handle(&mut self, Poll(block_number): Poll, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        Poll {
+            block_number,
+            retry_count,
+        }: Poll,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
         let eth_client = self.ethereum_rpc_client.clone();
 
+        if retry_count == RETRY_LIMIT {
+            return Box::new(future::err(Error::RetryLimitError(retry_count)));
+        }
+
         let polling = eth_client
-            .get_block_by_number(block_number.clone() + U128::from(1))
+            .get_block_by_number(block_number)
             .from_err::<Error>()
             .and_then(move |block| {
                 processor
                     .send(ProcessBlock(block))
                     .from_err::<Error>()
                     .and_then(|res| res.map_err(|e| Error::from(e)))
-                    .map(move |_| block_number + U128::from(1))
+                    .map(move |_| (block_number + U128::from(1), 0))
             })
             .or_else(move |e| match e {
                 Error::EthereumClientError(e) => match e {
-                    EthereumClientError::EmptyResponseError => future::ok(block_number.clone()),
-                    EthereumClientError::SendRequestError(e) => match e {
-                        SendRequestError::Timeout => future::ok(block_number.clone()),
-                        _ => future::err(Error::EthereumClientError(
-                            EthereumClientError::SendRequestError(e),
-                        )),
-                    },
-                    EthereumClientError::PayloadError(e) => match e {
-                        PayloadError::Io(_) => future::ok(block_number.clone()),
-                        _ => future::err(Error::EthereumClientError(
-                            EthereumClientError::PayloadError(e),
-                        )),
-                    },
-                    _ => future::err(Error::from(e)),
+                    EthereumClientError::EmptyResponseError => future::ok((block_number, 0)),
+                    _ => future::ok((block_number, retry_count + 1)),
                 },
-
-                Error::ModelError(e) => future::err(Error::from(e)),
-                Error::MailboxError(e) => future::err(Error::from(e)),
-                Error::IoError(e) => future::err(Error::from(e)),
+                _ => future::err(e),
             })
-            .and_then(move |block_number| {
+            .and_then(move |(block_number, retry_count)| {
                 Delay::new(Duration::from_secs(3))
                     .from_err::<Error>()
                     .and_then(move |_| {
                         address
-                            .send(Poll(block_number.clone()))
+                            .send(Poll {
+                                block_number: block_number,
+                                retry_count,
+                            })
                             .from_err::<Error>()
                             .and_then(|res| res.map_err(|e| Error::from(e)))
                     })
