@@ -11,7 +11,7 @@ use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 use diesel::types::FromSqlRow;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Currency {
     Btc,

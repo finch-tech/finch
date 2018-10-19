@@ -45,7 +45,7 @@ impl From<Payout> for PayoutPayload {
     }
 }
 
-#[derive(Debug, Identifiable, Queryable, Associations, Clone, Serialize, Deserialize)]
+#[derive(Debug, Identifiable, Queryable, Associations, Clone, Copy, Serialize, Deserialize)]
 #[belongs_to(Store, foreign_key = "store_id")]
 #[belongs_to(Payment, foreign_key = "payment_id")]
 pub struct Payout {

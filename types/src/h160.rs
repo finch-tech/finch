@@ -14,7 +14,7 @@ use ripemd160::Ripemd160;
 use rustc_hex::FromHexError;
 use sha2::Sha256;
 
-#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Copy)]
 #[sql_type = "VarChar"]
 pub struct H160(pub _H160);
 

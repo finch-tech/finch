@@ -13,7 +13,7 @@ use ethereum_types::H256 as _H256;
 use rustc_hex::FromHexError;
 use sha2::Sha256;
 
-#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Copy)]
 #[sql_type = "VarChar"]
 pub struct H256(pub _H256);
 

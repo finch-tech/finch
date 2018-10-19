@@ -107,7 +107,7 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
                         future::Either::B(
                             stream::unfold(block_height + U128::from(1), move |block_number| {
                                 if block_number <= current_block_number {
-                                    let next_block_number = block_number.clone() + U128::from(1);
+                                    let next_block_number = block_number + U128::from(1);
                                     Some(future::ok::<_, _>((block_number, next_block_number)))
                                 } else {
                                     None

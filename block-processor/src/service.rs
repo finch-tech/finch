@@ -17,9 +17,9 @@ pub fn run(postgres_url: String, ethereum_rpc_url: String, skip_missed_blocks: b
 
         Arbiter::start(move |_| {
             Poller::new(
-                processor_address.clone(),
-                pg_addr.clone(),
-                EthClient::new(ethereum_rpc_url.clone()),
+                processor_address,
+                pg_addr,
+                EthClient::new(ethereum_rpc_url),
                 skip_missed_blocks,
             )
         });

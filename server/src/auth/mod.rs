@@ -88,7 +88,7 @@ impl FromRequest<AppState> for AuthClient {
         let token = JWTPayload::extract(&req)?;
 
         match token.client {
-            Some(ref client) => Ok((*client).clone()),
+            Some(client) => Ok(client),
             None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
         }
     }
@@ -107,7 +107,7 @@ impl FromRequest<AppState> for AuthUser {
         let token = JWTPayload::extract(&req)?;
 
         match token.user {
-            Some(ref user) => Ok((*user).clone()),
+            Some(user) => Ok(user),
             None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
         }
     }

@@ -13,6 +13,6 @@ pub fn run(postgres_url: String, ethereum_rpc_url: String, chain_id: u64) {
         let payouter_addr =
             Arbiter::start(move |_| Payouter::new(pg_payouter, ethereum_rpc_url, chain_id));
 
-        Arbiter::start(move |_| Monitor::new(payouter_addr.clone(), pg_addr.clone()));
+        Arbiter::start(move |_| Monitor::new(payouter_addr, pg_addr));
     });
 }

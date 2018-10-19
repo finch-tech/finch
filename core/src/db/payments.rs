@@ -6,7 +6,7 @@ use db::Error;
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::{PaymentStatus, PayoutStatus, H160, U128};
+use types::H160;
 
 #[derive(Message)]
 #[rtype(result = "Result<Payment, Error>")]

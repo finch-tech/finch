@@ -40,7 +40,7 @@ impl Actor for Monitor {
                 .and_then(move |status, m: &mut Monitor, _| {
                     if let Some(block_height) = status.eth_block_height {
                         if let Some(ref previous_block) = m.previous_block {
-                            if block_height.clone() == *previous_block {
+                            if block_height == *previous_block {
                                 return fut::Either::A(fut::ok(()));
                             }
                         };
@@ -48,7 +48,7 @@ impl Actor for Monitor {
                         return fut::Either::B(
                             wrap_future(
                                 address
-                                    .send(ProcessBlock(block_height.clone()))
+                                    .send(ProcessBlock(block_height))
                                     .from_err()
                                     .and_then(|res| res.map_err(|e| Error::from(e))),
                             )
@@ -88,7 +88,7 @@ impl Handler<ProcessBlock> for Monitor {
 
         println!("Payment check before {}", block_number);
 
-        let process_payouts = Payout::find_all_confirmed(block_number.clone(), &postgres)
+        let process_payouts = Payout::find_all_confirmed(block_number, &postgres)
             .from_err()
             .map(move |payouts| stream::iter_ok(payouts))
             .flatten_stream()

@@ -55,7 +55,7 @@ pub fn create(
                 eth_price: None,
                 btc_address: None,
                 btc_price: None,
-                eth_confirmations_required: store.eth_confirmations_required.clone().unwrap(),
+                eth_confirmations_required: store.eth_confirmations_required.unwrap(),
                 eth_block_height_required: None,
                 transaction_hash: None,
             };
@@ -104,7 +104,7 @@ pub fn get_status(
 
     app_status.join(payment).and_then(move |(status, payment)| {
         if let Some(block_height) = status.eth_block_height {
-            if let Some(eth_address) = payment.eth_address.clone() {
+            if let Some(eth_address) = payment.eth_address {
                 return future::Either::B(
                     Client::new(ethereum_rpc_url)
                         .get_balance(eth_address)

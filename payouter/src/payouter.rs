@@ -78,17 +78,17 @@ impl Payouter {
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
-        let chain_id = self.chain_id.clone();
+        let chain_id = self.chain_id;
 
         self.prepare_payout(payout).and_then(
             move |(wallet, transaction, store, gas_price, nonce)| {
-                let value = transaction.value - gas_price.clone() * U256::from(21_000);
+                let value = transaction.value - gas_price * U256::from(21_000);
 
                 let raw_transaction = Transaction {
                     nonce,
                     gas_price,
                     gas: U256::from(21_000),
-                    to: store.eth_payout_addresses.unwrap()[0].clone(),
+                    to: store.eth_payout_addresses.unwrap()[0],
                     value,
                     data: b"".to_vec(),
                 };
@@ -108,11 +108,11 @@ impl Payouter {
 
     pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let eth_client = Client::new(self.ethereum_rpc_url.clone());
-        let chain_id = self.chain_id.clone();
+        let chain_id = self.chain_id;
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
-                let value = transaction.value - gas_price.clone() * U256::from(21_000);
+                let value = transaction.value - gas_price * U256::from(21_000);
 
                 let raw_transaction = Transaction {
                     nonce,
@@ -182,11 +182,11 @@ impl Handler<PayOut> for Payouter {
         let postgres = self.postgres.clone();
 
         Box::new(
-            self.payout(payout.clone())
+            self.payout(payout)
                 .from_err()
                 .and_then(move |hash| {
                     println!("Paid out {:?}", hash);
-                    let mut payload = PayoutPayload::from(payout.clone());
+                    let mut payload = PayoutPayload::from(payout);
                     payload.transaction_hash = Some(hash);
                     payload.status = Some(PayoutStatus::PaidOut);
 
@@ -210,11 +210,11 @@ impl Handler<Refund> for Payouter {
         let postgres = self.postgres.clone();
 
         Box::new(
-            self.refund(payout.clone())
+            self.refund(payout)
                 .from_err()
                 .and_then(move |hash| {
                     println!("Refunded {:?}", hash);
-                    let mut payload = PayoutPayload::from(payout.clone());
+                    let mut payload = PayoutPayload::from(payout);
                     payload.transaction_hash = Some(hash);
                     payload.status = Some(PayoutStatus::Refunded);
 

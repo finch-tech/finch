@@ -34,20 +34,20 @@ impl Handler<ProcessBlock> for Processor {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, ProcessBlock(block): ProcessBlock, _: &mut Self::Context) -> Self::Result {
-        println!("Processing block: {}", block.number.clone().unwrap());
+        println!("Processing block: {}", block.number.unwrap());
         let postgres = self.postgres.clone();
 
         let mut addresses = Vec::new();
         let mut transactions = HashMap::new();
 
         for (_, transaction) in block.transactions.iter().enumerate() {
-            if let Some(to) = transaction.to_address.clone() {
-                addresses.push(to.clone());
+            if let Some(to) = transaction.to_address {
+                addresses.push(to);
                 transactions.insert(to, transaction.clone());
             }
         }
 
-        let block_number = block.number.clone();
+        let block_number = block.number;
         let _postgres = postgres.clone();
 
         let process = Payment::find_all_by_eth_address(addresses, &postgres)
@@ -55,19 +55,16 @@ impl Handler<ProcessBlock> for Processor {
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions
-                    .get(&payment.eth_address.clone().unwrap())
-                    .unwrap();
+                let transaction = transactions.get(&payment.eth_address.unwrap()).unwrap();
 
                 // Prepare payment update.
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
-                let block_height_required = block.number.clone().unwrap()
-                    + payment.eth_confirmations_required.clone()
-                    - U128::from(1);
+                let block_height_required =
+                    block.number.unwrap() + payment.eth_confirmations_required - U128::from(1);
 
-                payment_payload.transaction_hash = Some(transaction.hash.clone());
+                payment_payload.transaction_hash = Some(transaction.hash);
                 payment_payload.eth_block_height_required = Some(block_height_required);
                 payment_payload.set_paid_at();
 
@@ -78,7 +75,7 @@ impl Handler<ProcessBlock> for Processor {
                     store_id: Some(payment.store_id),
                     payment_id: Some(payment.id),
                     typ: Some(Currency::Eth),
-                    eth_block_height_required: payment_payload.eth_block_height_required.clone(),
+                    eth_block_height_required: payment_payload.eth_block_height_required,
                     transaction_hash: None,
                     created_at: None,
                 };
@@ -94,13 +91,13 @@ impl Handler<ProcessBlock> for Processor {
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if ether_paid >= payment.clone().eth_price.unwrap() {
+                        if ether_paid >= payment.eth_price.clone().unwrap() {
                             payment_payload.status = Some(PaymentStatus::Paid);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if ether_paid < payment.clone().eth_price.unwrap() {
+                        if ether_paid < payment.eth_price.clone().unwrap() {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }

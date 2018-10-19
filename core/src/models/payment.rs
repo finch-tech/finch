@@ -117,8 +117,7 @@ impl Payment {
     ) -> impl Future<Item = Transaction, Error = Error> {
         let postgres = postgres.clone();
 
-        self.clone()
-            .transaction_hash
+        self.transaction_hash
             .ok_or(Error::PropertyNotFound)
             .into_future()
             .and_then(move |hash| Transaction::find_by_hash(hash, &postgres))

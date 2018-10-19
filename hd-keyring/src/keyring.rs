@@ -51,7 +51,7 @@ impl HdKeyring {
             mnemonic: mnemonic,
             root: root,
             hd_wallet: master_node,
-            hd_path: (*path).clone(),
+            hd_path: path.clone(),
             wallets: Vec::new(),
         })
     }

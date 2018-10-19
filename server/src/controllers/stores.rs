@@ -75,7 +75,7 @@ pub fn patch(
     }
 
     if params.eth_confirmations_required.is_some()
-        && params.eth_confirmations_required.clone().unwrap() < U128::from(1)
+        && params.eth_confirmations_required.unwrap() < U128::from(1)
     {
         return Box::new(err(Error::BadRequest));
     }
