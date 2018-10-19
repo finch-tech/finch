@@ -1,5 +1,4 @@
 #![crate_name = "hd_keyring"]
-#![feature(rustc_private, extern_prelude)]
 
 extern crate bip39;
 extern crate byteorder;

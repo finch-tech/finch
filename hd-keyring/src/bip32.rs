@@ -10,7 +10,7 @@ use hmac::{Hmac, Mac};
 use regex::Regex;
 use rust_base58::{FromBase58, ToBase58};
 use secp256k1::key::{PublicKey, SecretKey};
-use secp256k1::Secp256k1;
+use secp256k1::{ContextFlag, Secp256k1};
 use sha2::Sha512;
 
 use errors::Error;
@@ -309,7 +309,7 @@ impl FromStr for Xprv {
     type Err = Error;
 
     fn from_str(input: &str) -> Result<Xprv, Self::Err> {
-        let s = Secp256k1::with_caps(secp256k1::ContextFlag::None);
+        let s = Secp256k1::with_caps(ContextFlag::None);
 
         let bytes = input.from_base58().map_err(|_| Error::InvalidBase58Byte)?;
 
@@ -448,7 +448,7 @@ impl FromStr for Xpub {
     type Err = Error;
 
     fn from_str(input: &str) -> Result<Xpub, Self::Err> {
-        let s = Secp256k1::with_caps(secp256k1::ContextFlag::None);
+        let s = Secp256k1::with_caps(ContextFlag::None);
 
         let bytes = input.from_base58().map_err(|_| Error::InvalidBase58Byte)?;
 

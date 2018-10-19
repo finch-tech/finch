@@ -1,5 +1,3 @@
-#![feature(pattern_parentheses, rustc_private, custom_attribute)]
-
 #[macro_use]
 extern crate actix;
 extern crate actix_web;

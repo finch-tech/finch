@@ -8,7 +8,6 @@ use types::{H160, H256, U256};
 
 #[derive(Debug, Insertable, Queryable, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[table_name = "transactions"]
-#[primary_key(hash)]
 pub struct Transaction {
     pub hash: H256,
     pub nonce: U256,
@@ -27,7 +26,6 @@ pub struct Transaction {
     pub gas_price: U256,
     pub gas: U256,
     pub input: String,
-    // timestamp?
 }
 
 impl Transaction {

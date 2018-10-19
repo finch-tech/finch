@@ -1,5 +1,3 @@
-#![feature(pattern_parentheses, rustc_private)]
-
 extern crate actix;
 extern crate actix_web;
 extern crate base64;
