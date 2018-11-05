@@ -258,3 +258,7 @@ pub fn change_password(
 pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = User, Error = Error> {
     User::find_by_id(id, postgres).from_err()
 }
+
+pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+    User::delete(id, postgres).from_err()
+}

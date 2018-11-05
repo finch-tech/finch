@@ -1,4 +1,4 @@
-use actix_web::{Json, State};
+use actix_web::{Json, Path, State};
 use futures::future::{err, Future};
 use serde_json::Value;
 use uuid::Uuid;
@@ -34,7 +34,6 @@ pub fn registration(
         verification_token_expires_at: None,
         reset_token: None,
         reset_token_expires_at: None,
-        active: Some(true),
     };
 
     Box::new(
@@ -123,4 +122,19 @@ pub fn profile(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     services::users::get(user.id, &state.postgres)
         .then(|res| res.and_then(|user| Ok(Json(user.export()))))
+}
+
+pub fn delete(
+    (state, path, user): (State<AppState>, Path<Uuid>, AuthUser),
+) -> Box<Future<Item = Json<Value>, Error = Error>> {
+    let id = path.into_inner();
+
+    if id != user.id {
+        return Box::new(err(Error::InvalidRequestAccount));
+    }
+
+    Box::new(
+        services::users::delete(user.id, &state.postgres)
+            .then(|res| res.and_then(|deleted| Ok(Json(json!({ "deleted": deleted }))))),
+    )
 }

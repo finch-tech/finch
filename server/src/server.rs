@@ -88,6 +88,11 @@ pub fn run(
                 r.method(http::Method::GET)
                     .with_async(controllers::auth::profile);
             })
+            .resource("/users/{id}", |r| {
+                middleware::cors::Cors::build().finish().register(r);
+                r.method(http::Method::DELETE)
+                    .with_async(controllers::auth::delete);
+            })
             .resource("/client_tokens", |r| {
                 middleware::cors::Cors::build().finish().register(r);
                 r.method(http::Method::GET)
