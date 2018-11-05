@@ -1,5 +1,5 @@
 use actix::prelude::*;
-use futures::future::{ok, Future, IntoFuture};
+use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
 use ethereum_client::{Client, Transaction};
@@ -44,7 +44,7 @@ impl Payouter {
             .and_then(move |(store, payment, gas_price)| {
                 let transaction = payment.transaction(&postgres).from_err();
                 let nonce = eth_client
-                    .get_transaction_count(payment.clone().eth_address.unwrap())
+                    .get_transaction_count(payment.eth_address.unwrap())
                     .from_err();
 
                 transaction
@@ -69,7 +69,7 @@ impl Payouter {
                                     .into_future()
                                     .from_err()
                                     .and_then(move |wallet| {
-                                        ok((wallet, transaction, store, gas_price, nonce))
+                                        future::ok((wallet, transaction, store, gas_price, nonce))
                                     })
                             })
                     })
@@ -82,26 +82,32 @@ impl Payouter {
 
         self.prepare_payout(payout).and_then(
             move |(wallet, transaction, store, gas_price, nonce)| {
-                let value = transaction.value - gas_price * U256::from(21_000);
+                if let Some(eth_payout_addresses) = store.eth_payout_addresses {
+                    let value = transaction.value - gas_price * U256::from(21_000);
 
-                let raw_transaction = Transaction {
-                    nonce,
-                    gas_price,
-                    gas: U256::from(21_000),
-                    to: store.eth_payout_addresses.unwrap()[0],
-                    value,
-                    data: b"".to_vec(),
-                };
+                    let raw_transaction = Transaction {
+                        nonce,
+                        gas_price,
+                        gas: U256::from(21_000),
+                        to: eth_payout_addresses[0],
+                        value,
+                        data: b"".to_vec(),
+                    };
 
-                raw_transaction
-                    .sign(wallet.secret_key, chain_id)
-                    .into_future()
-                    .from_err()
-                    .and_then(move |signed_transaction| {
-                        eth_client
-                            .send_raw_transaction(signed_transaction)
+                    return future::Either::A(
+                        raw_transaction
+                            .sign(wallet.secret_key, chain_id)
+                            .into_future()
                             .from_err()
-                    })
+                            .and_then(move |signed_transaction| {
+                                eth_client
+                                    .send_raw_transaction(signed_transaction)
+                                    .from_err()
+                            }),
+                    );
+                }
+
+                future::Either::B(future::err(Error::NoPayoutAddress))
             },
         )
     }
@@ -179,7 +185,8 @@ impl Handler<PayOut> for Payouter {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, PayOut(payout): PayOut, _: &mut Self::Context) -> Self::Result {
-        let postgres = self.postgres.clone();
+        let postgres_a = self.postgres.clone();
+        let postgres_b = self.postgres.clone();
 
         Box::new(
             self.payout(payout)
@@ -187,14 +194,28 @@ impl Handler<PayOut> for Payouter {
                 .and_then(move |hash| {
                     println!("Paid out {:?}", hash);
                     let mut payload = PayoutPayload::from(payout);
-                    payload.transaction_hash = Some(hash);
+                    payload.transaction_hash = Some(Some(hash));
                     payload.status = Some(PayoutStatus::PaidOut);
 
-                    Payout::update_by_id(payout.id, payload, &postgres)
-                        .from_err()
-                        .map(|_| ())
+                    Payout::update(payout.id, payload, &postgres_a).from_err()
                 })
-                .map(|_| ()),
+                .map(move |_| ())
+                .or_else(move |e| -> Box<Future<Item = (), Error = Error>> {
+                    match e {
+                        // If payout address doesn't exist for the store, change payout object's action to Refund.
+                        Error::NoPayoutAddress => {
+                            let mut payload = PayoutPayload::from(payout);
+                            payload.action = Some(PayoutAction::Refund);
+
+                            Box::new(
+                                Payout::update(payout.id, payload, &postgres_b)
+                                    .from_err()
+                                    .map(move |_| ()),
+                            )
+                        }
+                        _ => Box::new(future::err(e)),
+                    }
+                }),
         )
     }
 }
@@ -209,20 +230,15 @@ impl Handler<Refund> for Payouter {
     fn handle(&mut self, Refund(payout): Refund, _: &mut Self::Context) -> Self::Result {
         let postgres = self.postgres.clone();
 
-        Box::new(
-            self.refund(payout)
-                .from_err()
-                .and_then(move |hash| {
-                    println!("Refunded {:?}", hash);
-                    let mut payload = PayoutPayload::from(payout);
-                    payload.transaction_hash = Some(hash);
-                    payload.status = Some(PayoutStatus::Refunded);
+        Box::new(self.refund(payout).from_err().and_then(move |hash| {
+            println!("Refunded {:?}", hash);
+            let mut payload = PayoutPayload::from(payout);
+            payload.transaction_hash = Some(Some(hash));
+            payload.status = Some(PayoutStatus::Refunded);
 
-                    Payout::update_by_id(payout.id, payload, &postgres)
-                        .from_err()
-                        .map(|_| ())
-                })
-                .map(|_| ()),
-        )
+            Payout::update(payout.id, payload, &postgres)
+                .from_err()
+                .map(move |_| ())
+        }))
     }
 }

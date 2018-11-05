@@ -18,6 +18,8 @@ pub enum Error {
     EthError(#[cause] EthError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
+    #[fail(display = "No payout address")]
+    NoPayoutAddress,
 }
 
 impl From<KeyringError> for Error {
