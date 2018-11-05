@@ -67,7 +67,7 @@ table! {
         mnemonic -> Varchar,
         hd_path -> Varchar,
         base_currency -> Varchar,
-        active -> Bool,
+        deleted_at -> Nullable<Timestamptz>,
     }
 }
 
@@ -100,7 +100,6 @@ table! {
         verification_token_expires_at -> Timestamptz,
         reset_token -> Nullable<Uuid>,
         reset_token_expires_at -> Nullable<Timestamptz>,
-        active -> Bool,
     }
 }
 

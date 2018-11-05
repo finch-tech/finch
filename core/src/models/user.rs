@@ -23,12 +23,26 @@ pub struct UserPayload {
     pub is_verified: Option<bool>,
     pub verification_token: Option<Uuid>,
     pub verification_token_expires_at: Option<DateTime<Utc>>,
-    pub reset_token: Option<Uuid>,
-    pub reset_token_expires_at: Option<DateTime<Utc>>,
-    pub active: Option<bool>,
+    pub reset_token: Option<Option<Uuid>>,
+    pub reset_token_expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl UserPayload {
+    pub fn new() -> Self {
+        UserPayload {
+            email: None,
+            password: None,
+            salt: None,
+            created_at: None,
+            updated_at: None,
+            is_verified: None,
+            verification_token: None,
+            verification_token_expires_at: None,
+            reset_token: None,
+            reset_token_expires_at: None,
+        }
+    }
+
     pub fn set_created_at(&mut self) {
         self.created_at = Some(Utc::now());
     }
@@ -44,8 +58,8 @@ impl UserPayload {
     }
 
     pub fn set_reset_token(&mut self) {
-        self.reset_token = Some(Uuid::new_v4());
-        self.reset_token_expires_at = Some(Utc::now() + Duration::days(1));
+        self.reset_token = Some(Some(Uuid::new_v4()));
+        self.reset_token_expires_at = Some(Some(Utc::now() + Duration::days(1)));
     }
 }
 
@@ -60,9 +74,8 @@ impl From<User> for UserPayload {
             is_verified: Some(user.is_verified),
             verification_token: Some(user.verification_token),
             verification_token_expires_at: Some(user.verification_token_expires_at),
-            reset_token: user.reset_token,
-            reset_token_expires_at: user.reset_token_expires_at,
-            active: Some(user.active),
+            reset_token: Some(user.reset_token),
+            reset_token_expires_at: Some(user.reset_token_expires_at),
         }
     }
 }
@@ -80,7 +93,6 @@ pub struct User {
     pub verification_token_expires_at: DateTime<Utc>,
     pub reset_token: Option<Uuid>,
     pub reset_token_expires_at: Option<DateTime<Utc>>,
-    pub active: bool,
 }
 
 impl User {
@@ -99,14 +111,14 @@ impl User {
     }
 
     pub fn update(
-        user_id: Uuid,
+        id: Uuid,
         mut payload: UserPayload,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = User, Error = Error> {
         payload.set_updated_at();
 
         (*postgres)
-            .send(Update { user_id, payload })
+            .send(Update { id, payload })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

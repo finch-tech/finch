@@ -31,7 +31,7 @@ pub fn create(
         id: None,
         name: Some(params.name),
         description: Some(params.description),
-        owner_id: user.id,
+        owner_id: Some(user.id),
         private_key: None,
         public_key: None,
         created_at: None,
@@ -41,7 +41,7 @@ pub fn create(
         mnemonic: None,
         hd_path: None,
         base_currency: Some(Currency::Usd),
-        active: true,
+        deleted_at: None,
     };
 
     services::stores::create(payload, &state.postgres)
@@ -85,22 +85,23 @@ pub fn patch(
             validate_store_owner(&store, &user)
                 .into_future()
                 .and_then(move |_| {
-                    let payload = StorePayload {
-                        id: None,
-                        name: params.name,
-                        description: params.description,
-                        owner_id: user.id,
-                        private_key: None,
-                        public_key: None,
-                        created_at: None,
-                        updated_at: None,
-                        eth_payout_addresses: params.eth_payout_addresses,
-                        eth_confirmations_required: params.eth_confirmations_required,
-                        mnemonic: None,
-                        hd_path: None,
-                        base_currency: None,
-                        active: true,
-                    };
+                    let mut payload = StorePayload::new();
+
+                    if let Some(name) = params.name {
+                        payload.name = Some(name);
+                    }
+
+                    if let Some(description) = params.description {
+                        payload.description = Some(description);
+                    }
+
+                    if let Some(eth_payout_addresses) = params.eth_payout_addresses {
+                        payload.eth_payout_addresses = Some(Some(eth_payout_addresses));
+                    }
+
+                    if let Some(eth_confirmations_required) = params.eth_confirmations_required {
+                        payload.eth_confirmations_required = Some(Some(eth_confirmations_required));
+                    }
 
                     services::stores::patch(id, payload, &state.postgres)
                         .then(|res| res.and_then(|store| Ok(Json(store.export()))))

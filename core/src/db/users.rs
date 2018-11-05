@@ -3,9 +3,110 @@ use chrono::prelude::*;
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use db::postgres::PgExecutor;
+use db::postgres::{PgExecutor, PooledConnection};
+use db::stores;
 use db::Error;
 use models::user::{User, UserPayload};
+
+pub fn insert(payload: UserPayload, conn: &PooledConnection) -> Result<User, Error> {
+    use diesel::insert_into;
+    use schema::users::dsl;
+
+    insert_into(dsl::users)
+        .values(&payload)
+        .get_result(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn update(id: Uuid, payload: UserPayload, conn: &PooledConnection) -> Result<User, Error> {
+    use diesel::update;
+    use schema::users::dsl;
+
+    update(dsl::users.filter(dsl::id.eq(id)))
+        .set(&payload)
+        .get_result(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn find_by_email(email: String, conn: &PooledConnection) -> Result<User, Error> {
+    use schema::users::dsl;
+
+    dsl::users
+        .filter(dsl::email.eq(email).and(dsl::is_verified.ne(false)))
+        .first::<User>(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn find_by_id(id: Uuid, conn: &PooledConnection) -> Result<User, Error> {
+    use schema::users::dsl;
+
+    dsl::users
+        .filter(dsl::id.eq(id).and(dsl::is_verified.ne(false)))
+        .first::<User>(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn find_by_reset_token(token: Uuid, conn: &PooledConnection) -> Result<User, Error> {
+    use schema::users::dsl;
+
+    dsl::users
+        .filter(
+            dsl::reset_token
+                .eq(token)
+                .and(dsl::reset_token_expires_at.gt(Utc::now())),
+        )
+        .first::<User>(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn activate(token: Uuid, conn: &PooledConnection) -> Result<User, Error> {
+    use diesel::update;
+    use schema::users::dsl;
+
+    let mut payload = UserPayload::new();
+    payload.is_verified = Some(true);
+
+    update(
+        dsl::users.filter(
+            dsl::is_verified
+                .ne(true)
+                .and(dsl::verification_token.eq(token))
+                .and(dsl::verification_token_expires_at.gt(Utc::now())),
+        ),
+    )
+    .set(&payload)
+    .get_result(conn)
+    .map_err(|e| Error::from(e))
+}
+
+pub fn delete(id: Uuid, conn: &PooledConnection) -> Result<usize, Error> {
+    use diesel::delete;
+    use schema::users::dsl;
+
+    delete(dsl::users.filter(dsl::id.eq(id)))
+        .execute(conn)
+        .map_err(|e| Error::from(e))?;
+
+    stores::soft_delete_by_owner_id(id, &conn)?;
+
+    Ok(1)
+}
+
+pub fn delete_expired(email: String, conn: &PooledConnection) -> Result<usize, Error> {
+    use diesel::delete;
+    use schema::users::dsl;
+
+    delete(
+        dsl::users.filter(
+            dsl::email
+                .eq(email)
+                .and(dsl::is_verified.ne(true))
+                .and(dsl::verification_token_expires_at.lt(Utc::now())),
+        ),
+    )
+    .execute(conn)
+    .map_err(|e| Error::from(e))
+}
 
 #[derive(Message)]
 #[rtype(result = "Result<User, Error>")]
@@ -15,42 +116,26 @@ impl Handler<Insert> for PgExecutor {
     type Result = Result<User, Error>;
 
     fn handle(&mut self, Insert(payload): Insert, _: &mut Self::Context) -> Self::Result {
-        use diesel::insert_into;
-        use schema::users::dsl::*;
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        insert_into(users)
-            .values(&payload)
-            .get_result(pg_conn)
-            .map_err(|e| Error::from(e))
+        insert(payload, &conn)
     }
 }
 
 #[derive(Message)]
 #[rtype(result = "Result<User, Error>")]
 pub struct Update {
-    pub user_id: Uuid,
+    pub id: Uuid,
     pub payload: UserPayload,
 }
 
 impl Handler<Update> for PgExecutor {
     type Result = Result<User, Error>;
 
-    fn handle(
-        &mut self,
-        Update { user_id, payload }: Update,
-        _: &mut Self::Context,
-    ) -> Self::Result {
-        use diesel::update;
-        use schema::users::dsl::*;
+    fn handle(&mut self, Update { id, payload }: Update, _: &mut Self::Context) -> Self::Result {
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        update(users.filter(id.eq(user_id)))
-            .set(&payload)
-            .get_result(pg_conn)
-            .map_err(|e| Error::from(e))
+        update(id, payload, &conn)
     }
 }
 
@@ -61,24 +146,10 @@ pub struct FindByEmail(pub String);
 impl Handler<FindByEmail> for PgExecutor {
     type Result = Result<User, Error>;
 
-    fn handle(
-        &mut self,
-        FindByEmail(user_email): FindByEmail,
-        _: &mut Self::Context,
-    ) -> Self::Result {
-        use schema::users::dsl::*;
+    fn handle(&mut self, FindByEmail(email): FindByEmail, _: &mut Self::Context) -> Self::Result {
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        users
-            .filter(
-                email
-                    .eq(user_email)
-                    .and(active.ne(false))
-                    .and(is_verified.ne(false)),
-            )
-            .first::<User>(pg_conn)
-            .map_err(|e| Error::from(e))
+        find_by_email(email, &conn)
     }
 }
 
@@ -89,19 +160,10 @@ pub struct FindById(pub Uuid);
 impl Handler<FindById> for PgExecutor {
     type Result = Result<User, Error>;
 
-    fn handle(&mut self, FindById(user_id): FindById, _: &mut Self::Context) -> Self::Result {
-        use schema::users::dsl::*;
+    fn handle(&mut self, FindById(id): FindById, _: &mut Self::Context) -> Self::Result {
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        users
-            .filter(
-                id.eq(user_id)
-                    .and(active.ne(false))
-                    .and(is_verified.ne(false)),
-            )
-            .first::<User>(pg_conn)
-            .map_err(|e| Error::from(e))
+        find_by_id(id, &conn)
     }
 }
 
@@ -117,18 +179,9 @@ impl Handler<FindByResetToken> for PgExecutor {
         FindByResetToken(token): FindByResetToken,
         _: &mut Self::Context,
     ) -> Self::Result {
-        use schema::users::dsl::*;
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        users
-            .filter(
-                reset_token
-                    .eq(token)
-                    .and(reset_token_expires_at.gt(Utc::now())),
-            )
-            .first::<User>(pg_conn)
-            .map_err(|e| Error::from(e))
+        find_by_reset_token(token, &conn)
     }
 }
 
@@ -140,36 +193,9 @@ impl Handler<Activate> for PgExecutor {
     type Result = Result<User, Error>;
 
     fn handle(&mut self, Activate(token): Activate, _: &mut Self::Context) -> Self::Result {
-        use diesel::update;
-        use schema::users::dsl::*;
+        let conn = &self.get()?;
 
-        let payload = UserPayload {
-            email: None,
-            password: None,
-            salt: None,
-            created_at: None,
-            updated_at: None,
-            is_verified: Some(true),
-            verification_token: None,
-            verification_token_expires_at: None,
-            reset_token: None,
-            reset_token_expires_at: None,
-            active: None,
-        };
-
-        let pg_conn = &self.get()?;
-
-        update(
-            users.filter(
-                is_verified
-                    .ne(true)
-                    .and(verification_token.eq(token))
-                    .and(verification_token_expires_at.gt(Utc::now())),
-            ),
-        )
-        .set(&payload)
-        .get_result(pg_conn)
-        .map_err(|e| Error::from(e))
+        activate(token, &conn)
     }
 }
 
@@ -180,15 +206,10 @@ pub struct Delete(pub Uuid);
 impl Handler<Delete> for PgExecutor {
     type Result = Result<usize, Error>;
 
-    fn handle(&mut self, Delete(user_id): Delete, _: &mut Self::Context) -> Self::Result {
-        use diesel::delete;
-        use schema::users::dsl::*;
+    fn handle(&mut self, Delete(id): Delete, _: &mut Self::Context) -> Self::Result {
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        delete(users.filter(id.eq(user_id)))
-            .execute(pg_conn)
-            .map_err(|e| Error::from(e))
+        conn.transaction::<_, Error, _>(|| delete(id, &conn))
     }
 }
 
@@ -201,23 +222,11 @@ impl Handler<DeleteExpired> for PgExecutor {
 
     fn handle(
         &mut self,
-        DeleteExpired(user_email): DeleteExpired,
+        DeleteExpired(email): DeleteExpired,
         _: &mut Self::Context,
     ) -> Self::Result {
-        use diesel::delete;
-        use schema::users::dsl::*;
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        delete(
-            users.filter(
-                email
-                    .eq(user_email)
-                    .and(is_verified.ne(true))
-                    .and(verification_token_expires_at.lt(Utc::now())),
-            ),
-        )
-        .execute(pg_conn)
-        .map_err(|e| Error::from(e))
+        delete_expired(email, &conn)
     }
 }

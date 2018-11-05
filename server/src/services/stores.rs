@@ -60,5 +60,5 @@ pub fn get(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Err
 }
 
 pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
-    Store::delete(id, postgres).from_err()
+    Store::soft_delete(id, postgres).from_err()
 }

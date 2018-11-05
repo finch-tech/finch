@@ -1,10 +1,12 @@
+use std::convert::From;
+
 use chrono::prelude::*;
 use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
 use db::postgres::PgExecutorAddr;
-use db::stores::{Delete, FindById, FindByOwner, Insert, Update};
+use db::stores::{FindById, FindByIdWithDeleted, FindByOwner, Insert, SoftDelete, Update};
 use models::user::User;
 use models::Error;
 use schema::stores;
@@ -16,26 +18,74 @@ pub struct StorePayload {
     pub id: Option<Uuid>,
     pub name: Option<String>,
     pub description: Option<String>,
-    pub owner_id: Uuid,
+    pub owner_id: Option<Uuid>,
     pub private_key: Option<PrivateKey>,
     pub public_key: Option<PublicKey>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
-    pub eth_payout_addresses: Option<Vec<H160>>,
-    pub eth_confirmations_required: Option<U128>,
+    pub eth_payout_addresses: Option<Option<Vec<H160>>>,
+    pub eth_confirmations_required: Option<Option<U128>>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
     pub base_currency: Option<Currency>,
-    pub active: bool,
+    pub deleted_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl StorePayload {
+    pub fn new() -> Self {
+        StorePayload {
+            id: None,
+            name: None,
+            description: None,
+            owner_id: None,
+            private_key: None,
+            public_key: None,
+            created_at: None,
+            updated_at: None,
+            eth_payout_addresses: None,
+            eth_confirmations_required: None,
+            mnemonic: None,
+            hd_path: None,
+            base_currency: None,
+            deleted_at: None,
+        }
+    }
+
     pub fn set_created_at(&mut self) {
         self.created_at = Some(Utc::now());
     }
 
     pub fn set_updated_at(&mut self) {
         self.updated_at = Some(Utc::now());
+    }
+
+    pub fn set_deleted(&mut self) {
+        self.name = Some(String::from(""));
+        self.description = Some(String::from(""));
+        self.eth_payout_addresses = Some(None);
+        self.eth_confirmations_required = Some(None);
+        self.deleted_at = Some(Some(Utc::now()));
+    }
+}
+
+impl From<Store> for StorePayload {
+    fn from(store: Store) -> Self {
+        StorePayload {
+            id: Some(store.id),
+            name: Some(store.name),
+            description: Some(store.description),
+            owner_id: Some(store.owner_id),
+            private_key: Some(store.private_key),
+            public_key: Some(store.public_key),
+            created_at: Some(store.created_at),
+            updated_at: Some(store.updated_at),
+            eth_payout_addresses: Some(store.eth_payout_addresses),
+            eth_confirmations_required: Some(store.eth_confirmations_required),
+            mnemonic: Some(store.mnemonic),
+            hd_path: Some(store.hd_path),
+            base_currency: Some(store.base_currency),
+            deleted_at: Some(store.deleted_at),
+        }
     }
 }
 
@@ -52,11 +102,10 @@ pub struct Store {
     pub updated_at: DateTime<Utc>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<U128>,
-    // TODO: Encryption.
     pub mnemonic: String,
     pub hd_path: String,
     pub base_currency: Currency,
-    pub active: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 impl Store {
@@ -84,14 +133,14 @@ impl Store {
     }
 
     pub fn update(
-        store_id: Uuid,
+        id: Uuid,
         mut payload: StorePayload,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Store, Error = Error> {
         payload.set_updated_at();
 
         (*postgres)
-            .send(Update { store_id, payload })
+            .send(Update { id, payload })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
@@ -104,7 +153,7 @@ impl Store {
     ) -> impl Future<Item = Vec<Store>, Error = Error> {
         (*postgres)
             .send(FindByOwner {
-                owner_id_query: owner_id,
+                owner_id,
                 limit,
                 offset,
             })
@@ -122,9 +171,24 @@ impl Store {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn delete(id: Uuid, postgres: &PgExecutorAddr) -> impl Future<Item = usize, Error = Error> {
+    pub fn find_by_id_with_deleted(
+        id: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Store, Error = Error> {
         (*postgres)
-            .send(Delete(id))
+            .send(FindByIdWithDeleted(id))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn soft_delete(
+        id: Uuid,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = usize, Error = Error> {
+        let postgres = postgres.clone();
+
+        postgres
+            .send(SoftDelete(id))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

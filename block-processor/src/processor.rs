@@ -64,8 +64,8 @@ impl Handler<ProcessBlock> for Processor {
                 let block_height_required =
                     block.number.unwrap() + payment.eth_confirmations_required - U128::from(1);
 
-                payment_payload.transaction_hash = Some(transaction.hash);
-                payment_payload.eth_block_height_required = Some(block_height_required);
+                payment_payload.transaction_hash = Some(Some(transaction.hash));
+                payment_payload.eth_block_height_required = Some(Some(block_height_required));
                 payment_payload.set_paid_at();
 
                 // Prepare payout object.
@@ -75,7 +75,7 @@ impl Handler<ProcessBlock> for Processor {
                     store_id: Some(payment.store_id),
                     payment_id: Some(payment.id),
                     typ: Some(Currency::Eth),
-                    eth_block_height_required: payment_payload.eth_block_height_required,
+                    eth_block_height_required: Some(block_height_required),
                     transaction_hash: None,
                     created_at: None,
                 };
@@ -112,8 +112,7 @@ impl Handler<ProcessBlock> for Processor {
                 };
 
                 let transaction = Transaction::insert(transaction.clone(), &postgres).from_err();
-                let payment =
-                    Payment::update_by_id(payment.id, payment_payload, &postgres).from_err();
+                let payment = Payment::update(payment.id, payment_payload, &postgres).from_err();
                 let payout = Payout::insert(payout_payload, &postgres).from_err();
 
                 transaction.join3(payment, payout)
@@ -122,7 +121,7 @@ impl Handler<ProcessBlock> for Processor {
             .and_then(move |_| {
                 let payload = AppStatusPayload {
                     id: 1,
-                    eth_block_height: block_number,
+                    eth_block_height: Some(block_number),
                 };
 
                 AppStatus::update(payload, &_postgres).from_err()

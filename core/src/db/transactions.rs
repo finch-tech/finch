@@ -17,11 +17,11 @@ impl Handler<Insert> for PgExecutor {
         use diesel::insert_into;
         use schema::transactions::dsl::*;
 
-        let pg_conn = &self.get()?;
+        let conn = &self.get()?;
 
         insert_into(transactions)
             .values(&payload)
-            .get_result(pg_conn)
+            .get_result(conn)
             .map_err(|e| Error::from(e))
     }
 }
@@ -40,11 +40,11 @@ impl Handler<FindByHash> for PgExecutor {
     ) -> Self::Result {
         use schema::transactions::dsl::*;
 
-        let pg_conn = &self.get()?;
+        let conn = &self.get()?;
 
         transactions
             .filter(hash.eq(transaction_hash))
-            .first::<Transaction>(pg_conn)
+            .first::<Transaction>(conn)
             .map_err(|e| Error::from(e))
     }
 }

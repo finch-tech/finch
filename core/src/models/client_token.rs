@@ -62,7 +62,7 @@ impl ClientToken {
     ) -> impl Future<Item = Vec<ClientToken>, Error = Error> {
         (*postgres)
             .send(FindByStore {
-                store_id_query: store_id,
+                store_id,
                 limit,
                 offset,
             })
@@ -81,15 +81,12 @@ impl ClientToken {
     }
 
     pub fn find_by_token_and_domain(
-        client_token: Uuid,
-        request_domain: String,
+        token: Uuid,
+        domain: String,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = ClientToken, Error = Error> {
         (*postgres)
-            .send(FindByTokenAndDomain {
-                client_token,
-                request_domain,
-            })
+            .send(FindByTokenAndDomain { token, domain })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

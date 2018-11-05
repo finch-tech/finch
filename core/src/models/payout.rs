@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use futures::Future;
 use uuid::Uuid;
 
-use db::payouts::{FindAllConfirmed, Insert, UpdateById};
+use db::payouts::{FindAllConfirmed, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::payment::Payment;
 use models::store::Store;
@@ -21,7 +21,7 @@ pub struct PayoutPayload {
     pub payment_id: Option<Uuid>,
     pub typ: Option<Currency>,
     pub eth_block_height_required: Option<U128>,
-    pub transaction_hash: Option<H256>,
+    pub transaction_hash: Option<Option<H256>>,
     pub created_at: Option<DateTime<Utc>>,
 }
 impl PayoutPayload {
@@ -39,7 +39,7 @@ impl From<Payout> for PayoutPayload {
             payment_id: Some(payout.payment_id),
             typ: Some(payout.typ),
             eth_block_height_required: Some(payout.eth_block_height_required),
-            transaction_hash: payout.transaction_hash,
+            transaction_hash: Some(payout.transaction_hash),
             created_at: Some(payout.created_at),
         }
     }
@@ -62,7 +62,7 @@ pub struct Payout {
 
 impl Payout {
     pub fn store(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
-        Store::find_by_id(self.store_id, postgres)
+        Store::find_by_id_with_deleted(self.store_id, postgres)
     }
 
     pub fn payment(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Payment, Error = Error> {
@@ -91,13 +91,13 @@ impl Payout {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn update_by_id(
+    pub fn update(
         id: Uuid,
         payload: PayoutPayload,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payout, Error = Error> {
         (*postgres)
-            .send(UpdateById(id, payload))
+            .send(Update(id, payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

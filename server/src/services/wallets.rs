@@ -10,7 +10,7 @@ pub fn create(
     payment: Payment,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = Wallet, Error = Error> {
-    Store::find_by_id(payment.store_id, postgres)
+    Store::find_by_id_with_deleted(payment.store_id, postgres)
         .from_err()
         .and_then(|store| {
             let mut path = store.hd_path;

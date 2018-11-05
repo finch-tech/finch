@@ -15,5 +15,5 @@ CREATE TABLE stores
     mnemonic VARCHAR NOT NULL,
     hd_path VARCHAR NOT NULL,
     base_currency VARCHAR NOT NULL,
-    active BOOLEAN NOT NULL
+    deleted_at TIMESTAMPTZ
 )

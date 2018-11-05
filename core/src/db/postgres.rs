@@ -7,6 +7,8 @@ use r2d2;
 
 pub type PgExecutorAddr = Addr<PgExecutor>;
 
+pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
+
 type PgPool = Pool<ConnectionManager<PgConnection>>;
 
 pub fn init_pool(url: &str) -> PgPool {

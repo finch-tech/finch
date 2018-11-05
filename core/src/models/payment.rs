@@ -6,7 +6,7 @@ use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindAllByEthAddress, FindById, Insert, UpdateById};
+use db::payments::{FindAllByEthAddress, FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::transaction::Transaction;
@@ -22,17 +22,17 @@ pub struct PaymentPayload {
     pub created_by: Uuid, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub paid_at: Option<DateTime<Utc>>,
+    pub paid_at: Option<Option<DateTime<Utc>>>,
     pub index: Option<i32>,
     pub price: Option<BigDecimal>,
-    pub eth_address: Option<H160>,
-    pub eth_price: Option<BigDecimal>,
+    pub eth_address: Option<Option<H160>>,
+    pub eth_price: Option<Option<BigDecimal>>,
     // TODO: Use type for BTC address.
-    pub btc_address: Option<String>,
-    pub btc_price: Option<BigDecimal>,
+    pub btc_address: Option<Option<String>>,
+    pub btc_price: Option<Option<BigDecimal>>,
     pub eth_confirmations_required: U128,
-    pub eth_block_height_required: Option<U128>,
-    pub transaction_hash: Option<H256>,
+    pub eth_block_height_required: Option<Option<U128>>,
+    pub transaction_hash: Option<Option<H256>>,
 }
 
 impl PaymentPayload {
@@ -41,7 +41,7 @@ impl PaymentPayload {
     }
 
     pub fn set_paid_at(&mut self) {
-        self.paid_at = Some(Utc::now());
+        self.paid_at = Some(Some(Utc::now()));
     }
 
     pub fn set_expires_at(&mut self) {
@@ -57,16 +57,16 @@ impl From<Payment> for PaymentPayload {
             created_by: payment.created_by,
             created_at: Some(payment.created_at),
             expires_at: Some(payment.expires_at),
-            paid_at: payment.paid_at,
+            paid_at: Some(payment.paid_at),
             index: Some(payment.index),
             price: Some(payment.price),
-            eth_address: payment.eth_address,
-            eth_price: payment.eth_price,
-            btc_address: payment.btc_address,
-            btc_price: payment.btc_price,
+            eth_address: Some(payment.eth_address),
+            eth_price: Some(payment.eth_price),
+            btc_address: Some(payment.btc_address),
+            btc_price: Some(payment.btc_price),
             eth_confirmations_required: payment.eth_confirmations_required,
-            eth_block_height_required: payment.eth_block_height_required,
-            transaction_hash: payment.transaction_hash,
+            eth_block_height_required: Some(payment.eth_block_height_required),
+            transaction_hash: Some(payment.transaction_hash),
         }
     }
 }
@@ -108,7 +108,7 @@ impl Payment {
     }
 
     pub fn store(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
-        Store::find_by_id(self.store_id, postgres)
+        Store::find_by_id_with_deleted(self.store_id, postgres)
     }
 
     pub fn transaction(
@@ -133,13 +133,13 @@ impl Payment {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn update_by_id(
+    pub fn update(
         id: Uuid,
         payload: PaymentPayload,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
         (*postgres)
-            .send(UpdateById(id, payload))
+            .send(Update(id, payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

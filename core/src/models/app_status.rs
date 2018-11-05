@@ -1,6 +1,6 @@
 use futures::Future;
 
-use db::app_statuses::{FindById, Insert, UpdateById};
+use db::app_statuses::{FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::Error;
 use schema::app_statuses;
@@ -10,7 +10,7 @@ use types::U128;
 #[table_name = "app_statuses"]
 pub struct AppStatusPayload {
     pub id: i16,
-    pub eth_block_height: Option<U128>,
+    pub eth_block_height: Option<Option<U128>>,
 }
 
 #[derive(Identifiable, Queryable, Serialize)]
@@ -45,7 +45,7 @@ impl AppStatus {
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = AppStatus, Error = Error> {
         (*postgres)
-            .send(UpdateById(1, payload))
+            .send(Update(1, payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

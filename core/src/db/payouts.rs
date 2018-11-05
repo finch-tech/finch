@@ -2,10 +2,46 @@ use actix::prelude::*;
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use db::postgres::PgExecutor;
+use db::postgres::{PgExecutor, PooledConnection};
 use db::Error;
 use models::payout::{Payout, PayoutPayload};
 use types::{PayoutStatus, U128};
+
+pub fn insert(payload: PayoutPayload, conn: &PooledConnection) -> Result<Payout, Error> {
+    use diesel::insert_into;
+    use schema::payouts::dsl;
+
+    insert_into(dsl::payouts)
+        .values(&payload)
+        .get_result(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn update(id: Uuid, payload: PayoutPayload, conn: &PooledConnection) -> Result<Payout, Error> {
+    use diesel::update;
+    use schema::payouts::dsl;
+
+    update(dsl::payouts.filter(dsl::id.eq(id)))
+        .set(&payload)
+        .get_result(conn)
+        .map_err(|e| Error::from(e))
+}
+
+pub fn find_all_confirmed(
+    block_height: U128,
+    conn: &PooledConnection,
+) -> Result<Vec<Payout>, Error> {
+    use schema::payouts::dsl;
+
+    dsl::payouts
+        .filter(
+            dsl::status
+                .eq(PayoutStatus::Pending)
+                .and(dsl::eth_block_height_required.le(block_height)),
+        )
+        .load::<Payout>(conn)
+        .map_err(|e| Error::from(e))
+}
 
 #[derive(Message)]
 #[rtype(result = "Result<Payout, Error>")]
@@ -15,15 +51,23 @@ impl Handler<Insert> for PgExecutor {
     type Result = Result<Payout, Error>;
 
     fn handle(&mut self, Insert(payload): Insert, _: &mut Self::Context) -> Self::Result {
-        use diesel::insert_into;
-        use schema::payouts::dsl::*;
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
+        insert(payload, &conn)
+    }
+}
 
-        insert_into(payouts)
-            .values(&payload)
-            .get_result(pg_conn)
-            .map_err(|e| Error::from(e))
+#[derive(Message)]
+#[rtype(result = "Result<Payout, Error>")]
+pub struct Update(pub Uuid, pub PayoutPayload);
+
+impl Handler<Update> for PgExecutor {
+    type Result = Result<Payout, Error>;
+
+    fn handle(&mut self, Update(id, payload): Update, _: &mut Self::Context) -> Self::Result {
+        let conn = &self.get()?;
+
+        update(id, payload, &conn)
     }
 }
 
@@ -39,41 +83,8 @@ impl Handler<FindAllConfirmed> for PgExecutor {
         FindAllConfirmed(block_height): FindAllConfirmed,
         _: &mut Self::Context,
     ) -> Self::Result {
-        use schema::payouts::dsl::*;
+        let conn = &self.get()?;
 
-        let pg_conn = &self.get()?;
-
-        payouts
-            .filter(
-                status
-                    .eq(PayoutStatus::Pending)
-                    .and(eth_block_height_required.le(block_height)),
-            )
-            .load::<Payout>(pg_conn)
-            .map_err(|e| Error::from(e))
-    }
-}
-
-#[derive(Message)]
-#[rtype(result = "Result<Payout, Error>")]
-pub struct UpdateById(pub Uuid, pub PayoutPayload);
-
-impl Handler<UpdateById> for PgExecutor {
-    type Result = Result<Payout, Error>;
-
-    fn handle(
-        &mut self,
-        UpdateById(payout_id, payload): UpdateById,
-        _: &mut Self::Context,
-    ) -> Self::Result {
-        use diesel::update;
-        use schema::payouts::dsl::*;
-
-        let pg_conn = &self.get()?;
-
-        update(payouts.filter(id.eq(payout_id)))
-            .set(&payload)
-            .get_result(pg_conn)
-            .map_err(|e| Error::from(e))
+        find_all_confirmed(block_height, &conn)
     }
 }

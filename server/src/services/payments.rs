@@ -64,20 +64,20 @@ pub fn create(
                             for (_, c) in currencies.iter().enumerate() {
                                 match c {
                                     Currency::Btc => {
-                                        payload.btc_address = Some(wallet.get_btc_address());
+                                        payload.btc_address = Some(Some(wallet.get_btc_address()));
                                         payload.btc_price =
-                                            Some(payment.price.clone() * btc_rate.clone());
+                                            Some(Some(payment.price.clone() * btc_rate.clone()));
                                     }
                                     Currency::Eth => {
-                                        payload.eth_address = Some(wallet.get_eth_address());
+                                        payload.eth_address = Some(Some(wallet.get_eth_address()));
                                         payload.eth_price =
-                                            Some(payment.price.clone() * eth_rate.clone());
+                                            Some(Some(payment.price.clone() * eth_rate.clone()));
                                     }
                                     _ => panic!(),
                                 }
                             }
 
-                            Payment::update_by_id(payment.id, payload, &postgres).from_err()
+                            Payment::update(payment.id, payload, &postgres).from_err()
                         })
                 })
             })
