@@ -1,10 +1,12 @@
 extern crate dotenv;
 extern crate env_logger;
 
+extern crate config;
 extern crate payouter;
 
 use std::env;
 
+use config::Config;
 use payouter::service;
 
 fn main() {
@@ -13,12 +15,12 @@ fn main() {
 
     dotenv::dotenv().ok();
 
-    let postgres_url =
-        env::var("POSTGRES_URL").expect("POSTGRES_URL environment variable must be set.");
-    let ethereum_rpc_url =
-        env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
-    let chain_id = env::var("CHAIN_ID").expect("CHAIN_ID environment variable must be set.");
-    let chain_id = chain_id.parse::<u64>().unwrap();
+    let config = Config::new();
 
-    service::run(postgres_url, ethereum_rpc_url, chain_id);
+    service::run(
+        config.postgres_url,
+        config.eth_rpc_client,
+        config.eth_network,
+        config.btc_network,
+    );
 }

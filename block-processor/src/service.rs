@@ -1,11 +1,11 @@
 use actix::prelude::*;
 
 use core::db::postgres;
-use ethereum_client::Client as EthClient;
+use eth_rpc_client::Client as EthRpcClient;
 use poller::Poller;
 use processor::Processor;
 
-pub fn run(postgres_url: String, ethereum_rpc_url: String, skip_missed_blocks: bool) {
+pub fn run(postgres_url: String, eth_rpc_client: EthRpcClient, skip_missed_blocks: bool) {
     System::run(move || {
         let pg_pool = postgres::init_pool(&postgres_url);
         let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
@@ -19,7 +19,7 @@ pub fn run(postgres_url: String, ethereum_rpc_url: String, skip_missed_blocks: b
             Poller::new(
                 processor_address,
                 pg_addr,
-                EthClient::new(ethereum_rpc_url),
+                eth_rpc_client,
                 skip_missed_blocks,
             )
         });

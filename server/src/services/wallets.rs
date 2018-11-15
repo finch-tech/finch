@@ -1,5 +1,6 @@
 use futures::future::{Future, IntoFuture};
 
+use config::Config;
 use core::db::postgres::PgExecutorAddr;
 use core::payment::Payment;
 use core::store::Store;
@@ -24,7 +25,9 @@ pub fn create(
             path.push_str("/");
             path.push_str(nano_second);
 
-            HdKeyring::from_mnemonic(&path, &store.mnemonic, 0)
+            let config = Config::new();
+
+            HdKeyring::from_mnemonic(&path, &store.mnemonic, 0, config.btc_network)
                 .into_future()
                 .from_err()
                 .and_then(move |keyring| {

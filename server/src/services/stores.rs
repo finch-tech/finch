@@ -2,6 +2,7 @@ use futures::future::{Future, IntoFuture};
 use openssl::rsa::Rsa;
 use uuid::Uuid;
 
+use config::Config;
 use core::db::postgres::PgExecutorAddr;
 use core::store::{Store, StorePayload};
 use hd_keyring::HdKeyring;
@@ -22,7 +23,11 @@ pub fn create(
 ) -> impl Future<Item = Store, Error = Error> {
     let postgres = postgres.clone();
     let kay_pair = generate_rsa().into_future();
-    let keyring = HdKeyring::new("m/44'/60'/0'/0", 1).into_future().from_err();
+
+    let config = Config::new();
+    let keyring = HdKeyring::new("m/44'/60'/0'/0", 1, config.btc_network)
+        .into_future()
+        .from_err();
 
     kay_pair
         .join(keyring)

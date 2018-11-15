@@ -8,7 +8,7 @@ use futures_timer::Delay;
 use core::app_status::AppStatus;
 use core::db::postgres::PgExecutorAddr;
 use errors::Error;
-use ethereum_client::{Client, Error as EthereumClientError};
+use eth_rpc_client::{Client, Error as EthRpcClientError};
 use processor::{ProcessBlock, ProcessorAddr};
 use types::U128;
 
@@ -17,7 +17,7 @@ const RETRY_LIMIT: i8 = 10;
 pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
-    ethereum_rpc_client: Client,
+    eth_rpc_client: Client,
     skip_missed_blocks: bool,
 }
 
@@ -25,13 +25,13 @@ impl Poller {
     pub fn new(
         processor: ProcessorAddr,
         postgres: PgExecutorAddr,
-        ethereum_rpc_client: Client,
+        eth_rpc_client: Client,
         skip_missed_blocks: bool,
     ) -> Self {
         Poller {
             processor,
             postgres,
-            ethereum_rpc_client,
+            eth_rpc_client,
             skip_missed_blocks,
         }
     }
@@ -78,7 +78,7 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let eth_client = self.ethereum_rpc_client.clone();
+        let eth_client = self.eth_rpc_client.clone();
         let skip_missed_blocks = self.skip_missed_blocks;
 
         let app_status = AppStatus::find(&self.postgres).from_err::<Error>();
@@ -161,7 +161,7 @@ impl<'a> Handler<Poll> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let eth_client = self.ethereum_rpc_client.clone();
+        let eth_client = self.eth_rpc_client.clone();
 
         if retry_count == RETRY_LIMIT {
             return Box::new(future::err(Error::RetryLimitError(retry_count)));
@@ -178,8 +178,8 @@ impl<'a> Handler<Poll> for Poller {
                     .map(move |_| (block_number + U128::from(1), 0))
             })
             .or_else(move |e| match e {
-                Error::EthereumClientError(e) => match e {
-                    EthereumClientError::EmptyResponseError => future::ok((block_number, 0)),
+                Error::EthRpcClientError(e) => match e {
+                    EthRpcClientError::EmptyResponseError => future::ok((block_number, 0)),
                     _ => future::ok((block_number, retry_count + 1)),
                 },
                 _ => future::err(e),

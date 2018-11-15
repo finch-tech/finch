@@ -3,7 +3,7 @@ use std::io::Error as IoError;
 use actix::MailboxError;
 use core::ModelError;
 
-use ethereum_client::Error as EthereumClientError;
+use eth_rpc_client::Error as EthRpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -14,7 +14,7 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
     #[fail(display = "{}", _0)]
-    EthereumClientError(#[cause] EthereumClientError),
+    EthRpcClientError(#[cause] EthRpcClientError),
     #[fail(display = "{}", _0)]
     IoError(#[cause] IoError),
 }
@@ -31,9 +31,9 @@ impl From<MailboxError> for Error {
     }
 }
 
-impl From<EthereumClientError> for Error {
-    fn from(e: EthereumClientError) -> Error {
-        Error::EthereumClientError(e)
+impl From<EthRpcClientError> for Error {
+    fn from(e: EthRpcClientError) -> Error {
+        Error::EthRpcClientError(e)
     }
 }
 

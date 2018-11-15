@@ -1,4 +1,4 @@
-use ethereum_client::Error as EthError;
+use eth_rpc_client::Error as EthRpcClientError;
 
 use actix::MailboxError;
 use core::ModelError;
@@ -15,7 +15,7 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
     #[fail(display = "{}", _0)]
-    EthError(#[cause] EthError),
+    EthRpcClientError(#[cause] EthRpcClientError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
     #[fail(display = "No payout address")]
@@ -34,9 +34,9 @@ impl From<ModelError> for Error {
     }
 }
 
-impl From<EthError> for Error {
-    fn from(e: EthError) -> Error {
-        Error::EthError(e)
+impl From<EthRpcClientError> for Error {
+    fn from(e: EthRpcClientError) -> Error {
+        Error::EthRpcClientError(e)
     }
 }
 

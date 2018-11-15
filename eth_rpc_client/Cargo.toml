@@ -1,5 +1,5 @@
 [package]
-name = "ethereum_client"
+name = "eth_rpc_client"
 version = "0.1.0"
 authors = ["Artefact Inc. <admin@artefact.co.jp>"]
 

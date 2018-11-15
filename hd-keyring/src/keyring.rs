@@ -6,6 +6,8 @@ use bip32::{DerivationPath, Index, XKeyPair};
 use errors::Error;
 use wallet::Wallet;
 
+use types::BtcNetwork;
+
 #[derive(Debug)]
 pub struct HdKeyring {
     pub mnemonic: Mnemonic,
@@ -13,10 +15,15 @@ pub struct HdKeyring {
     pub wallets: Vec<Wallet>,
     hd_wallet: XKeyPair,
     root: XKeyPair,
+    pub btc_network: BtcNetwork,
 }
 
 impl HdKeyring {
-    pub fn new(path: &str, number_of_accounts: u32) -> Result<Self, Error> {
+    pub fn new(
+        path: &str,
+        number_of_accounts: u32,
+        btc_network: BtcNetwork,
+    ) -> Result<Self, Error> {
         let path = DerivationPath::from_str(path)?;
 
         let mnemonic = Mnemonic::new(
@@ -25,7 +32,7 @@ impl HdKeyring {
             String::from(""),
         )?;
 
-        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path)?;
+        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path, btc_network)?;
         keyring.load_wallets(number_of_accounts)?;
         Ok(keyring)
     }
@@ -34,32 +41,38 @@ impl HdKeyring {
         path: &str,
         mnemonic: &str,
         number_of_accounts: u32,
+        btc_network: BtcNetwork,
     ) -> Result<Self, Error> {
         let path = DerivationPath::from_str(path)?;
 
         let mnemonic = Mnemonic::from_string(mnemonic, Language::English, "")?;
-        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path)?;
+        let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path, btc_network)?;
         keyring.load_wallets(number_of_accounts)?;
         Ok(keyring)
     }
 
-    fn init_from_mnemonic(mnemonic: Mnemonic, path: &DerivationPath) -> Result<Self, Error> {
-        let master_node = XKeyPair::from_seed(mnemonic.get_seed())?;
+    fn init_from_mnemonic(
+        mnemonic: Mnemonic,
+        path: &DerivationPath,
+        btc_network: BtcNetwork,
+    ) -> Result<Self, Error> {
+        let master_node = XKeyPair::from_seed(mnemonic.get_seed(), btc_network)?;
         let root = master_node.from_path(path)?;
 
         Ok(HdKeyring {
-            mnemonic: mnemonic,
-            root: root,
+            mnemonic,
+            root,
             hd_wallet: master_node,
             hd_path: path.clone(),
             wallets: Vec::new(),
+            btc_network,
         })
     }
 
     fn load_wallets(&mut self, number_of_accounts: u32) -> Result<(), Error> {
         for i in 0..number_of_accounts {
             let key_pair = self.root.derive(&Index::Soft(i))?;
-            let wallet = Wallet::from_secret_key(*key_pair.xprv().as_raw())?;
+            let wallet = Wallet::from_secret_key(*key_pair.xprv().as_raw(), self.btc_network)?;
             self.wallets.push(wallet);
         }
 
@@ -68,7 +81,7 @@ impl HdKeyring {
 
     pub fn get_wallet_by_index(&self, index: u32) -> Result<Wallet, Error> {
         let key_pair = self.root.derive(&Index::Soft(index - 1))?;
-        Wallet::from_secret_key(*key_pair.xprv().as_raw())
+        Wallet::from_secret_key(*key_pair.xprv().as_raw(), self.btc_network)
     }
 }
 
@@ -79,7 +92,7 @@ mod tests {
 
     #[test]
     fn create_new_keyring() {
-        HdKeyring::new("m/44'/60'/0'/0", 1).unwrap();
+        HdKeyring::new("m/44'/60'/0'/0", 1, BtcNetwork::MainNet).unwrap();
     }
 
     #[test]
@@ -90,6 +103,7 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
+            BtcNetwork::MainNet,
         )
         .unwrap();
 
@@ -106,6 +120,7 @@ mod tests {
             "m/44'/0'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
+            BtcNetwork::MainNet,
         )
         .unwrap();
 
@@ -123,6 +138,7 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             0,
+            BtcNetwork::MainNet,
         )
         .unwrap();
 

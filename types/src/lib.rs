@@ -13,8 +13,10 @@ extern crate serde_json;
 extern crate sha2;
 
 mod block;
+mod btc_network;
 mod clients;
 mod currencies;
+mod eth_network;
 mod h160;
 mod h256;
 mod payment_status;
@@ -29,8 +31,10 @@ pub type PublicKey = Vec<u8>;
 
 pub use self::block::Block;
 pub use self::block::BlockHeader;
+pub use self::btc_network::BtcNetwork;
 pub use self::clients::Client;
 pub use self::currencies::Currency;
+pub use self::eth_network::EthNetwork;
 pub use self::h160::H160;
 pub use self::h256::H256;
 pub use self::payment_status::PaymentStatus;

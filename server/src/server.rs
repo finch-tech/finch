@@ -1,57 +1,44 @@
-use std::fs;
-
 use actix::prelude::*;
 use actix_web::{http, middleware, server, App};
 use num_cpus;
 
+use config::Config;
 use controllers;
 use core::db::postgres;
 use mailer::{self, Mailer, MailerAddr};
-use types::{PrivateKey, PublicKey};
 
 #[derive(Clone)]
 pub struct AppState {
     pub postgres: postgres::PgExecutorAddr,
     pub mailer: MailerAddr,
-    pub jwt_private: PrivateKey,
-    pub jwt_public: PublicKey,
+    pub config: Config,
 }
 
-pub fn run(
-    host: String,
-    port: String,
-    private_key_path: String,
-    public_key_path: String,
-    postgres_url: String,
-    smtp_host: String,
-    smtp_port: u16,
-    smtp_user: String,
-    smtp_pass: String,
-) {
+pub fn run(config: Config) {
     System::run(move || {
-        let jwt_private = fs::read(private_key_path).expect("Failed to open the private key file.");
-        let jwt_public = fs::read(public_key_path).expect("Failed to open the public key file.");
-
-        let pg_pool = postgres::init_pool(&postgres_url);
+        let pg_pool = postgres::init_pool(&config.postgres_url);
         let pg_addr = SyncArbiter::start(num_cpus::get() * 4, move || {
             postgres::PgExecutor(pg_pool.clone())
         });
 
+        let smtp_config = config.smtp.clone();
         let mailer_addr = SyncArbiter::start(num_cpus::get() * 1, move || {
             Mailer(mailer::init_mailer(
-                smtp_host.clone(),
-                smtp_port.clone(),
-                smtp_user.clone(),
-                smtp_pass.clone(),
+                smtp_config.host.clone(),
+                smtp_config.port.clone(),
+                smtp_config.user.clone(),
+                smtp_config.pass.clone(),
             ))
         });
+
+        let host = config.host.clone();
+        let port = config.port.clone();
 
         server::new(move || {
             App::with_state(AppState {
                 postgres: pg_addr.clone(),
                 mailer: mailer_addr.clone(),
-                jwt_private: jwt_private.clone(),
-                jwt_public: jwt_public.clone(),
+                config: config.clone(),
             })
             .middleware(middleware::Logger::default())
             .resource("/", |r| {

@@ -2,29 +2,36 @@ use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
-use ethereum_client::{Client, Transaction};
+use eth_rpc_client::{Client as EthRpcClient, Transaction};
 
 use core::db::postgres::PgExecutorAddr;
 use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
 use core::transaction::Transaction as _Transaction;
 use hd_keyring::{HdKeyring, Wallet};
-use types::{PayoutAction, PayoutStatus, H256, U128, U256};
+use types::{BtcNetwork, EthNetwork, PayoutAction, PayoutStatus, H256, U128, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub ethereum_rpc_url: String,
-    pub chain_id: u64,
+    pub eth_rpc_client: EthRpcClient,
+    pub eth_network: EthNetwork,
+    pub btc_network: BtcNetwork,
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, ethereum_rpc_url: String, chain_id: u64) -> Self {
+    pub fn new(
+        pg_addr: PgExecutorAddr,
+        eth_rpc_client: EthRpcClient,
+        eth_network: EthNetwork,
+        btc_network: BtcNetwork,
+    ) -> Self {
         Payouter {
             postgres: pg_addr,
-            ethereum_rpc_url,
-            chain_id,
+            eth_rpc_client,
+            eth_network,
+            btc_network,
         }
     }
 
@@ -33,17 +40,18 @@ impl Payouter {
         payout: Payout,
     ) -> impl Future<Item = (Wallet, _Transaction, Store, U256, U128), Error = Error> {
         let postgres = self.postgres.clone();
-        let eth_client = Client::new(self.ethereum_rpc_url.clone());
+        let eth_rpc_client = self.eth_rpc_client.clone();
+        let btc_network = self.btc_network;
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let gas_price = eth_client.get_gas_price().from_err();
+        let gas_price = eth_rpc_client.get_gas_price().from_err();
 
         store
             .join3(payment, gas_price)
             .and_then(move |(store, payment, gas_price)| {
                 let transaction = payment.transaction(&postgres).from_err();
-                let nonce = eth_client
+                let nonce = eth_rpc_client
                     .get_transaction_count(payment.eth_address.unwrap())
                     .from_err();
 
@@ -60,7 +68,7 @@ impl Payouter {
                         path.push_str("/");
                         path.push_str(nano_second);
 
-                        HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0)
+                        HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0, btc_network)
                             .into_future()
                             .from_err()
                             .and_then(move |keyring| {
@@ -77,8 +85,8 @@ impl Payouter {
     }
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
-        let eth_client = Client::new(self.ethereum_rpc_url.clone());
-        let chain_id = self.chain_id;
+        let chain_id = self.eth_network.chain_id();
+        let eth_rpc_client = self.eth_rpc_client.clone();
 
         self.prepare_payout(payout).and_then(
             move |(wallet, transaction, store, gas_price, nonce)| {
@@ -100,7 +108,7 @@ impl Payouter {
                             .into_future()
                             .from_err()
                             .and_then(move |signed_transaction| {
-                                eth_client
+                                eth_rpc_client
                                     .send_raw_transaction(signed_transaction)
                                     .from_err()
                             }),
@@ -113,8 +121,8 @@ impl Payouter {
     }
 
     pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
-        let eth_client = Client::new(self.ethereum_rpc_url.clone());
-        let chain_id = self.chain_id;
+        let chain_id = self.eth_network.chain_id();
+        let eth_rpc_client = self.eth_rpc_client.clone();
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
@@ -134,7 +142,7 @@ impl Payouter {
                     .into_future()
                     .from_err()
                     .and_then(move |signed_transaction| {
-                        eth_client
+                        eth_rpc_client
                             .send_raw_transaction(signed_transaction)
                             .from_err()
                     })

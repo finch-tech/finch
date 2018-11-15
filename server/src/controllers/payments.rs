@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::env;
 
 use actix_web::{Json, Path, State};
 use bigdecimal::BigDecimal;
@@ -12,7 +11,6 @@ use auth::{AuthClient, JWTPayload};
 use core::app_status::AppStatus;
 use core::client_token::ClientToken;
 use core::payment::{Payment, PaymentPayload};
-use ethereum_client::Client;
 use server::AppState;
 use services::{self, Error};
 use types::{Currency, U256};
@@ -60,23 +58,30 @@ pub fn create(
                 transaction_hash: None,
             };
 
-            services::payments::create(params.currencies, payload, &state.postgres).and_then(
-                move |payment| {
-                    JWTPayload::new(None, Some(auth_client), payment.expires_at)
-                        .encode(&state.jwt_private)
-                        .map_err(|e| Error::from(e))
-                        .into_future()
-                        .then(move |res| {
-                            res.and_then(|auth_token| {
-                                Ok(Json(json!({
+            services::payments::create(
+                params.currencies,
+                payload,
+                &state.postgres,
+                state.config.currency_api_client.clone(),
+            )
+            .and_then(move |payment| {
+                JWTPayload::new(None, Some(auth_client), payment.expires_at)
+                    .encode(&state.config.jwt_private)
+                    .map_err(|e| Error::from(e))
+                    .into_future()
+                    .then(move |res| {
+                        res.and_then(|auth_token| {
+                            Ok(Json(json!({
                                 "payment": payment.export(),
-                                "store": store.export(),
+                                "store": {
+                                    "name": store.name,
+                                    "description": store.description
+                                },
                                 "token": auth_token,
                             })))
-                            })
                         })
-                },
-            )
+                    })
+            })
         })
 }
 
@@ -92,9 +97,6 @@ pub fn get_status(
     (state, client, path): (State<AppState>, AuthClient, Path<Uuid>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let id = path.into_inner();
-    let ethereum_rpc_url =
-        env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
-
     let app_status = AppStatus::find(&state.postgres).from_err();
     let payment = services::payments::get(id, &state.postgres).and_then(move |payment| {
         validate_client(&payment, &client)
@@ -106,7 +108,7 @@ pub fn get_status(
         if let Some(block_height) = status.eth_block_height {
             if let Some(eth_address) = payment.eth_address {
                 return future::Either::B(
-                    Client::new(ethereum_rpc_url)
+                    state.config.eth_rpc_client
                         .get_balance(eth_address)
                         .from_err()
                         .and_then(move |balance| {

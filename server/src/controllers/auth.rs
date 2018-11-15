@@ -37,8 +37,14 @@ pub fn registration(
     };
 
     Box::new(
-        services::users::register(payload, state.mailer.clone(), &state.postgres)
-            .then(|res| res.and_then(|user| Ok(Json(user.export())))),
+        services::users::register(
+            payload,
+            state.mailer.clone(),
+            &state.postgres,
+            state.config.web_client_url.clone(),
+            state.config.mail_sender.clone(),
+        )
+        .then(|res| res.and_then(|user| Ok(Json(user.export())))),
     )
 }
 
@@ -57,7 +63,7 @@ pub fn authentication(
         params.email,
         params.password,
         &state.postgres,
-        state.jwt_private.clone(),
+        state.config.jwt_private.clone(),
     )
     .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
@@ -74,11 +80,14 @@ pub fn activation(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::activate(params.token, &state.postgres, state.jwt_private.clone()).then(
-        |res| {
-            res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
-        },
+    services::users::activate(
+        params.token,
+        &state.postgres,
+        state.config.jwt_private.clone(),
     )
+    .then(|res| {
+        res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
+    })
 }
 
 #[derive(Deserialize)]
@@ -91,8 +100,14 @@ pub fn reset_password(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::reset_password(params.email, state.mailer.clone(), &state.postgres)
-        .then(|res| res.and_then(|_| Ok(Json(json!({})))))
+    services::users::reset_password(
+        params.email,
+        state.mailer.clone(),
+        &state.postgres,
+        state.config.web_client_url.clone(),
+        state.config.mail_sender.clone(),
+    )
+    .then(|res| res.and_then(|_| Ok(Json(json!({})))))
 }
 
 #[derive(Deserialize)]
@@ -110,7 +125,7 @@ pub fn change_password(
         params.token,
         params.password,
         &state.postgres,
-        state.jwt_private.clone(),
+        state.config.jwt_private.clone(),
     )
     .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))

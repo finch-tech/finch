@@ -56,7 +56,11 @@ impl FromRequest<AppState> for JWTPayload {
 
         let validation = jwt::Validation::new(jwt::Algorithm::RS256);
 
-        match jwt::decode::<JWTPayload>(&auth_header_parts[1], &state.jwt_public, &validation) {
+        match jwt::decode::<JWTPayload>(
+            &auth_header_parts[1],
+            &state.config.jwt_public,
+            &validation,
+        ) {
             Ok(token) => Ok(token.claims),
             Err(_) => Err(error::ErrorUnauthorized("Invalid authorization token.")),
         }

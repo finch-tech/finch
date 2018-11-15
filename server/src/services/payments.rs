@@ -1,13 +1,11 @@
 use std::collections::HashSet;
-use std::env;
-use std::str::FromStr;
 
 use futures::future::Future;
 use uuid::Uuid;
 
 use core::db::postgres::PgExecutorAddr;
 use core::payment::{Payment, PaymentPayload};
-use currency_api_client::{Api as CurrencyApi, Client as CurrencyApiClient};
+use currency_api_client::Client as CurrencyApiClient;
 use services::{self, Error};
 use types::{Currency, PaymentStatus};
 
@@ -18,6 +16,7 @@ pub fn create(
     currencies: HashSet<Currency>,
     mut payload: PaymentPayload,
     postgres: &PgExecutorAddr,
+    currency_api_client: CurrencyApiClient,
 ) -> impl Future<Item = Payment, Error = Error> {
     let postgres = postgres.clone();
 
@@ -35,18 +34,6 @@ pub fn create(
                 let mut payload = PaymentPayload::from(payment.clone());
 
                 payment.store(&postgres).from_err().and_then(move |store| {
-                    let currency_api = CurrencyApi::from_str(
-                        &env::var("CURRENCY_API")
-                            .expect("CURRENCY_API environment variable must be set."),
-                    )
-                    .unwrap();
-
-                    let currency_api_key = env::var("CURRENCY_API_KEY")
-                        .expect("CURRENCY_API_KEY environment variable must be set.");
-
-                    let currency_api_client =
-                        CurrencyApiClient::new(&currency_api, &currency_api_key);
-
                     let btc_rate = currency_api_client
                         .get_rate(&store.base_currency, &Currency::Btc)
                         .from_err();

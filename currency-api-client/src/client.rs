@@ -5,13 +5,14 @@ use api::Api;
 use errors::Error;
 use types::Currency;
 
-pub struct Client<'a> {
-    api: &'a Api,
-    key: &'a str,
+#[derive(Clone)]
+pub struct Client {
+    api: Api,
+    key: String,
 }
 
-impl<'a> Client<'a> {
-    pub fn new(api: &'a Api, key: &'a str) -> Self {
+impl Client {
+    pub fn new(api: Api, key: String) -> Self {
         Client { api, key }
     }
 
@@ -20,6 +21,6 @@ impl<'a> Client<'a> {
         from: &Currency,
         to: &Currency,
     ) -> Box<Future<Item = BigDecimal, Error = Error>> {
-        self.api.get_rate(from, to, self.key)
+        self.api.get_rate(from, to, &self.key)
     }
 }

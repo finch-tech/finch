@@ -1,17 +1,16 @@
-extern crate dotenv;
 extern crate env_logger;
 
 extern crate block_processor;
+extern crate config;
 
 use std::env;
 
 use block_processor::service;
+use config::Config;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
     env_logger::init();
-
-    dotenv::dotenv().ok();
 
     let mut skip_missed_blocks = false;
     if let Ok(flag) = env::var("SKIP_MISSED_BLOCKS") {
@@ -20,10 +19,11 @@ fn main() {
         }
     };
 
-    let postgres_url =
-        env::var("POSTGRES_URL").expect("POSTGRES_URL environment variable must be set.");
-    let ethereum_rpc_url =
-        env::var("ETHEREUM_RPC_URL").expect("ETHEREUM_RPC_URL environment variable must be set.");
+    let config = Config::new();
 
-    service::run(postgres_url, ethereum_rpc_url, skip_missed_blocks);
+    service::run(
+        config.postgres_url,
+        config.eth_rpc_client,
+        skip_missed_blocks,
+    );
 }

@@ -14,16 +14,10 @@ use secp256k1::{ContextFlag, Secp256k1};
 use sha2::Sha512;
 
 use errors::Error;
-use types::{H160, H256};
+use types::{BtcNetwork, H160, H256};
 
 const MASTER_SECRET: &'static [u8] = b"Bitcoin seed";
 const HARDENED_OFFSET: u32 = 0x80000000;
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-enum Network {
-    BITCOIN_MAINNET,
-    BITCOIN_TESTNET,
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Fingerprint([u8; 4]);
@@ -158,8 +152,8 @@ pub struct XKeyPair {
 }
 
 impl XKeyPair {
-    pub fn from_seed(seed: Seed) -> Result<Self, Error> {
-        let xprv = Xprv::from_master_seed(seed)?;
+    pub fn from_seed(seed: Seed, btc_network: BtcNetwork) -> Result<Self, Error> {
+        let xprv = Xprv::from_master_seed(seed, btc_network)?;
         let xpub = Xpub::from_private(&xprv)?;
 
         Ok(XKeyPair { xprv, xpub })
@@ -194,14 +188,14 @@ impl XKeyPair {
 pub struct Xprv {
     secret_key: SecretKey,
     chain_code: ChainCode,
-    network: Network,
+    network: BtcNetwork,
     depth: u32,
     index: Index,
     parent_fingerprint: Fingerprint,
 }
 
 impl Xprv {
-    pub fn from_master_seed(seed: Seed) -> Result<Self, Error> {
+    pub fn from_master_seed(seed: Seed, btc_network: BtcNetwork) -> Result<Self, Error> {
         let mut mac = Hmac::<Sha512>::new_varkey(MASTER_SECRET).unwrap();
 
         mac.input(seed.as_bytes());
@@ -214,7 +208,7 @@ impl Xprv {
             secret_key,
             chain_code: ChainCode::from(&i[32..]),
             depth: 0,
-            network: Network::BITCOIN_MAINNET,
+            network: btc_network,
             index: Index::Soft(0),
             parent_fingerprint: Default::default(),
         })
@@ -284,8 +278,8 @@ impl ToString for Xprv {
         let mut data = [0; 78];
         data[0..4].copy_from_slice(
             &match self.network {
-                Network::BITCOIN_MAINNET => [0x04u8, 0x88, 0xAD, 0xE4],
-                Network::BITCOIN_TESTNET => [0x04u8, 0x35, 0x83, 0x94],
+                BtcNetwork::MainNet => [0x04u8, 0x88, 0xAD, 0xE4],
+                BtcNetwork::TestNet => [0x04u8, 0x35, 0x83, 0x94],
             }[..],
         );
         data[4] = self.depth as u8;
@@ -335,9 +329,9 @@ impl FromStr for Xprv {
 
         Ok(Xprv {
             network: if &data[0..4] == [0x04u8, 0x88, 0xAD, 0xE4] {
-                Network::BITCOIN_MAINNET
+                BtcNetwork::MainNet
             } else if &data[0..4] == [0x04u8, 0x35, 0x83, 0x94] {
-                Network::BITCOIN_TESTNET
+                BtcNetwork::TestNet
             } else {
                 return Err(Error::InvalidNetwork);
             },
@@ -354,7 +348,7 @@ impl FromStr for Xprv {
 pub struct Xpub {
     public_key: PublicKey,
     chain_code: ChainCode,
-    network: Network,
+    network: BtcNetwork,
     depth: u32,
     index: Index,
     parent_fingerprint: Fingerprint,
@@ -424,8 +418,8 @@ impl ToString for Xpub {
         let mut data = [0; 78];
         data[0..4].copy_from_slice(
             &match self.network {
-                Network::BITCOIN_MAINNET => [0x04u8, 0x88, 0xB2, 0x1E],
-                Network::BITCOIN_TESTNET => [0x04u8, 0x35, 0x87, 0xCF],
+                BtcNetwork::MainNet => [0x04u8, 0x88, 0xB2, 0x1E],
+                BtcNetwork::TestNet => [0x04u8, 0x35, 0x87, 0xCF],
             }[..],
         );
         data[4] = self.depth as u8;
@@ -474,9 +468,9 @@ impl FromStr for Xpub {
 
         Ok(Xpub {
             network: if &data[0..4] == [0x04u8, 0x88, 0xB2, 0x1E] {
-                Network::BITCOIN_MAINNET
+                BtcNetwork::MainNet
             } else if &data[0..4] == [0x04u8, 0x35, 0x87, 0xCF] {
-                Network::BITCOIN_TESTNET
+                BtcNetwork::TestNet
             } else {
                 return Err(Error::InvalidNetwork);
             },

@@ -6,22 +6,24 @@ use secp256k1::Secp256k1;
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{H160, H256};
+use types::{BtcNetwork, H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
     pub secret_key: SecretKey,
     pub public_key: PublicKey,
+    pub btc_network: BtcNetwork,
 }
 
 impl Wallet {
-    pub fn from_secret_key(secret_key: SecretKey) -> Result<Self, Error> {
+    pub fn from_secret_key(secret_key: SecretKey, btc_network: BtcNetwork) -> Result<Self, Error> {
         let secp = Secp256k1::new();
         let public_key = PublicKey::from_secret_key(&secp, &secret_key)?;
 
         Ok(Wallet {
             secret_key,
             public_key,
+            btc_network: btc_network,
         })
     }
 
@@ -45,12 +47,12 @@ impl Wallet {
 
         // Add version prefix.
         let mut prefixed = [0; 21];
-        // TODO: Network check.
-        // prefixed[0] = match self.network {
-        //     Network::Bitcoin => 0,
-        //     Network::Testnet | Network::Regtest => 111,
-        // };
-        prefixed[0] = 0;
+
+        prefixed[0] = match self.btc_network {
+            BtcNetwork::MainNet => 0,
+            BtcNetwork::TestNet => 111,
+        };
+
         prefixed[1..].copy_from_slice(&h160[..]);
 
         // h256 on prefixed h160.

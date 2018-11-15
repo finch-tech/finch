@@ -1,5 +1,3 @@
-use std::env;
-
 use chrono::{prelude::*, Duration};
 use data_encoding::BASE64;
 use futures::future::{err, Future, IntoFuture};
@@ -21,15 +19,12 @@ pub fn register(
     mut payload: UserPayload,
     mailer: MailerAddr,
     postgres: &PgExecutorAddr,
+    web_client_url: String,
+    mail_sender: String,
 ) -> impl Future<Item = User, Error = Error> {
     let postgres = postgres.clone();
     let rng = rand::SystemRandom::new();
     let mut salt = [0u8; CREDENTIAL_LEN];
-
-    let web_client_url =
-        env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
-    let mail_sender =
-        env::var("MAIL_SENDER").expect("MAIL_SENDER environment variable must be set.");
 
     rng.fill(&mut salt).unwrap();
 
@@ -153,13 +148,10 @@ pub fn reset_password(
     email: String,
     mailer: MailerAddr,
     postgres: &PgExecutorAddr,
+    web_client_url: String,
+    mail_sender: String,
 ) -> impl Future<Item = bool, Error = Error> {
     let postgres = postgres.clone();
-
-    let web_client_url =
-        env::var("WEB_CLIENT_URL").expect("WEB_CLIENT_URL environment variable must be set.");
-    let mail_sender =
-        env::var("MAIL_SENDER").expect("MAIL_SENDER environment variable must be set.");
 
     User::find_by_email(email, &postgres)
         .from_err()

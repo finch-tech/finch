@@ -1,0 +1,11 @@
+[package]
+name = "config"
+version = "0.1.0"
+authors = ["Artefact Inc. <admin@artefact.co.jp>"]
+
+[dependencies]
+dotenv = "0.13.0"
+
+currency-api-client = { path = "../currency-api-client" }
+types = { path = "../types" }
+eth_rpc_client = { path = "../eth_rpc_client" }
