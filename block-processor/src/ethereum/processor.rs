@@ -14,7 +14,7 @@ use core::payout::{Payout, PayoutPayload};
 use core::transaction::Transaction;
 use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
-use errors::Error;
+use ethereum::errors::Error;
 
 pub type ProcessorAddr = Addr<Processor>;
 

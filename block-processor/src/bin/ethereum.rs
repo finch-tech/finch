@@ -5,7 +5,7 @@ extern crate config;
 
 use std::env;
 
-use block_processor::service;
+use block_processor::ethereum::service;
 use config::Config;
 
 fn main() {

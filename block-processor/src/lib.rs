@@ -12,11 +12,8 @@ extern crate serde_json;
 extern crate tokio;
 
 extern crate core;
-extern crate eth_rpc_client;
+extern crate rpc_client;
 extern crate types;
 
-mod errors;
-mod poller;
-mod processor;
-
-pub mod service;
+pub mod bitcoin;
+pub mod ethereum;
