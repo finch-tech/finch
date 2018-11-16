@@ -7,8 +7,8 @@ pub enum EthNetwork {
 impl EthNetwork {
     pub fn chain_id(&self) -> u64 {
         match self {
-            Main => 1,
-            Ropsten => 3,
+            EthNetwork::Main => 1,
+            EthNetwork::Ropsten => 3,
         }
     }
 }

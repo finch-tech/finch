@@ -21,6 +21,12 @@ impl U256 {
             .map_err(|_| String::from("Failed to convert str to U256"))?;
         Ok(U256(u))
     }
+
+    pub fn from_hex_str(value: &str) -> Result<U256, String> {
+        let i = i64::from_str_radix(&value[2..], 16)
+            .map_err(|_| String::from("Failed to convert hex str to U256"))?;
+        U256::from_dec_str(&format!("{}", i))
+    }
 }
 
 impl fmt::Debug for U256 {

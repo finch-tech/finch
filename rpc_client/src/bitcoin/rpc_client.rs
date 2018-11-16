@@ -70,7 +70,6 @@ impl RpcClient {
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
-            println!("{:?}", resp);
             resp.body().from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
@@ -79,7 +78,7 @@ impl RpcClient {
 
                 match body.get("result") {
                     Some(result) => {
-                        ok(H256::from_str(&format!("0x{}", &result.as_str().unwrap())).unwrap())
+                        ok(H256::from_str(&format!("{}", &result.as_str().unwrap())).unwrap())
                     }
                     None => err(Error::EmptyResponseError),
                 }

@@ -39,17 +39,27 @@ impl H160 {
         let h160 = self.0;
         h160.0.to_vec()
     }
+
+    pub fn hex(&self) -> String {
+        self.0.hex()
+    }
 }
 
 impl fmt::Debug for H160 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.0)
+        for i in &self.0[..] {
+            write!(f, "{:02x}", i)?;
+        }
+        Ok(())
     }
 }
 
 impl fmt::Display for H160 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        for i in &self.0[..] {
+            write!(f, "{:02x}", i)?;
+        }
+        Ok(())
     }
 }
 
@@ -63,7 +73,7 @@ impl FromSql<VarChar, Pg> for H160 {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let bytes = not_none!(bytes);
         match from_utf8(bytes) {
-            Ok(h160) => match _H160::from_str(&h160[2..]) {
+            Ok(h160) => match _H160::from_str(&h160) {
                 Ok(h160) => Ok(H160(h160)),
                 Err(e) => Err(e.into()),
             },
@@ -76,7 +86,7 @@ impl FromStr for H160 {
     type Err = FromHexError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match _H160::from_str(&s[2..]) {
+        match _H160::from_str(&s) {
             Ok(hash) => Ok(H160(hash)),
             Err(e) => Err(e),
         }

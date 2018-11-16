@@ -27,7 +27,7 @@ impl RpcClient {
             .json(json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getBalance",
-                "params": (format!("{:?}", &account.0), "pending"),
+                "params": (format!("{}", &account.hex()), "pending"),
                 "id": 1
             })) {
             Ok(req) => req,
@@ -42,11 +42,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => {
-                        let decimal =
-                            i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
-                        ok(U256::from_dec_str(&format!("{}", decimal)).unwrap())
-                    }
+                    Some(result) => ok(U256::from_hex_str(&result.as_str().unwrap()).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -74,11 +70,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => {
-                        let decimal =
-                            i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
-                        ok(U128::from_dec_str(&format!("{}", decimal)).unwrap())
-                    }
+                    Some(result) => ok(U128::from_hex_str(&result.as_str().unwrap()).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -143,11 +135,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => {
-                        let decimal =
-                            i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
-                        ok(U256::from_dec_str(&format!("{}", decimal)).unwrap())
-                    }
+                    Some(result) => ok(U256::from_hex_str(&result.as_str().unwrap()).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -160,7 +148,7 @@ impl RpcClient {
             .json(json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getTransactionCount",
-                "params": (format!("{:?}", &account.0), "latest"),
+                "params": (format!("{}", &account.hex()), "latest"),
                 "id": 1
             })) {
             Ok(req) => req,
@@ -175,11 +163,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => {
-                        let decimal =
-                            i64::from_str_radix(&result.as_str().unwrap()[2..], 16).unwrap();
-                        ok(U128::from_dec_str(&format!("{}", decimal)).unwrap())
-                    }
+                    Some(result) => ok(U128::from_hex_str(&result.as_str().unwrap()).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -210,7 +194,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(H256::from_str(&result.as_str().unwrap()).unwrap()),
+                    Some(result) => ok(H256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })

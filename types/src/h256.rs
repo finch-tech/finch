@@ -41,17 +41,27 @@ impl H256 {
         let h256 = self.0;
         h256.0.to_vec()
     }
+
+    pub fn hex(&self) -> String {
+        self.0.hex()
+    }
 }
 
 impl fmt::Debug for H256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.0)
+        for i in &self.0[..] {
+            write!(f, "{:02x}", i)?;
+        }
+        Ok(())
     }
 }
 
 impl fmt::Display for H256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        for i in &self.0[..] {
+            write!(f, "{:02x}", i)?;
+        }
+        Ok(())
     }
 }
 
@@ -65,7 +75,7 @@ impl FromSql<VarChar, Pg> for H256 {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let bytes = not_none!(bytes);
         match from_utf8(bytes) {
-            Ok(h256) => match _H256::from_str(&h256[2..]) {
+            Ok(h256) => match _H256::from_str(&h256) {
                 Ok(h256) => Ok(H256(h256)),
                 Err(e) => Err(e.into()),
             },
@@ -78,7 +88,7 @@ impl FromStr for H256 {
     type Err = FromHexError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match _H256::from_str(&s[2..]) {
+        match _H256::from_str(&s) {
             Ok(h256) => Ok(H256(h256)),
             Err(e) => Err(e),
         }

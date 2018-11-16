@@ -30,7 +30,7 @@ impl Wallet {
     pub fn get_eth_address(&self) -> H160 {
         let key_hash = keccak256(&self.public_key.serialize_uncompressed()[1..]); // Ignoring prefix 0x04.
 
-        let mut address = String::from("0x");
+        let mut address = String::new();
         address.push_str(
             &key_hash[key_hash.len() - 20..]
                 .iter()

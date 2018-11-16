@@ -161,7 +161,7 @@ impl Payment {
         if let Some(ref address) = self.eth_address {
             if let Some(ref price) = self.eth_price {
                 eth = Some(json!({
-                    "address": address,
+                    "address": address.hex(),
                     "price": format!("{}", price)
                 }));
             }
