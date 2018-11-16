@@ -122,6 +122,7 @@ impl Handler<ProcessBlock> for Processor {
                 let payload = AppStatusPayload {
                     id: 1,
                     eth_block_height: Some(block_number),
+                    btc_block_height: None,
                 };
 
                 AppStatus::update(payload, &_postgres).from_err()

@@ -2,6 +2,7 @@ table! {
     app_statuses (id) {
         id -> Int2,
         eth_block_height -> Nullable<Numeric>,
+        btc_block_height -> Nullable<Numeric>,
     }
 }
 

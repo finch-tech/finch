@@ -11,6 +11,7 @@ use types::U128;
 pub struct AppStatusPayload {
     pub id: i16,
     pub eth_block_height: Option<Option<U128>>,
+    pub btc_block_height: Option<Option<U128>>,
 }
 
 #[derive(Identifiable, Queryable, Serialize)]
@@ -18,6 +19,7 @@ pub struct AppStatusPayload {
 pub struct AppStatus {
     pub id: i16,
     pub eth_block_height: Option<U128>,
+    pub btc_block_height: Option<U128>,
 }
 
 impl AppStatus {
