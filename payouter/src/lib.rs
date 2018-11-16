@@ -9,8 +9,8 @@ extern crate serde_json;
 extern crate tokio;
 
 extern crate core;
-extern crate eth_rpc_client;
 extern crate hd_keyring;
+extern crate rpc_client;
 extern crate types;
 
 mod errors;

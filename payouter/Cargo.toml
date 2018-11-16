@@ -16,7 +16,7 @@ serde_derive = "1.0"
 serde_json = "1.0"
 tokio = "0.1.7"
 
-eth_rpc_client = { path = "../eth_rpc_client" }
+rpc_client = { path = "../rpc_client" }
 types = { path = "../types" }
 core = { path = "../core" }
 hd-keyring = { path = "../hd-keyring" }

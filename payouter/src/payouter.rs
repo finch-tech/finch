@@ -2,12 +2,12 @@ use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
-use eth_rpc_client::{Client as EthRpcClient, Transaction};
+use rpc_client::ethereum::{RpcClient as EthRpcClient, UnsignedTransaction};
 
 use core::db::postgres::PgExecutorAddr;
 use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
-use core::transaction::Transaction as _Transaction;
+use core::transaction::Transaction;
 use hd_keyring::{HdKeyring, Wallet};
 use types::{BtcNetwork, EthNetwork, PayoutAction, PayoutStatus, H256, U128, U256};
 
@@ -38,7 +38,7 @@ impl Payouter {
     pub fn prepare_payout(
         &self,
         payout: Payout,
-    ) -> impl Future<Item = (Wallet, _Transaction, Store, U256, U128), Error = Error> {
+    ) -> impl Future<Item = (Wallet, Transaction, Store, U256, U128), Error = Error> {
         let postgres = self.postgres.clone();
         let eth_rpc_client = self.eth_rpc_client.clone();
         let btc_network = self.btc_network;
@@ -93,7 +93,7 @@ impl Payouter {
                 if let Some(eth_payout_addresses) = store.eth_payout_addresses {
                     let value = transaction.value - gas_price * U256::from(21_000);
 
-                    let raw_transaction = Transaction {
+                    let raw_transaction = UnsignedTransaction {
                         nonce,
                         gas_price,
                         gas: U256::from(21_000),
@@ -128,7 +128,7 @@ impl Payouter {
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
                 let value = transaction.value - gas_price * U256::from(21_000);
 
-                let raw_transaction = Transaction {
+                let raw_transaction = UnsignedTransaction {
                     nonce,
                     gas_price,
                     gas: U256::from(21_000),

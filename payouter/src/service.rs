@@ -1,9 +1,9 @@
 use actix::prelude::*;
 
 use core::db::postgres;
-use eth_rpc_client::Client as EthRpcClient;
 use monitor::Monitor;
 use payouter::Payouter;
+use rpc_client::ethereum::RpcClient as EthRpcClient;
 use types::{BtcNetwork, EthNetwork};
 
 pub fn run(

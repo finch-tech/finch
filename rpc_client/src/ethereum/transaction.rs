@@ -4,13 +4,13 @@ use secp256k1::key::SecretKey;
 use secp256k1::{Message, Secp256k1};
 use tiny_keccak::keccak256;
 
-use Error;
-use Signature;
+use ethereum::Error;
+use ethereum::Signature;
 
 use types::{H160, H256, U128, U256};
 
 #[derive(Debug)]
-pub struct Transaction {
+pub struct UnsignedTransaction {
     pub nonce: U128,
     pub gas_price: U256,
     pub gas: U256,
@@ -19,7 +19,7 @@ pub struct Transaction {
     pub data: Vec<u8>,
 }
 
-impl Transaction {
+impl UnsignedTransaction {
     pub fn sign(self, secret_key: SecretKey, chain_id: u64) -> Result<SignedTransaction, Error> {
         let mut stream = RlpStream::new();
 
@@ -56,7 +56,7 @@ impl Transaction {
 
 #[derive(Debug)]
 pub struct SignedTransaction {
-    transaction: Transaction,
+    transaction: UnsignedTransaction,
     v: u64,
     r: U256,
     s: U256,

@@ -29,7 +29,7 @@ serde_json = "1.0"
 serde_derive = "1.0"
 uuid = { version = "0.6", features = ["serde", "v4"] }
 
-eth_rpc_client = { path = "../eth_rpc_client" }
+rpc_client = { path = "../rpc_client" }
 currency-api-client = { path = "../currency-api-client" }
 hd-keyring = { path = "../hd-keyring" }
 types = { path = "../types" }

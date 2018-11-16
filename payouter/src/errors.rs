@@ -1,4 +1,4 @@
-use eth_rpc_client::Error as EthRpcClientError;
+use rpc_client::ethereum::Error as EthRpcClientError;
 
 use actix::MailboxError;
 use core::ModelError;

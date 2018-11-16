@@ -1,5 +1,6 @@
 extern crate actix;
 extern crate actix_web;
+extern crate base64;
 #[macro_use]
 extern crate failure;
 extern crate futures;
@@ -14,12 +15,5 @@ extern crate tiny_keccak;
 extern crate core;
 extern crate types;
 
-mod errors;
-mod rpc_client;
-mod signature;
-mod transaction;
-
-pub use errors::Error;
-pub use rpc_client::Client;
-pub use signature::Signature;
-pub use transaction::{SignedTransaction, Transaction};
+pub mod bitcoin;
+pub mod ethereum;

@@ -12,9 +12,9 @@ use serde_json::Error as SerdeError;
 use core::db::Error as DbError;
 use core::ModelError;
 use currency_api_client::Error as CurrencyApiClientError;
-use eth_rpc_client::Error as EthRpcClientError;
 use hd_keyring::Error as KeyringError;
 use mailer::Error as MailerError;
+use rpc_client::ethereum::Error as EthRpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {

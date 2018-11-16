@@ -28,8 +28,8 @@ extern crate uuid;
 extern crate config;
 extern crate core;
 extern crate currency_api_client;
-extern crate eth_rpc_client;
 extern crate hd_keyring;
+extern crate rpc_client;
 extern crate types;
 
 mod auth;

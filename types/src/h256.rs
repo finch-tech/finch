@@ -38,8 +38,8 @@ impl H256 {
     }
 
     pub fn to_vec(&self) -> Vec<u8> {
-        let h160 = self.0;
-        h160.0.to_vec()
+        let h256 = self.0;
+        h256.0.to_vec()
     }
 }
 

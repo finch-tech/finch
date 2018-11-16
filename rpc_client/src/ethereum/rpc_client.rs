@@ -5,20 +5,20 @@ use actix_web::{client, HttpMessage};
 use futures::future::{err, ok, Future};
 use serde_json::{self, Value};
 
-use Error;
-use SignedTransaction;
-
 use core::block::Block;
 use types::{H160, H256, U128, U256};
 
+use ethereum::Error;
+use ethereum::SignedTransaction;
+
 #[derive(Clone)]
-pub struct Client {
+pub struct RpcClient {
     url: String,
 }
 
-impl Client {
+impl RpcClient {
     pub fn new(url: String) -> Self {
-        Client { url }
+        RpcClient { url }
     }
 
     pub fn get_balance(&self, account: H160) -> Box<Future<Item = U256, Error = Error>> {

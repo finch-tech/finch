@@ -1,7 +1,7 @@
 extern crate dotenv;
 
 extern crate currency_api_client;
-extern crate eth_rpc_client;
+extern crate rpc_client;
 extern crate types;
 
 use std::{env, fs, str::FromStr};
@@ -9,7 +9,8 @@ use std::{env, fs, str::FromStr};
 use dotenv::dotenv;
 
 use currency_api_client::{Api as CurrencyApi, Client as CurrencyApiClient};
-use eth_rpc_client::Client as EthRpcClient;
+use rpc_client::bitcoin::RpcClient as BtcRpcClient;
+use rpc_client::ethereum::RpcClient as EthRpcClient;
 use types::{BtcNetwork, EthNetwork, PrivateKey, PublicKey};
 
 #[derive(Clone)]
@@ -29,7 +30,7 @@ pub struct Config {
     pub jwt_public: PublicKey,
     pub smtp: SmtpConfig,
     pub currency_api_client: CurrencyApiClient,
-    // pub btc_rpc_client: BtcRpcClient,
+    pub btc_rpc_client: BtcRpcClient,
     pub btc_network: BtcNetwork,
     pub eth_rpc_client: EthRpcClient,
     pub eth_network: EthNetwork,
@@ -50,27 +51,42 @@ impl Config {
             env::var("POSTGRES_URL").expect("POSTGRES_URL environment variable must be set.");
 
         // Bitcoin settings.
-        // let btc_rpc_client = BtcRpcClient::new(
-        //     env::var("BITCOIN_RPC_URL").expect("BITCOIN_RPC_URL environment variable must be set."),
-        // );
-        let btc_network = match env::var("BITCOIN_NETWORK")
-            .expect("BITCOIN_NETWORK environment variable must be set.")
-        {
-            MAINNET => BtcNetwork::MainNet,
-            TESTNET => BtcNetwork::TestNet,
-        };
+        let btc_rpc_client = BtcRpcClient::new(
+            env::var("BITCOIN_RPC_URL").expect("BITCOIN_RPC_URL environment variable must be set."),
+            env::var("BITCOIN_RPC_USER")
+                .expect("BITCOIN_RPC_USER environment variable must be set."),
+            env::var("BITCOIN_RPC_PASS")
+                .expect("BITCOIN_RPC_PASS environment variable must be set."),
+        );
+        let btc_network_env =
+            env::var("BITCOIN_NETWORK").expect("BITCOIN_NETWORK environment variable must be set.");
+
+        let btc_network;
+        if btc_network_env == "MAINNET" {
+            btc_network = BtcNetwork::MainNet;
+        } else if btc_network_env == "TESTNET" {
+            btc_network = BtcNetwork::TestNet
+        } else {
+            panic!("Invalid BITCOIN_NETWORK");
+        }
 
         // Ethereum settings.
         let eth_rpc_client = EthRpcClient::new(
             env::var("ETHEREUM_RPC_URL")
                 .expect("ETHEREUM_RPC_URL environment variable must be set."),
         );
-        let eth_network = match env::var("ETHEREUM_NETWORK")
-            .expect("ETHEREUM_NETWORK environment variable must be set.")
-        {
-            MAIN => EthNetwork::Main,
-            ROPSTEN => EthNetwork::Ropsten,
-        };
+
+        let eth_network_env = env::var("ETHEREUM_NETWORK")
+            .expect("ETHEREUM_NETWORK environment variable must be set.");
+
+        let eth_network;
+        if eth_network_env == "MAINNET" {
+            eth_network = EthNetwork::Main;
+        } else if eth_network_env == "ROPSTEN" {
+            eth_network = EthNetwork::Ropsten;
+        } else {
+            panic!("Invalid ETHEREUM_NETWORK");
+        }
 
         // SMTP settings.
         let smtp_host = env::var("SMTP_HOST").expect("SMTP_HOST environment variable must be set.");
@@ -118,7 +134,7 @@ impl Config {
                 }
             },
             currency_api_client,
-            // btc_rpc_client,
+            btc_rpc_client,
             btc_network,
             eth_rpc_client,
             eth_network,

@@ -1,2 +1,2 @@
 [workspace]
-members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "eth_rpc_client"]
+members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "rpc_client"]
