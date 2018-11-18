@@ -27,7 +27,7 @@ impl UnsignedTransaction {
         stream.append(&self.nonce.0);
         stream.append(&self.gas_price.0);
         stream.append(&self.gas.0);
-        stream.append(&self.to.0);
+        stream.append(&self.to);
         stream.append(&self.value.0);
         stream.append(&self.data);
         stream.append(&chain_id);
@@ -37,7 +37,7 @@ impl UnsignedTransaction {
         let hash = H256::from_hash(keccak256(stream.as_raw()));
 
         let secp = Secp256k1::new();
-        let s = secp.sign_recoverable(&Message::from_slice(&hash.0[..])?, &secret_key)?;
+        let s = secp.sign_recoverable(&Message::from_slice(&hash[..])?, &secret_key)?;
         let (rec_id, data) = s.serialize_compact(&secp);
         let mut data_arr = [0; 65];
 
@@ -69,7 +69,7 @@ impl SignedTransaction {
         s.append(&self.transaction.nonce.0);
         s.append(&self.transaction.gas_price.0);
         s.append(&self.transaction.gas.0);
-        s.append(&self.transaction.to.0);
+        s.append(&self.transaction.to);
         s.append(&self.transaction.value.0);
         s.append(&self.transaction.data);
         s.append(&self.v);
