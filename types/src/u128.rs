@@ -1,3 +1,4 @@
+use core::fmt::LowerHex;
 use std::cmp::Ordering;
 use std::fmt;
 use std::io::Write;
@@ -9,33 +10,107 @@ use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Numeric;
-use ethereum_types::U128 as _U128;
-use serde::{
-    de::{self, Deserializer},
-    Deserialize,
-};
+use rlp::{Encodable, RlpStream};
+use uint::rustc_hex::FromHexError;
+use uint::FromDecStrErr;
 
-#[derive(FromSqlRow, AsExpression, Serialize, Hash, Eq, PartialEq, Clone, Copy)]
+construct_uint!(_U128, 2);
+
+impl serde::Serialize for _U128 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&format!("{:x}", self))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for _U128 {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use std::fmt::{self, Formatter};
+
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = _U128;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                formatter.write_str("a U128 hex")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let mut hex = v;
+                if &v[0..2] == "0x" {
+                    hex = &hex[2..]
+                }
+
+                _U128::from_str(hex).map_err(E::custom)
+            }
+
+            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_str(v)
+            }
+
+            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_str(&v)
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(_U128::from(v))
+            }
+        }
+
+        deserializer.deserialize_str(Visitor)
+    }
+}
+
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Hash, Eq, PartialEq, Clone, Copy)]
 #[sql_type = "Numeric"]
 pub struct U128(pub _U128);
 
 impl U128 {
-    pub fn from_dec_str(value: &str) -> Result<U128, String> {
-        let u = _U128::from_dec_str(value)
-            .map_err(|_| String::from("Failed to convert str to U128"))?;
-        Ok(U128(u))
+    pub fn from_dec_str(v: &str) -> Result<U128, FromDecStrErr> {
+        match _U128::from_dec_str(v) {
+            Ok(u) => Ok(U128(u)),
+            Err(e) => Err(e),
+        }
     }
 
-    pub fn from_hex_str(value: &str) -> Result<U128, String> {
-        let i = i64::from_str_radix(&value[2..], 16)
-            .map_err(|_| String::from("Failed to convert hex str to U128"))?;
-        U128::from_dec_str(&format!("{}", i))
+    pub fn hex(&self) -> String {
+        format!("0x{:x}", self)
     }
 }
 
 impl fmt::Debug for U128 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.0)
+    }
+}
+
+impl fmt::Display for U128 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl LowerHex for U128 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:x}", self.0)
     }
 }
 
@@ -49,15 +124,31 @@ impl ToSql<Numeric, Pg> for U128 {
 impl FromSql<Numeric, Pg> for U128 {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let num: BigDecimal = FromSql::<Numeric, Pg>::from_sql(bytes)?;
-        let _u128 = _U128::from_dec_str(&format!("{}", num))
-            .map_err(|_| String::from("Failed to construct u128 from bigdecimal string"))?;
-        Ok(U128(_u128))
+        match U128::from_dec_str(&format!("{}", num)) {
+            Ok(u) => Ok(u),
+            Err(e) => Err(format!("invalid value for U128").into()),
+        }
     }
 }
 
-impl fmt::Display for U128 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+impl FromStr for U128 {
+    type Err = FromHexError;
+
+    fn from_str(s: &str) -> Result<U128, Self::Err> {
+        let u = _U128::from_str(s)?;
+        Ok(U128(u))
+    }
+}
+
+impl From<_U128> for U128 {
+    fn from(item: _U128) -> Self {
+        U128(item)
+    }
+}
+
+impl From<i32> for U128 {
+    fn from(value: i32) -> U128 {
+        U128(_U128::from(value))
     }
 }
 
@@ -71,6 +162,15 @@ impl Deref for U128 {
     type Target = _U128;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Encodable for U128 {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        let leading_empty_bytes = 16 - (self.0.bits() + 7) / 8;
+        let mut buffer = [0u8; 16];
+        self.0.to_big_endian(&mut buffer);
+        s.encoder().encode_value(&buffer[leading_empty_bytes..]);
     }
 }
 
@@ -124,22 +224,5 @@ impl PartialOrd for U128 {
 
     fn ge(&self, other: &U128) -> bool {
         self.0.ge(&other.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for U128 {
-    fn deserialize<D>(deserializer: D) -> Result<U128, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?.to_lowercase();
-
-        if s.len() > 2 && &s[..2] == "0x" {
-            return U128::from_hex_str(&s)
-                .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &r#""U128""#));
-        }
-
-        U128::from_dec_str(&format!("{}", s))
-            .map_err(|_| de::Error::invalid_value(de::Unexpected::Str(&s), &r#""U128""#))
     }
 }
