@@ -13,7 +13,7 @@ use digest::Digest;
 use rustc_hex::{FromHex, FromHexError};
 use sha2::Sha256;
 
-#[derive(FromSqlRow, AsExpression, Copy, Eq, Serialize)]
+#[derive(FromSqlRow, AsExpression, Copy, Eq)]
 #[sql_type = "VarChar"]
 pub struct H256(pub [u8; 32]);
 
@@ -89,6 +89,15 @@ impl H256 {
 
 	pub fn hex(&self) -> String {
 		format!("0x{}", self)
+	}
+}
+
+impl serde::Serialize for H256 {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		serializer.serialize_str(&format!("0x{}", self))
 	}
 }
 

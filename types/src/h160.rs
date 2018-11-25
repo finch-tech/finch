@@ -15,7 +15,7 @@ use rlp::{Encodable, RlpStream};
 use rustc_hex::{FromHex, FromHexError};
 use sha2::Sha256;
 
-#[derive(FromSqlRow, AsExpression, Copy, Eq, Serialize)]
+#[derive(FromSqlRow, AsExpression, Copy, Eq)]
 #[sql_type = "VarChar"]
 pub struct H160(pub [u8; 20]);
 
@@ -92,6 +92,15 @@ impl H160 {
 
     pub fn hex(&self) -> String {
         format!("0x{}", self)
+    }
+}
+
+impl serde::Serialize for H160 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&format!("0x{}", self))
     }
 }
 
