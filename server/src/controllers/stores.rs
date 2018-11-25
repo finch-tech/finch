@@ -38,6 +38,8 @@ pub fn create(
         updated_at: None,
         eth_payout_addresses: None,
         eth_confirmations_required: None,
+        btc_payout_addresses: None,
+        btc_confirmations_required: None,
         mnemonic: None,
         hd_path: None,
         base_currency: Some(Currency::Usd),
@@ -53,7 +55,7 @@ pub struct PatchParams {
     pub name: Option<String>,
     pub description: Option<String>,
     pub eth_payout_addresses: Option<Vec<H160>>,
-    pub eth_confirmations_required: Option<U128>,
+    pub eth_confirmations_required: Option<i32>,
 }
 
 fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
@@ -74,8 +76,7 @@ pub fn patch(
         params.name = Some(String::from("My Store"));
     }
 
-    if params.eth_confirmations_required.is_some()
-        && params.eth_confirmations_required.unwrap() < U128::from(1)
+    if params.eth_confirmations_required.is_some() && params.eth_confirmations_required.unwrap() < 1
     {
         return Box::new(err(Error::BadRequest));
     }

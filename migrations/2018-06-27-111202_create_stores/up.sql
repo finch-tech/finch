@@ -11,7 +11,10 @@ CREATE TABLE stores
     updated_at TIMESTAMPTZ NOT NULL,
     eth_payout_addresses TEXT
     [],
-    eth_confirmations_required NUMERIC,
+    eth_confirmations_required INTEGER,
+    btc_payout_addresses TEXT
+    [],
+    btc_confirmations_required INTEGER,
     mnemonic VARCHAR NOT NULL,
     hd_path VARCHAR NOT NULL,
     base_currency VARCHAR NOT NULL,

@@ -78,11 +78,11 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let eth_client = self.rpc_client.clone();
+        let rpc_client = self.rpc_client.clone();
         let skip_missed_blocks = self.skip_missed_blocks;
 
         let app_status = AppStatus::find(&self.postgres).from_err::<Error>();
-        let current_block_number = eth_client.get_block_number().from_err::<Error>();
+        let current_block_number = rpc_client.get_block_number().from_err::<Error>();
 
         Box::new(
             app_status
@@ -116,7 +116,7 @@ impl<'a> Handler<ProcessMissedBlocks> for Poller {
                             .for_each(move |block_number| {
                                 let processor = processor.clone();
 
-                                eth_client
+                                rpc_client
                                     .get_block_by_number(U128::from(block_number))
                                     .from_err()
                                     .and_then(move |block| {
@@ -161,13 +161,13 @@ impl<'a> Handler<Poll> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let eth_client = self.rpc_client.clone();
+        let rpc_client = self.rpc_client.clone();
 
         if retry_count == RETRY_LIMIT {
             return Box::new(future::err(Error::RetryLimitError(retry_count)));
         }
 
-        let polling = eth_client
+        let polling = rpc_client
             .get_block_by_number(block_number)
             .from_err::<Error>()
             .and_then(move |block| {

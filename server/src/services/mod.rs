@@ -6,4 +6,3 @@ pub mod payments;
 pub mod stores;
 pub mod users;
 pub mod vouchers;
-pub mod wallets;

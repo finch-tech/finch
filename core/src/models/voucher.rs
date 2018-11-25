@@ -3,8 +3,8 @@ use jwt;
 use serde_json::Value;
 use uuid::Uuid;
 
+use models::ethereum::Transaction;
 use models::payment::Payment;
-use models::transaction::Transaction;
 use models::Error;
 use types::{H160, H256};
 
@@ -13,18 +13,18 @@ pub struct Voucher {
     pub tx_hash: H256,
     pub uuid: Uuid,
     pub value: String,
-    pub paid_by: H160,
+    // pub paid_by: H160,
     pub store_id: Uuid,
     pub exp: u64,
 }
 
 impl Voucher {
-    pub fn new(payment: Payment, transaction: Transaction, exp: DateTime<Utc>) -> Self {
+    pub fn new(payment: Payment, exp: DateTime<Utc>) -> Self {
         Voucher {
-            tx_hash: transaction.hash,
+            tx_hash: payment.transaction_hash.unwrap(),
             uuid: Uuid::new_v4(),
-            value: format!("{}", transaction.value),
-            paid_by: transaction.from_address,
+            value: format!("{}", payment.price.unwrap()),
+            // paid_by: payment.from,
             store_id: payment.store_id,
             // iss: String::from(""),
             // iat: Utc::now().timestamp(),
@@ -44,7 +44,7 @@ impl Voucher {
             "tx_hash": self.tx_hash,
             "uuid": self.uuid,
             "value": self.value,
-            "paid_by": self.paid_by,
+            // "paid_by": self.paid_by,
             "store_id": self.store_id,
         })
     }

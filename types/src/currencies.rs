@@ -1,18 +1,16 @@
-use std::error::Error;
 use std::fmt;
 use std::io::Write;
 
-use diesel::deserialize::{self, FromSql, Queryable};
-use diesel::dsl::AsExprOf;
-use diesel::expression::AsExpression;
+use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
-use diesel::row::Row;
 use diesel::serialize::{self, Output, ToSql};
-use diesel::sql_types::Text;
-use diesel::types::FromSqlRow;
+use diesel::types::VarChar;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(
+    FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash,
+)]
 #[serde(rename_all = "snake_case")]
+#[sql_type = "VarChar"]
 pub enum Currency {
     Btc,
     Eth,
@@ -35,28 +33,17 @@ impl fmt::Display for Currency {
     }
 }
 
-impl FromSqlRow<Text, Pg> for Currency {
-    fn build_from_row<R: Row<Pg>>(row: &mut R) -> Result<Self, Box<Error + Send + Sync>> {
-        match String::build_from_row(row)?.as_ref() {
-            "btc" => Ok(Currency::Btc),
-            "eth" => Ok(Currency::Eth),
-            "usd" => Ok(Currency::Usd),
-            v => Err(format!("Unknown value {} for Currency found", v).into()),
-        }
-    }
-}
-
-impl ToSql<Text, Pg> for Currency {
+impl ToSql<VarChar, Pg> for Currency {
     fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         let text = self.to_str();
 
-        ToSql::<Text, Pg>::to_sql(&text, out)
+        ToSql::<VarChar, Pg>::to_sql(&text, out)
     }
 }
 
-impl FromSql<Text, Pg> for Currency {
+impl FromSql<VarChar, Pg> for Currency {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-        let text: String = FromSql::<Text, Pg>::from_sql(bytes)?;
+        let text: String = FromSql::<VarChar, Pg>::from_sql(bytes)?;
 
         match text.as_ref() {
             "btc" => Ok(Currency::Btc),
@@ -64,27 +51,5 @@ impl FromSql<Text, Pg> for Currency {
             "usd" => Ok(Currency::Usd),
             v => Err(format!("Unknown value {} for Currency found", v).into()),
         }
-    }
-}
-
-impl Queryable<Text, Pg> for Currency {
-    type Row = Self;
-
-    fn build(row: Self::Row) -> Self {
-        row
-    }
-}
-
-impl AsExpression<Text> for Currency {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
-    }
-}
-
-impl<'a> AsExpression<Text> for &'a Currency {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
     }
 }

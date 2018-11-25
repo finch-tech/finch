@@ -1,9 +1,8 @@
-use std::collections::HashSet;
+use std::str::FromStr;
 
 use actix_web::{Json, Path, State};
 use bigdecimal::BigDecimal;
-use futures::future;
-use futures::future::{err, ok, Future, IntoFuture};
+use futures::future::{self, err, ok, Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -13,11 +12,11 @@ use core::client_token::ClientToken;
 use core::payment::{Payment, PaymentPayload};
 use server::AppState;
 use services::{self, Error};
-use types::{Currency, U256};
+use types::{Currency, H160, U256};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
-    pub currencies: HashSet<Currency>,
+    pub currency: Currency,
     pub price: BigDecimal,
 }
 
@@ -25,14 +24,11 @@ pub fn create(
     (state, client_token, params): (State<AppState>, ClientToken, Json<CreateParams>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
-    // TODO: Check params.currencies length.
 
     services::stores::get(client_token.store_id, &state.postgres)
         .and_then(move |store| {
-            for (_, currency) in params.currencies.iter().enumerate() {
-                if !store.can_accept(currency) {
-                    return err(Error::CurrencyNotSupported);
-                }
+            if !store.can_accept(&params.currency) {
+                return err(Error::CurrencyNotSupported);
             }
 
             ok((store, params))
@@ -48,18 +44,16 @@ pub fn create(
                 expires_at: None,
                 paid_at: None,
                 index: None,
-                price: Some(params.price),
-                eth_address: None,
-                eth_price: None,
-                btc_address: None,
-                btc_price: None,
-                eth_confirmations_required: store.eth_confirmations_required.unwrap(),
-                eth_block_height_required: None,
+                base_price: Some(params.price),
+                typ: Some(params.currency),
+                address: None,
+                price: None,
+                confirmations_required: None,
+                block_height_required: None,
                 transaction_hash: None,
             };
 
             services::payments::create(
-                params.currencies,
                 payload,
                 &state.postgres,
                 state.config.currency_api_client.clone(),
@@ -105,37 +99,45 @@ pub fn get_status(
     });
 
     app_status.join(payment).and_then(move |(status, payment)| {
-        if let Some(block_height) = status.eth_block_height {
-            if let Some(eth_address) = payment.eth_address {
-                return future::Either::B(
-                    state.config.eth_rpc_client
-                        .get_balance(eth_address)
+        if let Some(block_height) = status.block_height(payment.typ) {
+            if let Some(address) = payment.address.clone() {
+                let payment_detected = match payment.typ {
+                    Currency::Btc => panic!("Not supported"),
+                    Currency::Eth => state.config.eth_rpc_client
+                        .get_balance(H160::from_str(&address[2..]).unwrap())
                         .from_err()
-                        .and_then(move |balance| {
-                            let detected = balance > U256::from(0);
+                        .map(move |balance| {
+                            balance > U256::from(0)
+                        }),
+                        _ => panic!("Not supported")
+                };
 
-                            match payment.eth_block_height_required {
-                                Some(eth_block_height_required) => Ok(Json(json!({
-                                    "payment_detected": detected,
+                return future::Either::A(
+                    payment_detected
+                        .and_then(move |payment_detected| {
+
+                            match payment.block_height_required {
+                                Some(block_height_required) => Ok(Json(json!({
+                                    "payment_detected": payment_detected,
                                     "status": payment.status,
-                                    "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
+                                    "confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
                                     "block_height": format!("{}", block_height),
-                                    "eth_block_height_required": format!("{}", eth_block_height_required)
+                                    "block_height_required": format!("{}", block_height_required)
                                 }))),
                                 None => Ok(Json(json!({
-                                    "payment_detected": detected,
+                                    "payment_detected": payment_detected,
                                     "status": payment.status,
-                                    "eth_confirmations_required": format!("{}", payment.eth_confirmations_required),
+                                    "eth_confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
                                     "block_height": format!("{}", block_height),
                                 }))),
                             }
                         }),
                 );
             } else {
-                return future::Either::A(future::err(Error::CurrencyNotSupported));
+                return future::Either::B(future::err(Error::CurrencyNotSupported));
             }
         } else {
-            return future::Either::A(future::err(Error::InternalServerError));
+            return future::Either::B(future::err(Error::InternalServerError));
         }
     })
 }

@@ -24,11 +24,11 @@ impl UnsignedTransaction {
         let mut stream = RlpStream::new();
 
         stream.begin_list(9);
-        stream.append(&self.nonce.0);
-        stream.append(&self.gas_price.0);
-        stream.append(&self.gas.0);
+        stream.append(&self.nonce);
+        stream.append(&self.gas_price);
+        stream.append(&self.gas);
         stream.append(&self.to);
-        stream.append(&self.value.0);
+        stream.append(&self.value);
         stream.append(&self.data);
         stream.append(&chain_id);
         stream.append(&0u8);
@@ -66,15 +66,15 @@ impl SignedTransaction {
     pub fn rlp_encode(&self) -> String {
         let mut s = RlpStream::new();
         s.begin_list(9);
-        s.append(&self.transaction.nonce.0);
-        s.append(&self.transaction.gas_price.0);
-        s.append(&self.transaction.gas.0);
+        s.append(&self.transaction.nonce);
+        s.append(&self.transaction.gas_price);
+        s.append(&self.transaction.gas);
         s.append(&self.transaction.to);
-        s.append(&self.transaction.value.0);
+        s.append(&self.transaction.value);
         s.append(&self.transaction.data);
         s.append(&self.v);
-        s.append(&self.r.0);
-        s.append(&self.s.0);
+        s.append(&self.r);
+        s.append(&self.s);
 
         s.drain().into_vec().to_hex()
     }

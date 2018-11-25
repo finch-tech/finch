@@ -6,7 +6,7 @@ use secp256k1::Secp256k1;
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{BtcNetwork, H160, H256};
+use types::{BtcNetwork, Currency, H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
@@ -25,6 +25,14 @@ impl Wallet {
             public_key,
             btc_network: btc_network,
         })
+    }
+
+    pub fn get_address(&self, currency: &Currency) -> String {
+        match currency {
+            Currency::Btc => self.get_btc_address(),
+            Currency::Eth => format!("0x{}", self.get_eth_address()),
+            _ => panic!("Invalid currency for wallet"),
+        }
     }
 
     pub fn get_eth_address(&self) -> H160 {

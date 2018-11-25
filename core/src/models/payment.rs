@@ -6,13 +6,12 @@ use futures::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindAllByEthAddress, FindById, Insert, Update};
+use db::payments::{FindAllByAddress, FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::store::Store;
-use models::transaction::Transaction;
 use models::Error;
 use schema::payments;
-use types::{PaymentStatus, H160, H256, U128};
+use types::{Currency, PaymentStatus, H160, H256, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
@@ -24,15 +23,13 @@ pub struct PaymentPayload {
     pub expires_at: Option<DateTime<Utc>>,
     pub paid_at: Option<Option<DateTime<Utc>>>,
     pub index: Option<i32>,
+    pub base_price: Option<BigDecimal>,
+    pub typ: Option<Currency>,
+    pub address: Option<String>,
     pub price: Option<BigDecimal>,
-    pub eth_address: Option<Option<H160>>,
-    pub eth_price: Option<Option<BigDecimal>>,
-    // TODO: Use type for BTC address.
-    pub btc_address: Option<Option<String>>,
-    pub btc_price: Option<Option<BigDecimal>>,
-    pub eth_confirmations_required: U128,
-    pub eth_block_height_required: Option<Option<U128>>,
-    pub transaction_hash: Option<Option<H256>>,
+    pub confirmations_required: Option<i32>,
+    pub block_height_required: Option<U128>,
+    pub transaction_hash: Option<H256>,
 }
 
 impl PaymentPayload {
@@ -59,14 +56,13 @@ impl From<Payment> for PaymentPayload {
             expires_at: Some(payment.expires_at),
             paid_at: Some(payment.paid_at),
             index: Some(payment.index),
-            price: Some(payment.price),
-            eth_address: Some(payment.eth_address),
-            eth_price: Some(payment.eth_price),
-            btc_address: Some(payment.btc_address),
-            btc_price: Some(payment.btc_price),
-            eth_confirmations_required: payment.eth_confirmations_required,
-            eth_block_height_required: Some(payment.eth_block_height_required),
-            transaction_hash: Some(payment.transaction_hash),
+            base_price: Some(payment.base_price),
+            typ: Some(payment.typ),
+            address: payment.address,
+            price: payment.price,
+            confirmations_required: payment.confirmations_required,
+            block_height_required: payment.block_height_required,
+            transaction_hash: payment.transaction_hash,
         }
     }
 }
@@ -82,14 +78,12 @@ pub struct Payment {
     pub expires_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
     pub index: i32,
-    pub price: BigDecimal,
-    pub eth_address: Option<H160>,
-    pub eth_price: Option<BigDecimal>,
-    // TODO: Use type for BTC address.
-    pub btc_address: Option<String>,
-    pub btc_price: Option<BigDecimal>,
-    pub eth_confirmations_required: U128,
-    pub eth_block_height_required: Option<U128>,
+    pub base_price: BigDecimal,
+    pub typ: Currency,
+    pub address: Option<String>,
+    pub price: Option<BigDecimal>,
+    pub confirmations_required: Option<i32>,
+    pub block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
 }
 
@@ -109,18 +103,6 @@ impl Payment {
 
     pub fn store(&self, postgres: &PgExecutorAddr) -> impl Future<Item = Store, Error = Error> {
         Store::find_by_id_with_deleted(self.store_id, postgres)
-    }
-
-    pub fn transaction(
-        &self,
-        postgres: &PgExecutorAddr,
-    ) -> impl Future<Item = Transaction, Error = Error> {
-        let postgres = postgres.clone();
-
-        self.transaction_hash
-            .ok_or(Error::PropertyNotFound)
-            .into_future()
-            .and_then(move |hash| Transaction::find_by_hash(hash, &postgres))
     }
 
     pub fn find_by_id(
@@ -144,45 +126,32 @@ impl Payment {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn find_all_by_eth_address(
-        addresses: Vec<H160>,
+    pub fn find_all_by_address(
+        addresses: Vec<String>,
+        currency: Currency,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Payment>, Error = Error> {
         (*postgres)
-            .send(FindAllByEthAddress(addresses))
+            .send(FindAllByAddress {
+                addresses,
+                typ: currency,
+            })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
     pub fn export(&self) -> Value {
-        let mut eth = None;
-        let mut btc = None;
-
-        if let Some(ref address) = self.eth_address {
-            if let Some(ref price) = self.eth_price {
-                eth = Some(json!({
-                    "address": address.hex(),
-                    "price": format!("{}", price)
-                }));
-            }
-        }
-
-        if let Some(ref address) = self.btc_address {
-            if let Some(ref price) = self.btc_price {
-                btc = Some(json!({
-                    "address": address,
-                    "price": format!("{}", price)
-                }));
-            }
-        }
-
         json!({
             "id": self.id,
             "status": self.status,
             "store_id": self.store_id,
+            "base_price": self.base_price,
+            "type": self.typ,
+            "address": self.address,
             "price": self.price,
-            "eth": eth,
-            "btc": btc,
+            "confirmations_required": self.confirmations_required,
+            "block_height_required": self.block_height_required,
+            "transaction_hash": self.transaction_hash,
             "expires_at": self.expires_at.timestamp()
         })
     }

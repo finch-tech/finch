@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
@@ -5,11 +7,11 @@ use errors::Error;
 use rpc_client::ethereum::{RpcClient as EthRpcClient, UnsignedTransaction};
 
 use core::db::postgres::PgExecutorAddr;
+use core::ethereum::Transaction;
 use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
-use core::transaction::Transaction;
 use hd_keyring::{HdKeyring, Wallet};
-use types::{BtcNetwork, EthNetwork, PayoutAction, PayoutStatus, H256, U128, U256};
+use types::{BtcNetwork, EthNetwork, PayoutAction, PayoutStatus, H256, H160, U128, U256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
@@ -50,9 +52,9 @@ impl Payouter {
         store
             .join3(payment, gas_price)
             .and_then(move |(store, payment, gas_price)| {
-                let transaction = payment.transaction(&postgres).from_err();
+                let transaction = Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres).from_err();
                 let nonce = eth_rpc_client
-                    .get_transaction_count(payment.eth_address.unwrap())
+                    .get_transaction_count(H160::from_str(&payment.clone().address.unwrap()[2..]).unwrap())
                     .from_err();
 
                 transaction

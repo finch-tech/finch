@@ -6,7 +6,7 @@ use db::Error;
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::H160;
+use types::{Currency, H160};
 
 pub fn insert(payload: PaymentPayload, conn: &PooledConnection) -> Result<Payment, Error> {
     use diesel::insert_into;
@@ -41,15 +41,16 @@ pub fn find_by_id(id: Uuid, conn: &PooledConnection) -> Result<Payment, Error> {
         .map_err(|e| Error::from(e))
 }
 
-pub fn find_all_by_eth_addresses(
-    addresses: Vec<H160>,
+pub fn find_all_by_addresses(
+    addresses: Vec<String>,
+    currency: Currency,
     conn: &PooledConnection,
 ) -> Result<Vec<Payment>, Error> {
     use diesel::pg::expression::dsl::any;
     use schema::payments::dsl;
 
     dsl::payments
-        .filter(dsl::eth_address.eq(any(addresses)))
+        .filter(dsl::address.eq(any(addresses)).and(dsl::typ.eq(currency)))
         .load::<Payment>(conn)
         .map_err(|e| Error::from(e))
 }
@@ -98,18 +99,21 @@ impl Handler<FindById> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<Vec<Payment>, Error>")]
-pub struct FindAllByEthAddress(pub Vec<H160>);
+pub struct FindAllByAddress {
+    pub addresses: Vec<String>,
+    pub typ: Currency,
+}
 
-impl Handler<FindAllByEthAddress> for PgExecutor {
+impl Handler<FindAllByAddress> for PgExecutor {
     type Result = Result<Vec<Payment>, Error>;
 
     fn handle(
         &mut self,
-        FindAllByEthAddress(addresses): FindAllByEthAddress,
+        FindAllByAddress { addresses, typ }: FindAllByAddress,
         _: &mut Self::Context,
     ) -> Self::Result {
         let conn = &self.get()?;
 
-        find_all_by_eth_addresses(addresses, &conn)
+        find_all_by_addresses(addresses, typ, &conn)
     }
 }

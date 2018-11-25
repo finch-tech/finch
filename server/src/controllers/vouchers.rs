@@ -33,9 +33,9 @@ pub fn create(
                 services::vouchers::create(payment.clone(), &state.postgres).then(move |res| {
                     match res {
                         Ok(voucher) => Ok(Json(json!({
-                                "status": payment.status,
-                                "voucher": voucher,
-                            }))),
+                            "status": payment.status,
+                            "voucher": voucher,
+                        }))),
                         Err(_) => Ok(Json(json!({
                             "status": payment.status,
                         }))),

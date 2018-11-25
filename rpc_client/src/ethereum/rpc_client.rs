@@ -5,7 +5,7 @@ use actix_web::{client, HttpMessage};
 use futures::future::{err, ok, Future};
 use serde_json::{self, Value};
 
-use core::block::Block;
+use core::ethereum::Block;
 use types::{H160, H256, U128, U256};
 
 use ethereum::Error;
@@ -27,7 +27,7 @@ impl RpcClient {
             .json(json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getBalance",
-                "params": (format!("{}", &account.hex()), "pending"),
+                "params": (account.hex(), "pending"),
                 "id": 1
             })) {
             Ok(req) => req,
@@ -42,7 +42,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U256::from_hex_str(&result.as_str().unwrap()).unwrap()),
+                    Some(result) => ok(U256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -70,7 +70,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U128::from_hex_str(&result.as_str().unwrap()).unwrap()),
+                    Some(result) => ok(U128::from_str(&result.as_str().unwrap()[2..]).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -87,7 +87,7 @@ impl RpcClient {
             .json(json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getBlockByNumber",
-                "params": (format!("{:#x}", &block_number.0), true),
+                "params": (block_number.hex(), true),
                 "id": 1
             })) {
             Ok(req) => req,
@@ -104,7 +104,7 @@ impl RpcClient {
                 match body.get("result") {
                     Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
                         Ok(block) => ok(block),
-                        Err(_) => return err(Error::EmptyResponseError),
+                        Err(e) => return err(Error::EmptyResponseError),
                     },
                     None => return err(Error::EmptyResponseError),
                 }
@@ -135,7 +135,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U256::from_hex_str(&result.as_str().unwrap()).unwrap()),
+                    Some(result) => ok(U256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -148,7 +148,7 @@ impl RpcClient {
             .json(json!({
                 "jsonrpc": "2.0",
                 "method": "eth_getTransactionCount",
-                "params": (format!("{}", &account.hex()), "latest"),
+                "params": (account.hex(), "latest"),
                 "id": 1
             })) {
             Ok(req) => req,
@@ -163,7 +163,7 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U128::from_hex_str(&result.as_str().unwrap()).unwrap()),
+                    Some(result) => ok(U128::from_str(&result.as_str().unwrap()[2..]).unwrap()),
                     None => err(Error::EmptyResponseError),
                 }
             })

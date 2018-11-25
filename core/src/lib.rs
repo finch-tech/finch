@@ -9,6 +9,7 @@ extern crate diesel;
 #[macro_use]
 extern crate failure;
 extern crate futures;
+extern crate hex;
 extern crate jsonwebtoken as jwt;
 extern crate r2d2;
 extern crate r2d2_redis;
@@ -29,6 +30,6 @@ pub mod db;
 mod models;
 
 pub use models::{
-    app_status, block, client_token, payment, payout, store, transaction, user, voucher,
+    app_status, bitcoin, client_token, ethereum, payment, payout, store, user, voucher,
     Error as ModelError,
 };

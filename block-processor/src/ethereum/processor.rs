@@ -7,11 +7,11 @@ use chrono::prelude::*;
 use futures::{future, stream, Future, Stream};
 
 use core::app_status::{AppStatus, AppStatusPayload};
-use core::block::Block;
 use core::db::postgres::PgExecutorAddr;
+use core::ethereum::Block;
+use core::ethereum::Transaction;
 use core::payment::{Payment, PaymentPayload};
 use core::payout::{Payout, PayoutPayload};
-use core::transaction::Transaction;
 use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 use ethereum::errors::Error;
@@ -42,30 +42,31 @@ impl Handler<ProcessBlock> for Processor {
 
         for (_, transaction) in block.transactions.iter().enumerate() {
             if let Some(to) = transaction.to_address {
-                addresses.push(to);
-                transactions.insert(to, transaction.clone());
+                addresses.push(format!("0x{}", to));
+                transactions.insert(format!("0x{}", to), transaction.clone());
             }
         }
 
         let block_number = block.number;
         let _postgres = postgres.clone();
 
-        let process = Payment::find_all_by_eth_address(addresses, &postgres)
+        let process = Payment::find_all_by_address(addresses, Currency::Eth, &postgres)
             .from_err()
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions.get(&payment.eth_address.unwrap()).unwrap();
+                let transaction = transactions.get(&payment.address.clone().unwrap()).unwrap();
 
                 // Prepare payment update.
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
-                let block_height_required =
-                    block.number.unwrap() + payment.eth_confirmations_required - U128::from(1);
+                let block_height_required = block.number.unwrap()
+                    + U128::from(payment.confirmations_required.unwrap())
+                    - U128::from(1);
 
-                payment_payload.transaction_hash = Some(Some(transaction.hash));
-                payment_payload.eth_block_height_required = Some(Some(block_height_required));
+                payment_payload.transaction_hash = Some(transaction.hash);
+                payment_payload.block_height_required = Some(block_height_required);
                 payment_payload.set_paid_at();
 
                 // Prepare payout object.
@@ -76,6 +77,7 @@ impl Handler<ProcessBlock> for Processor {
                     payment_id: Some(payment.id),
                     typ: Some(Currency::Eth),
                     eth_block_height_required: Some(block_height_required),
+                    btc_block_height_required: None,
                     transaction_hash: None,
                     created_at: None,
                 };
@@ -91,13 +93,13 @@ impl Handler<ProcessBlock> for Processor {
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if ether_paid >= payment.eth_price.clone().unwrap() {
+                        if ether_paid >= payment.price.clone().unwrap() {
                             payment_payload.status = Some(PaymentStatus::Paid);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if ether_paid < payment.eth_price.clone().unwrap() {
+                        if ether_paid < payment.price.clone().unwrap() {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }

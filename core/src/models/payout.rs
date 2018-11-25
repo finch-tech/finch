@@ -21,6 +21,7 @@ pub struct PayoutPayload {
     pub payment_id: Option<Uuid>,
     pub typ: Option<Currency>,
     pub eth_block_height_required: Option<U128>,
+    pub btc_block_height_required: Option<U128>,
     pub transaction_hash: Option<Option<H256>>,
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -38,7 +39,8 @@ impl From<Payout> for PayoutPayload {
             store_id: Some(payout.store_id),
             payment_id: Some(payout.payment_id),
             typ: Some(payout.typ),
-            eth_block_height_required: Some(payout.eth_block_height_required),
+            eth_block_height_required: payout.eth_block_height_required,
+            btc_block_height_required: payout.btc_block_height_required,
             transaction_hash: Some(payout.transaction_hash),
             created_at: Some(payout.created_at),
         }
@@ -55,7 +57,8 @@ pub struct Payout {
     pub store_id: Uuid,
     pub payment_id: Uuid,
     pub typ: Currency,
-    pub eth_block_height_required: U128,
+    pub eth_block_height_required: Option<U128>,
+    pub btc_block_height_required: Option<U128>,
     pub transaction_hash: Option<H256>,
     pub created_at: DateTime<Utc>,
 }

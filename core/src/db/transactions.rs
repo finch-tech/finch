@@ -3,7 +3,7 @@ use diesel::prelude::*;
 
 use db::postgres::PgExecutor;
 use db::Error;
-use models::transaction::Transaction;
+use models::ethereum::Transaction;
 use types::H256;
 
 #[derive(Message)]

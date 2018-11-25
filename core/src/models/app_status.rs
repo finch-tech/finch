@@ -4,7 +4,7 @@ use db::app_statuses::{FindById, Insert, Update};
 use db::postgres::PgExecutorAddr;
 use models::Error;
 use schema::app_statuses;
-use types::U128;
+use types::{Currency, U128};
 
 #[derive(Insertable, AsChangeset, Deserialize)]
 #[table_name = "app_statuses"]
@@ -50,5 +50,13 @@ impl AppStatus {
             .send(Update(1, payload))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn block_height(&self, currency: Currency) -> Option<U128> {
+        match currency {
+            Currency::Btc => self.btc_block_height,
+            Currency::Eth => self.eth_block_height,
+            _ => panic!("Invalid currency"),
+        }
     }
 }

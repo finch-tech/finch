@@ -1,19 +1,18 @@
-use std::collections::HashSet;
-
-use futures::future::Future;
+use futures::future::{Future, IntoFuture};
 use uuid::Uuid;
 
+use config::Config;
 use core::db::postgres::PgExecutorAddr;
 use core::payment::{Payment, PaymentPayload};
 use currency_api_client::Client as CurrencyApiClient;
-use services::{self, Error};
+use hd_keyring::HdKeyring;
+use services::Error;
 use types::{Currency, PaymentStatus};
 
 const BTC_SCALE: i64 = 8;
 const ETH_SCALE: i64 = 6;
 
 pub fn create(
-    currencies: HashSet<Currency>,
     mut payload: PaymentPayload,
     postgres: &PgExecutorAddr,
     currency_api_client: CurrencyApiClient,
@@ -30,43 +29,60 @@ pub fn create(
     Payment::insert(payload, &postgres)
         .from_err()
         .and_then(move |payment| {
-            services::wallets::create(payment.clone(), &postgres).and_then(move |wallet| {
-                let mut payload = PaymentPayload::from(payment.clone());
+            payment.store(&postgres).from_err().and_then(move |store| {
+                let mut path = store.hd_path.clone();
 
-                payment.store(&postgres).from_err().and_then(move |store| {
-                    let btc_rate = currency_api_client
-                        .get_rate(&store.base_currency, &Currency::Btc)
-                        .from_err();
+                let timestamp_nanos = payment.created_at.timestamp_nanos().to_string();
+                let second = &timestamp_nanos[..10];
+                let nano_second = &timestamp_nanos[10..];
 
-                    let eth_rate = currency_api_client
-                        .get_rate(&store.base_currency, &Currency::Eth)
-                        .from_err();
+                path.push_str("/");
+                path.push_str(second);
+                path.push_str("/");
+                path.push_str(nano_second);
 
-                    btc_rate
-                        .join(eth_rate)
-                        .and_then(move |(mut btc_rate, mut eth_rate)| {
-                            btc_rate = btc_rate.with_scale(BTC_SCALE);
-                            eth_rate = eth_rate.with_scale(ETH_SCALE);
+                let config = Config::new();
+                let payment_index = payment.index.clone() as u32;
 
-                            for (_, c) in currencies.iter().enumerate() {
-                                match c {
+                HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0, config.btc_network)
+                    .into_future()
+                    .from_err()
+                    .and_then(move |keyring| {
+                        keyring
+                            .get_wallet_by_index(payment_index)
+                            .into_future()
+                            .from_err()
+                    })
+                    .and_then(move |wallet| {
+                        let mut payload = PaymentPayload::from(payment.clone());
+
+                        currency_api_client
+                            .get_rate(&store.base_currency, &payment.typ)
+                            .from_err()
+                            .and_then(move |rate| {
+                                match payment.typ {
                                     Currency::Btc => {
-                                        payload.btc_address = Some(Some(wallet.get_btc_address()));
-                                        payload.btc_price =
-                                            Some(Some(payment.price.clone() * btc_rate.clone()));
+                                        payload.confirmations_required =
+                                            store.btc_confirmations_required;
+                                        payload.price = Some(
+                                            payment.base_price.clone() * rate.with_scale(BTC_SCALE),
+                                        );
                                     }
                                     Currency::Eth => {
-                                        payload.eth_address = Some(Some(wallet.get_eth_address()));
-                                        payload.eth_price =
-                                            Some(Some(payment.price.clone() * eth_rate.clone()));
+                                        payload.confirmations_required =
+                                            store.eth_confirmations_required;
+                                        payload.price = Some(
+                                            payment.base_price.clone() * rate.with_scale(ETH_SCALE),
+                                        );
                                     }
-                                    _ => panic!(),
-                                }
-                            }
+                                    _ => panic!("Invalid currency"),
+                                };
 
-                            Payment::update(payment.id, payload, &postgres).from_err()
-                        })
-                })
+                                payload.address = Some(wallet.get_address(&payment.typ));
+
+                                Payment::update(payment.id, payload, &postgres).from_err()
+                            })
+                    })
             })
         })
 }

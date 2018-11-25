@@ -10,7 +10,7 @@ use db::stores::{FindById, FindByIdWithDeleted, FindByOwner, Insert, SoftDelete,
 use models::user::User;
 use models::Error;
 use schema::stores;
-use types::{Currency, PrivateKey, PublicKey, H160, U128};
+use types::{Currency, PrivateKey, PublicKey, H160};
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "stores"]
@@ -24,7 +24,9 @@ pub struct StorePayload {
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub eth_payout_addresses: Option<Option<Vec<H160>>>,
-    pub eth_confirmations_required: Option<Option<U128>>,
+    pub eth_confirmations_required: Option<Option<i32>>,
+    pub btc_payout_addresses: Option<Option<Vec<String>>>,
+    pub btc_confirmations_required: Option<Option<i32>>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
     pub base_currency: Option<Currency>,
@@ -44,6 +46,8 @@ impl StorePayload {
             updated_at: None,
             eth_payout_addresses: None,
             eth_confirmations_required: None,
+            btc_payout_addresses: None,
+            btc_confirmations_required: None,
             mnemonic: None,
             hd_path: None,
             base_currency: None,
@@ -81,6 +85,8 @@ impl From<Store> for StorePayload {
             updated_at: Some(store.updated_at),
             eth_payout_addresses: Some(store.eth_payout_addresses),
             eth_confirmations_required: Some(store.eth_confirmations_required),
+            btc_payout_addresses: Some(store.btc_payout_addresses),
+            btc_confirmations_required: Some(store.btc_confirmations_required),
             mnemonic: Some(store.mnemonic),
             hd_path: Some(store.hd_path),
             base_currency: Some(store.base_currency),
@@ -89,7 +95,7 @@ impl From<Store> for StorePayload {
     }
 }
 
-#[derive(Identifiable, Queryable, Serialize, Associations)]
+#[derive(Identifiable, Queryable, Serialize, Associations, Debug)]
 #[belongs_to(User, foreign_key = "owner_id")]
 pub struct Store {
     pub id: Uuid,
@@ -101,7 +107,9 @@ pub struct Store {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub eth_payout_addresses: Option<Vec<H160>>,
-    pub eth_confirmations_required: Option<U128>,
+    pub eth_confirmations_required: Option<i32>,
+    pub btc_payout_addresses: Option<Vec<String>>,
+    pub btc_confirmations_required: Option<i32>,
     pub mnemonic: String,
     pub hd_path: String,
     pub base_currency: Currency,
@@ -111,7 +119,9 @@ pub struct Store {
 impl Store {
     pub fn can_accept(&self, currency: &Currency) -> bool {
         match currency {
-            Currency::Btc => false,
+            Currency::Btc => {
+                self.btc_payout_addresses.is_some() && self.btc_confirmations_required.is_some()
+            }
             Currency::Eth => {
                 self.eth_payout_addresses.is_some() && self.eth_confirmations_required.is_some()
             }
@@ -194,19 +204,14 @@ impl Store {
     }
 
     pub fn export(&self) -> Value {
-        let eth_confirmations_required;
-        if let Some(ref confirmations_required) = self.eth_confirmations_required {
-            eth_confirmations_required = Some(format!("{}", confirmations_required));
-        } else {
-            eth_confirmations_required = None;
-        }
-
         json!({
             "id": self.id,
             "name": self.name,
             "description": self.description,
             "eth_payout_addresses": self.eth_payout_addresses,
-            "eth_confirmations_required": eth_confirmations_required,
+            "eth_confirmations_required": self.eth_confirmations_required,
+            "btc_payout_addresses": self.btc_payout_addresses,
+            "btc_confirmations_required": self.btc_confirmations_required,
             "public_key": String::from_utf8_lossy(&self.public_key),
             "can_accept_eth": self.can_accept(&Currency::Eth),
             "can_accept_btc": self.can_accept(&Currency::Btc),
