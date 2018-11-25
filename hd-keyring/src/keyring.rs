@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn eth_wallet_from_mnemonic() {
-        let addresses = vec![H160::from_str("0xD51CE1261D51DBB00A2CCA7FDC8136ABDFFB76B7").unwrap()];
+        let addresses = vec![H160::from_str("D51CE1261D51DBB00A2CCA7FDC8136ABDFFB76B7").unwrap()];
 
         let keyring = HdKeyring::from_mnemonic(
             "m/44'/60'/0'/0",
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn get_wallet_at_specific_index() {
         let index = 100;
-        let address = H160::from_str("0x41CF7938A02B9B27795A8D28C2DE028AA86E8ECB").unwrap();
+        let address = H160::from_str("41CF7938A02B9B27795A8D28C2DE028AA86E8ECB").unwrap();
 
         let keyring = HdKeyring::from_mnemonic(
             "m/44'/60'/0'/0",
