@@ -7,7 +7,7 @@ use auth::AuthUser;
 use core::store::{Store, StorePayload};
 use server::AppState;
 use services::{self, Error};
-use types::{Currency, H160, U128};
+use types::{Currency, H160};
 
 const LIMIT: i64 = 15;
 const OFFSET: i64 = 0;
@@ -56,6 +56,8 @@ pub struct PatchParams {
     pub description: Option<String>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<i32>,
+    pub btc_payout_addresses: Option<Vec<String>>, // TODO:: Use strict type for base58 address.
+    pub btc_confirmations_required: Option<i32>,
 }
 
 fn validate_store_owner(store: &Store, user: &AuthUser) -> Result<bool, Error> {
@@ -76,7 +78,10 @@ pub fn patch(
         params.name = Some(String::from("My Store"));
     }
 
-    if params.eth_confirmations_required.is_some() && params.eth_confirmations_required.unwrap() < 1
+    if (params.eth_confirmations_required.is_some()
+        && params.eth_confirmations_required.unwrap() < 1)
+        || (params.btc_confirmations_required.is_some()
+            && params.btc_confirmations_required.unwrap() < 1)
     {
         return Box::new(err(Error::BadRequest));
     }
@@ -102,6 +107,14 @@ pub fn patch(
 
                     if let Some(eth_confirmations_required) = params.eth_confirmations_required {
                         payload.eth_confirmations_required = Some(Some(eth_confirmations_required));
+                    }
+
+                    if let Some(btc_payout_address) = params.btc_payout_addresses {
+                        payload.btc_payout_addresses = Some(Some(btc_payout_address));
+                    }
+
+                    if let Some(btc_confirmations_required) = params.btc_confirmations_required {
+                        payload.btc_confirmations_required = Some(Some(btc_confirmations_required));
                     }
 
                     services::stores::patch(id, payload, &state.postgres)

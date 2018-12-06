@@ -1,7 +1,6 @@
 #![allow(proc_macro_derive_resolution_fallback)]
 #![recursion_limit = "128"]
 
-#[macro_use]
 extern crate actix;
 extern crate actix_web;
 extern crate base64;

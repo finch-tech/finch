@@ -3,10 +3,9 @@ use jwt;
 use serde_json::Value;
 use uuid::Uuid;
 
-use models::ethereum::Transaction;
 use models::payment::Payment;
 use models::Error;
-use types::{H160, H256};
+use types::H256;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Voucher {
