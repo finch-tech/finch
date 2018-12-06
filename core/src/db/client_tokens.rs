@@ -1,8 +1,10 @@
 use actix::prelude::*;
 use diesel::prelude::*;
 
-use db::postgres::{PgExecutor, PooledConnection};
-use db::Error;
+use db::{
+    postgres::{PgExecutor, PooledConnection},
+    Error,
+};
 use models::client_token::{ClientToken, ClientTokenPayload};
 use uuid::Uuid;
 

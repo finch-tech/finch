@@ -1,5 +1,5 @@
 -- Your SQL goes here
-CREATE TABLE transactions
+CREATE TABLE eth_transactions
 (
     hash VARCHAR PRIMARY KEY NOT NULL,
     nonce NUMERIC NOT NULL,
@@ -12,4 +12,4 @@ CREATE TABLE transactions
     gas_price NUMERIC NOT NULL,
     gas NUMERIC NOT NULL,
     input VARCHAR NOT NULL
-)
+);

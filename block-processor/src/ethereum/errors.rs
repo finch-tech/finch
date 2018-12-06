@@ -3,7 +3,7 @@ use std::io::Error as IoError;
 use actix::MailboxError;
 use core::ModelError;
 
-use rpc_client::ethereum::Error as RpcClientError;
+use rpc_client::errors::Error as RpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {

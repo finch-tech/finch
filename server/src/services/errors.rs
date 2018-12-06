@@ -14,14 +14,14 @@ use core::ModelError;
 use currency_api_client::Error as CurrencyApiClientError;
 use hd_keyring::Error as KeyringError;
 use mailer::Error as MailerError;
-use rpc_client::ethereum::Error as EthRpcClientError;
+use rpc_client::errors::Error as RpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
     #[fail(display = "{}", _0)]
-    EthRpcClientError(#[cause] EthRpcClientError),
+    RpcClientError(#[cause] RpcClientError),
     #[fail(display = "{}", _0)]
     CurrencyApiClientError(#[cause] CurrencyApiClientError),
     #[fail(display = "{}", _0)]
@@ -99,9 +99,9 @@ impl From<ModelError> for Error {
     }
 }
 
-impl From<EthRpcClientError> for Error {
-    fn from(e: EthRpcClientError) -> Error {
-        Error::EthRpcClientError(e)
+impl From<RpcClientError> for Error {
+    fn from(e: RpcClientError) -> Error {
+        Error::RpcClientError(e)
     }
 }
 

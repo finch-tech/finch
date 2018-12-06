@@ -7,7 +7,7 @@ extern crate payouter;
 use std::env;
 
 use config::Config;
-use payouter::service;
+use payouter::bitcoin::service;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "1");
@@ -19,8 +19,7 @@ fn main() {
 
     service::run(
         config.postgres_url,
-        config.eth_rpc_client,
-        config.eth_network,
+        config.btc_rpc_client,
         config.btc_network,
     );
 }

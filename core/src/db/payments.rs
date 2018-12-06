@@ -1,12 +1,14 @@
 use actix::prelude::*;
 use diesel::prelude::*;
 
-use db::postgres::{PgExecutor, PooledConnection};
-use db::Error;
+use db::{
+    postgres::{PgExecutor, PooledConnection},
+    Error,
+};
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::{Currency, H160};
+use types::Currency;
 
 pub fn insert(payload: PaymentPayload, conn: &PooledConnection) -> Result<Payment, Error> {
     use diesel::insert_into;

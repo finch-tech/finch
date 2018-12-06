@@ -1,5 +1,8 @@
+#![allow(proc_macro_derive_resolution_fallback)]
+
 extern crate actix_web;
 extern crate bigdecimal;
+#[macro_use]
 extern crate diesel;
 #[macro_use]
 extern crate failure;

@@ -76,8 +76,7 @@ impl Handler<ProcessBlock> for Processor {
                     store_id: Some(payment.store_id),
                     payment_id: Some(payment.id),
                     typ: Some(Currency::Eth),
-                    eth_block_height_required: Some(block_height_required),
-                    btc_block_height_required: None,
+                    block_height_required: Some(block_height_required),
                     transaction_hash: None,
                     created_at: None,
                 };

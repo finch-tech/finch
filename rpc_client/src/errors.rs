@@ -17,6 +17,8 @@ pub enum Error {
     PayloadError(#[cause] PayloadError),
     #[fail(display = "{}", _0)]
     Secp256k1Error(#[cause] Secp256k1Error),
+    #[fail(display = "{}", _0)]
+    CustomError(String),
 }
 
 impl From<SerdeError> for Error {

@@ -13,7 +13,7 @@ lazy_static = "1.0.1"
 regex = "1.0.0"
 ripemd160 = "0.7.0"
 rust-base58 = "0.0.4"
-secp256k1 = "0.9.0"
+secp256k1 = "0.11.5"
 sha2 = "0.7.1"
 tiny-keccak = "1.4.1"
 types = { path = "../types" }

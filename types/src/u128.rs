@@ -38,7 +38,7 @@ impl<'de> serde::Deserialize<'de> for _U128 {
             type Value = _U128;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("a U128 hex")
+                formatter.write_str("a U128 hex string or integer")
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -67,6 +67,13 @@ impl<'de> serde::Deserialize<'de> for _U128 {
                 self.visit_str(&v)
             }
 
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(_U128::from(v))
+            }
+
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
@@ -75,7 +82,7 @@ impl<'de> serde::Deserialize<'de> for _U128 {
             }
         }
 
-        deserializer.deserialize_str(Visitor)
+        deserializer.deserialize_any(Visitor)
     }
 }
 
@@ -93,6 +100,14 @@ impl U128 {
 
     pub fn hex(&self) -> String {
         format!("0x{:x}", self)
+    }
+
+    pub fn to_little_endian(&self, bytes: &mut [u8]) {
+        self.0.to_little_endian(bytes)
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        self.0.as_u64()
     }
 }
 
@@ -126,7 +141,7 @@ impl FromSql<Numeric, Pg> for U128 {
         let num: BigDecimal = FromSql::<Numeric, Pg>::from_sql(bytes)?;
         match U128::from_dec_str(&format!("{}", num)) {
             Ok(u) => Ok(u),
-            Err(e) => Err(format!("invalid value for U128").into()),
+            Err(_) => Err(format!("invalid value for U128").into()),
         }
     }
 }
@@ -148,6 +163,12 @@ impl From<_U128> for U128 {
 
 impl From<i32> for U128 {
     fn from(value: i32) -> U128 {
+        U128(_U128::from(value))
+    }
+}
+
+impl From<i64> for U128 {
+    fn from(value: i64) -> U128 {
         U128(_U128::from(value))
     }
 }

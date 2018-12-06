@@ -4,7 +4,7 @@ use secp256k1::key::SecretKey;
 use secp256k1::{Message, Secp256k1};
 use tiny_keccak::keccak256;
 
-use ethereum::Error;
+use errors::Error;
 use ethereum::Signature;
 
 use types::{H160, H256, U128, U256};
@@ -37,7 +37,7 @@ impl UnsignedTransaction {
         let hash = H256::from_hash(keccak256(stream.as_raw()));
 
         let secp = Secp256k1::new();
-        let s = secp.sign_recoverable(&Message::from_slice(&hash[..])?, &secret_key)?;
+        let s = secp.sign_recoverable(&Message::from_slice(&hash[..])?, &secret_key);
         let (rec_id, data) = s.serialize_compact(&secp);
         let mut data_arr = [0; 65];
 

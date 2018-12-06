@@ -6,7 +6,7 @@ use bip32::{DerivationPath, Index, XKeyPair};
 use errors::Error;
 use wallet::Wallet;
 
-use types::BtcNetwork;
+use types::bitcoin::Network as BtcNetwork;
 
 #[derive(Debug)]
 pub struct HdKeyring {

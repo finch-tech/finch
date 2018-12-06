@@ -38,7 +38,7 @@ impl<'de> serde::Deserialize<'de> for _U256 {
             type Value = _U256;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("a U256 hex")
+                formatter.write_str("a U256 hex string or integer")
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
@@ -67,6 +67,13 @@ impl<'de> serde::Deserialize<'de> for _U256 {
                 self.visit_str(&v)
             }
 
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(_U256::from(v))
+            }
+
             fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
@@ -75,7 +82,7 @@ impl<'de> serde::Deserialize<'de> for _U256 {
             }
         }
 
-        deserializer.deserialize_str(Visitor)
+        deserializer.deserialize_any(Visitor)
     }
 }
 
@@ -126,7 +133,7 @@ impl FromSql<Numeric, Pg> for U256 {
         let num: BigDecimal = FromSql::<Numeric, Pg>::from_sql(bytes)?;
         match U256::from_dec_str(&format!("{}", num)) {
             Ok(u) => Ok(u),
-            Err(e) => Err(format!("invalid value for U256").into()),
+            Err(_) => Err(format!("invalid value for U256").into()),
         }
     }
 }
@@ -152,15 +159,20 @@ impl From<i32> for U256 {
     }
 }
 
-
-impl<'a> From<&'a [u8]> for U256 {
-    fn from(value: &[u8]) -> U256 {
+impl From<i64> for U256 {
+    fn from(value: i64) -> U256 {
         U256(_U256::from(value))
     }
 }
 
 impl From<u64> for U256 {
     fn from(value: u64) -> U256 {
+        U256(_U256::from(value))
+    }
+}
+
+impl<'a> From<&'a [u8]> for U256 {
+    fn from(value: &[u8]) -> U256 {
         U256(_U256::from(value))
     }
 }

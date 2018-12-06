@@ -2,10 +2,12 @@ use actix::prelude::*;
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use db::postgres::{PgExecutor, PooledConnection};
-use db::Error;
+use db::{
+    postgres::{PgExecutor, PooledConnection},
+    Error,
+};
 use models::payout::{Payout, PayoutPayload};
-use types::{PayoutStatus, U128};
+use types::{Currency, PayoutStatus, U128};
 
 pub fn insert(payload: PayoutPayload, conn: &PooledConnection) -> Result<Payout, Error> {
     use diesel::insert_into;
@@ -29,15 +31,18 @@ pub fn update(id: Uuid, payload: PayoutPayload, conn: &PooledConnection) -> Resu
 
 pub fn find_all_confirmed(
     block_height: U128,
+    typ: Currency,
     conn: &PooledConnection,
 ) -> Result<Vec<Payout>, Error> {
     use schema::payouts::dsl;
 
     dsl::payouts
         .filter(
-            dsl::status
-                .eq(PayoutStatus::Pending)
-                .and(dsl::eth_block_height_required.le(block_height)),
+            dsl::status.eq(PayoutStatus::Pending).and(
+                dsl::block_height_required
+                    .le(block_height)
+                    .and(dsl::typ.eq(typ)),
+            ),
         )
         .load::<Payout>(conn)
         .map_err(|e| Error::from(e))
@@ -73,18 +78,21 @@ impl Handler<Update> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<Vec<Payout>, Error>")]
-pub struct FindAllConfirmed(pub U128);
+pub struct FindAllConfirmed {
+    pub block_height: U128,
+    pub typ: Currency,
+}
 
 impl Handler<FindAllConfirmed> for PgExecutor {
     type Result = Result<Vec<Payout>, Error>;
 
     fn handle(
         &mut self,
-        FindAllConfirmed(block_height): FindAllConfirmed,
+        FindAllConfirmed { block_height, typ }: FindAllConfirmed,
         _: &mut Self::Context,
     ) -> Self::Result {
         let conn = &self.get()?;
 
-        find_all_confirmed(block_height, &conn)
+        find_all_confirmed(block_height, typ, &conn)
     }
 }

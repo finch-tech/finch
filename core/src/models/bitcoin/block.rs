@@ -1,5 +1,5 @@
 use models::bitcoin::Transaction;
-use types::{H256, U128, U256};
+use types::{H256, U128};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Block {

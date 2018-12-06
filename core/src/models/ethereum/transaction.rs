@@ -1,13 +1,13 @@
 use futures::Future;
 
 use db::postgres::PgExecutorAddr;
-use db::transactions::{FindByHash, Insert};
+use db::ethereum::transactions::{FindByHash, Insert};
 use models::Error;
-use schema::transactions;
+use schema::eth_transactions;
 use types::{H160, H256, U256};
 
 #[derive(Debug, Insertable, Queryable, Serialize, Deserialize, Clone, Eq, PartialEq)]
-#[table_name = "transactions"]
+#[table_name = "eth_transactions"]
 pub struct Transaction {
     pub hash: H256,
     pub nonce: U256,

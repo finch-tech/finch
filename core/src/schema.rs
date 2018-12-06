@@ -7,6 +7,13 @@ table! {
 }
 
 table! {
+    btc_transactions (txid) {
+        txid -> Varchar,
+        data -> Json,
+    }
+}
+
+table! {
     client_tokens (id) {
         id -> Uuid,
         name -> Varchar,
@@ -15,6 +22,22 @@ table! {
         domain -> Varchar,
         created_at -> Timestamptz,
         typ -> Varchar,
+    }
+}
+
+table! {
+    eth_transactions (hash) {
+        hash -> Varchar,
+        nonce -> Numeric,
+        block_hash -> Nullable<Varchar>,
+        block_number -> Nullable<Numeric>,
+        transaction_index -> Nullable<Varchar>,
+        from_address -> Varchar,
+        to_address -> Nullable<Varchar>,
+        value -> Numeric,
+        gas_price -> Numeric,
+        gas -> Numeric,
+        input -> Varchar,
     }
 }
 
@@ -46,8 +69,7 @@ table! {
         store_id -> Uuid,
         payment_id -> Uuid,
         typ -> Varchar,
-        eth_block_height_required -> Nullable<Numeric>,
-        btc_block_height_required -> Nullable<Numeric>,
+        block_height_required -> Numeric,
         transaction_hash -> Nullable<Varchar>,
         created_at -> Timestamptz,
     }
@@ -75,22 +97,6 @@ table! {
 }
 
 table! {
-    transactions (hash) {
-        hash -> Varchar,
-        nonce -> Numeric,
-        block_hash -> Nullable<Varchar>,
-        block_number -> Nullable<Numeric>,
-        transaction_index -> Nullable<Varchar>,
-        from_address -> Varchar,
-        to_address -> Nullable<Varchar>,
-        value -> Numeric,
-        gas_price -> Numeric,
-        gas -> Numeric,
-        input -> Varchar,
-    }
-}
-
-table! {
     users (id) {
         id -> Uuid,
         email -> Varchar,
@@ -108,10 +114,11 @@ table! {
 
 allow_tables_to_appear_in_same_query!(
     app_statuses,
+    btc_transactions,
     client_tokens,
+    eth_transactions,
     payments,
     payouts,
     stores,
-    transactions,
     users,
 );

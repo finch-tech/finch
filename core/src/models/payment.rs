@@ -2,7 +2,7 @@ use std::convert::From;
 
 use bigdecimal::BigDecimal;
 use chrono::{prelude::*, Duration};
-use futures::{Future, IntoFuture};
+use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -11,7 +11,7 @@ use db::postgres::PgExecutorAddr;
 use models::store::Store;
 use models::Error;
 use schema::payments;
-use types::{Currency, PaymentStatus, H160, H256, U128};
+use types::{Currency, PaymentStatus, H256, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
@@ -42,7 +42,7 @@ impl PaymentPayload {
     }
 
     pub fn set_expires_at(&mut self) {
-        self.expires_at = Some(Utc::now() + Duration::seconds(900))
+        self.expires_at = Some(Utc::now() + Duration::seconds(3600))
     }
 }
 

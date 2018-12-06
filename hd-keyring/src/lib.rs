@@ -1,4 +1,5 @@
 #![crate_name = "hd_keyring"]
+#![allow(proc_macro_derive_resolution_fallback)]
 
 extern crate bip39;
 extern crate byteorder;

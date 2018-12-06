@@ -1,3 +1,5 @@
+#![allow(proc_macro_derive_resolution_fallback)]
+
 extern crate actix;
 extern crate actix_web;
 extern crate byteorder;
@@ -8,14 +10,12 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio;
 
+extern crate config;
 extern crate core;
 extern crate hd_keyring;
 extern crate rpc_client;
 extern crate types;
 
-mod errors;
-mod monitor;
-mod payouter;
-
-pub mod service;
-pub use errors::Error;
+pub mod bitcoin;
+pub mod errors;
+pub mod ethereum;

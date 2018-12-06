@@ -20,11 +20,11 @@ pub struct PayoutPayload {
     pub store_id: Option<Uuid>,
     pub payment_id: Option<Uuid>,
     pub typ: Option<Currency>,
-    pub eth_block_height_required: Option<U128>,
-    pub btc_block_height_required: Option<U128>,
+    pub block_height_required: Option<U128>,
     pub transaction_hash: Option<Option<H256>>,
     pub created_at: Option<DateTime<Utc>>,
 }
+
 impl PayoutPayload {
     pub fn set_created_at(&mut self) {
         self.created_at = Some(Utc::now());
@@ -39,8 +39,7 @@ impl From<Payout> for PayoutPayload {
             store_id: Some(payout.store_id),
             payment_id: Some(payout.payment_id),
             typ: Some(payout.typ),
-            eth_block_height_required: payout.eth_block_height_required,
-            btc_block_height_required: payout.btc_block_height_required,
+            block_height_required: Some(payout.block_height_required),
             transaction_hash: Some(payout.transaction_hash),
             created_at: Some(payout.created_at),
         }
@@ -57,8 +56,7 @@ pub struct Payout {
     pub store_id: Uuid,
     pub payment_id: Uuid,
     pub typ: Currency,
-    pub eth_block_height_required: Option<U128>,
-    pub btc_block_height_required: Option<U128>,
+    pub block_height_required: U128,
     pub transaction_hash: Option<H256>,
     pub created_at: DateTime<Utc>,
 }
@@ -86,10 +84,11 @@ impl Payout {
 
     pub fn find_all_confirmed(
         block_height: U128,
+        typ: Currency,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Payout>, Error = Error> {
         (*postgres)
-            .send(FindAllConfirmed(block_height))
+            .send(FindAllConfirmed { block_height, typ })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

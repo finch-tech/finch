@@ -1,8 +1,7 @@
 use actix::prelude::*;
 use diesel::prelude::*;
 
-use db::postgres::PgExecutor;
-use db::Error;
+use db::{postgres::PgExecutor, Error};
 use models::ethereum::Transaction;
 use types::H256;
 
@@ -15,11 +14,11 @@ impl Handler<Insert> for PgExecutor {
 
     fn handle(&mut self, Insert(payload): Insert, _: &mut Self::Context) -> Self::Result {
         use diesel::insert_into;
-        use schema::transactions::dsl::*;
+        use schema::eth_transactions::dsl::*;
 
         let conn = &self.get()?;
 
-        insert_into(transactions)
+        insert_into(eth_transactions)
             .values(&payload)
             .get_result(conn)
             .map_err(|e| Error::from(e))
@@ -38,11 +37,11 @@ impl Handler<FindByHash> for PgExecutor {
         FindByHash(transaction_hash): FindByHash,
         _: &mut Self::Context,
     ) -> Self::Result {
-        use schema::transactions::dsl::*;
+        use schema::eth_transactions::dsl::*;
 
         let conn = &self.get()?;
 
-        transactions
+        eth_transactions
             .filter(hash.eq(transaction_hash))
             .first::<Transaction>(conn)
             .map_err(|e| Error::from(e))

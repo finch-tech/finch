@@ -1,5 +1,5 @@
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum BtcNetwork {
+pub enum Network {
     MainNet,
     TestNet,
 }

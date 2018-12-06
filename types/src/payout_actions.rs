@@ -1,18 +1,17 @@
-use std::error::Error;
 use std::fmt;
 use std::io::Write;
 
-use diesel::deserialize::{self, FromSql, Queryable};
-use diesel::dsl::AsExprOf;
-use diesel::expression::AsExpression;
+use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
-use diesel::row::Row;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
-use diesel::types::FromSqlRow;
+use diesel::types::VarChar;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(
+    FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash,
+)]
 #[serde(rename_all = "snake_case")]
+#[sql_type = "VarChar"]
 pub enum PayoutAction {
     Payout,
     Refund,
@@ -33,16 +32,6 @@ impl fmt::Display for PayoutAction {
     }
 }
 
-impl FromSqlRow<Text, Pg> for PayoutAction {
-    fn build_from_row<R: Row<Pg>>(row: &mut R) -> Result<Self, Box<Error + Send + Sync>> {
-        match String::build_from_row(row)?.as_ref() {
-            "payout" => Ok(PayoutAction::Payout),
-            "refund" => Ok(PayoutAction::Refund),
-            v => Err(format!("Unknown value {} for PayoutAction found", v).into()),
-        }
-    }
-}
-
 impl ToSql<Text, Pg> for PayoutAction {
     fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         let text = self.to_str();
@@ -60,27 +49,5 @@ impl FromSql<Text, Pg> for PayoutAction {
             "refund" => Ok(PayoutAction::Refund),
             v => Err(format!("Unknown value {} for PayoutAction found", v).into()),
         }
-    }
-}
-
-impl Queryable<Text, Pg> for PayoutAction {
-    type Row = Self;
-
-    fn build(row: Self::Row) -> Self {
-        row
-    }
-}
-
-impl AsExpression<Text> for PayoutAction {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
-    }
-}
-
-impl<'a> AsExpression<Text> for &'a PayoutAction {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
     }
 }

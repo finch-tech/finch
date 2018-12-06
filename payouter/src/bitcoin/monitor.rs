@@ -4,11 +4,11 @@ use actix::fut::{self, wrap_future};
 use actix::prelude::*;
 use futures::{future, stream, Future, Stream};
 
+use super::payouter::{PayouterAddr, ProcessPayout};
 use core::app_status::AppStatus;
 use core::db::postgres::PgExecutorAddr;
 use core::payout::Payout;
-use payouter::{PayouterAddr, ProcessPayout};
-use types::U128;
+use types::{Currency, U128};
 
 use errors::Error;
 
@@ -38,7 +38,7 @@ impl Actor for Monitor {
             let monitor_process = wrap_future(AppStatus::find(&monitor.postgres))
                 .from_err::<Error>()
                 .and_then(move |status, m: &mut Monitor, _| {
-                    if let Some(block_height) = status.eth_block_height {
+                    if let Some(block_height) = status.btc_block_height {
                         if let Some(ref previous_block) = m.previous_block {
                             if block_height == *previous_block {
                                 return fut::Either::A(fut::ok(()));
@@ -88,7 +88,7 @@ impl Handler<ProcessBlock> for Monitor {
 
         println!("Payment check before {}", block_number);
 
-        let process_payouts = Payout::find_all_confirmed(block_number, &postgres)
+        let process_payouts = Payout::find_all_confirmed(block_number, Currency::Btc, &postgres)
             .from_err()
             .map(move |payouts| stream::iter_ok(payouts))
             .flatten_stream()

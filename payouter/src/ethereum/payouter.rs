@@ -4,36 +4,32 @@ use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
-use rpc_client::ethereum::{RpcClient as EthRpcClient, UnsignedTransaction};
+use rpc_client::ethereum::{RpcClient, UnsignedTransaction};
 
 use core::db::postgres::PgExecutorAddr;
 use core::ethereum::Transaction;
 use core::payout::{Payout, PayoutPayload};
 use core::store::Store;
 use hd_keyring::{HdKeyring, Wallet};
-use types::{BtcNetwork, EthNetwork, PayoutAction, PayoutStatus, H256, H160, U128, U256};
+use types::{
+    bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PayoutAction, PayoutStatus,
+    H160, H256, U128, U256,
+};
 
 pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub eth_rpc_client: EthRpcClient,
-    pub eth_network: EthNetwork,
-    pub btc_network: BtcNetwork,
+    pub rpc_client: RpcClient,
+    pub network: EthNetwork,
 }
 
 impl Payouter {
-    pub fn new(
-        pg_addr: PgExecutorAddr,
-        eth_rpc_client: EthRpcClient,
-        eth_network: EthNetwork,
-        btc_network: BtcNetwork,
-    ) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClient, network: EthNetwork) -> Self {
         Payouter {
             postgres: pg_addr,
-            eth_rpc_client,
-            eth_network,
-            btc_network,
+            rpc_client,
+            network,
         }
     }
 
@@ -42,19 +38,22 @@ impl Payouter {
         payout: Payout,
     ) -> impl Future<Item = (Wallet, Transaction, Store, U256, U128), Error = Error> {
         let postgres = self.postgres.clone();
-        let eth_rpc_client = self.eth_rpc_client.clone();
-        let btc_network = self.btc_network;
+        let rpc_client = self.rpc_client.clone();
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let gas_price = eth_rpc_client.get_gas_price().from_err();
+        let gas_price = rpc_client.get_gas_price().from_err();
 
         store
             .join3(payment, gas_price)
             .and_then(move |(store, payment, gas_price)| {
-                let transaction = Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres).from_err();
-                let nonce = eth_rpc_client
-                    .get_transaction_count(H160::from_str(&payment.clone().address.unwrap()[2..]).unwrap())
+                let transaction =
+                    Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
+                        .from_err();
+                let nonce = rpc_client
+                    .get_transaction_count(
+                        H160::from_str(&payment.clone().address.unwrap()[2..]).unwrap(),
+                    )
                     .from_err();
 
                 transaction
@@ -70,25 +69,31 @@ impl Payouter {
                         path.push_str("/");
                         path.push_str(nano_second);
 
-                        HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0, btc_network)
-                            .into_future()
-                            .from_err()
-                            .and_then(move |keyring| {
-                                keyring
-                                    .get_wallet_by_index(payment.index as u32)
-                                    .into_future()
-                                    .from_err()
-                                    .and_then(move |wallet| {
-                                        future::ok((wallet, transaction, store, gas_price, nonce))
-                                    })
-                            })
+                        HdKeyring::from_mnemonic(
+                            &path,
+                            &store.mnemonic.clone(),
+                            0,
+                            // Dummy
+                            BtcNetwork::MainNet,
+                        )
+                        .into_future()
+                        .from_err()
+                        .and_then(move |keyring| {
+                            keyring
+                                .get_wallet_by_index(payment.index as u32)
+                                .into_future()
+                                .from_err()
+                                .and_then(move |wallet| {
+                                    future::ok((wallet, transaction, store, gas_price, nonce))
+                                })
+                        })
                     })
             })
     }
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
-        let chain_id = self.eth_network.chain_id();
-        let eth_rpc_client = self.eth_rpc_client.clone();
+        let chain_id = self.network.chain_id();
+        let rpc_client = self.rpc_client.clone();
 
         self.prepare_payout(payout).and_then(
             move |(wallet, transaction, store, gas_price, nonce)| {
@@ -110,7 +115,7 @@ impl Payouter {
                             .into_future()
                             .from_err()
                             .and_then(move |signed_transaction| {
-                                eth_rpc_client
+                                rpc_client
                                     .send_raw_transaction(signed_transaction)
                                     .from_err()
                             }),
@@ -123,8 +128,8 @@ impl Payouter {
     }
 
     pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
-        let chain_id = self.eth_network.chain_id();
-        let eth_rpc_client = self.eth_rpc_client.clone();
+        let chain_id = self.network.chain_id();
+        let rpc_client = self.rpc_client.clone();
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
@@ -144,7 +149,7 @@ impl Payouter {
                     .into_future()
                     .from_err()
                     .and_then(move |signed_transaction| {
-                        eth_rpc_client
+                        rpc_client
                             .send_raw_transaction(signed_transaction)
                             .from_err()
                     })

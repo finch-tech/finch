@@ -1,16 +1,9 @@
-use hex::FromHex;
-use serde::{Deserialize, Deserializer};
+use futures::Future;
 
+use db::bitcoin::transactions::{FindByTxId, Insert};
+use db::postgres::PgExecutorAddr;
+use models::Error;
 use types::H256;
-
-fn from_hex<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    use serde::de::Error;
-    String::deserialize(deserializer)
-        .and_then(|string| Vec::from_hex(&string).map_err(|err| Error::custom(err.to_string())))
-}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub enum ScriptType {
@@ -35,15 +28,13 @@ pub enum ScriptType {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct TransactionInputScript {
     pub asm: String,
-    #[serde(deserialize_with = "from_hex")]
-    pub hex: Vec<u8>,
+    pub hex: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct TransactionOutputScript {
     pub asm: String,
-    #[serde(deserialize_with = "from_hex")]
-    pub hex: Vec<u8>,
+    pub hex: String,
     #[serde(rename = "reqSigs")]
     pub req_sigs: Option<u32>,
     #[serde(rename = "type")]
@@ -71,9 +62,8 @@ pub struct SignedTransactionOutput {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Transaction {
-    #[serde(deserialize_with = "from_hex")]
-    pub hex: Vec<u8>,
     pub txid: H256,
+    pub hex: String,
     pub hash: H256,
     pub size: usize,
     pub vsize: usize,
@@ -85,4 +75,26 @@ pub struct Transaction {
     pub confirmations: u32,
     pub time: u32,
     pub blocktime: u32,
+}
+
+impl Transaction {
+    pub fn insert(
+        payload: Transaction,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Transaction, Error = Error> {
+        (*postgres)
+            .send(Insert(payload))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
+
+    pub fn find_by_txid(
+        txid: H256,
+        postgres: &PgExecutorAddr,
+    ) -> impl Future<Item = Transaction, Error = Error> {
+        (*postgres)
+            .send(FindByTxId(txid))
+            .from_err()
+            .and_then(|res| res.map_err(|e| Error::from(e)))
+    }
 }

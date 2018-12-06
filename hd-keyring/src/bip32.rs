@@ -10,11 +10,11 @@ use hmac::{Hmac, Mac};
 use regex::Regex;
 use rust_base58::{FromBase58, ToBase58};
 use secp256k1::key::{PublicKey, SecretKey};
-use secp256k1::{ContextFlag, Secp256k1};
+use secp256k1::{All, Secp256k1};
 use sha2::Sha512;
 
 use errors::Error;
-use types::{BtcNetwork, H160, H256};
+use types::{bitcoin::Network as BtcNetwork, H160, H256};
 
 const MASTER_SECRET: &'static [u8] = b"Bitcoin seed";
 const HARDENED_OFFSET: u32 = 0x80000000;
@@ -234,7 +234,7 @@ impl Xprv {
                 mac.input(&self.secret_key[..]);
             }
             Index::Soft(_) => {
-                let public_key = PublicKey::from_secret_key(&secp, &self.secret_key)?;
+                let public_key = PublicKey::from_secret_key(&secp, &self.secret_key);
                 mac.input(&public_key.serialize()[..]);
             }
         };
@@ -258,12 +258,12 @@ impl Xprv {
         })
     }
 
-    pub fn identifier(&self, secp: &Secp256k1) -> Result<H160, Error> {
-        let public_key = PublicKey::from_secret_key(secp, &self.secret_key)?;
+    pub fn identifier(&self, secp: &Secp256k1<All>) -> Result<H160, Error> {
+        let public_key = PublicKey::from_secret_key(secp, &self.secret_key);
         Ok(H160::from_data(&public_key.serialize()[..]))
     }
 
-    pub fn fingerprint(&self, secp: &Secp256k1) -> Result<Fingerprint, Error> {
+    pub fn fingerprint(&self, secp: &Secp256k1<All>) -> Result<Fingerprint, Error> {
         let h160 = self.identifier(secp)?;
         Ok(Fingerprint::from(&h160[0..4])) // Using first 4 bytes
     }
@@ -303,7 +303,7 @@ impl FromStr for Xprv {
     type Err = Error;
 
     fn from_str(input: &str) -> Result<Xprv, Self::Err> {
-        let s = Secp256k1::with_caps(ContextFlag::None);
+        let s = Secp256k1::new();
 
         let bytes = input.from_base58().map_err(|_| Error::InvalidBase58Byte)?;
 
@@ -363,7 +363,7 @@ impl Xpub {
             depth: xprv.depth,
             index: xprv.index,
             parent_fingerprint: xprv.parent_fingerprint,
-            public_key: PublicKey::from_secret_key(&secp, &xprv.secret_key)?,
+            public_key: PublicKey::from_secret_key(&secp, &xprv.secret_key),
             chain_code: xprv.chain_code,
         })
     }
@@ -442,7 +442,7 @@ impl FromStr for Xpub {
     type Err = Error;
 
     fn from_str(input: &str) -> Result<Xpub, Self::Err> {
-        let s = Secp256k1::with_caps(ContextFlag::None);
+        let s = Secp256k1::new();
 
         let bytes = input.from_base58().map_err(|_| Error::InvalidBase58Byte)?;
 

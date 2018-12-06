@@ -6,7 +6,7 @@ use secp256k1::Secp256k1;
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{BtcNetwork, Currency, H160, H256};
+use types::{bitcoin::Network as BtcNetwork, Currency, H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
@@ -18,7 +18,7 @@ pub struct Wallet {
 impl Wallet {
     pub fn from_secret_key(secret_key: SecretKey, btc_network: BtcNetwork) -> Result<Self, Error> {
         let secp = Secp256k1::new();
-        let public_key = PublicKey::from_secret_key(&secp, &secret_key)?;
+        let public_key = PublicKey::from_secret_key(&secp, &secret_key);
 
         Ok(Wallet {
             secret_key,

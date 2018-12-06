@@ -1,6 +1,6 @@
 use actix::prelude::*;
 
-use bitcoin::poller::Poller;
+use bitcoin::poller::{Poller, Start};
 use bitcoin::processor::Processor;
 use core::db::postgres;
 use rpc_client::bitcoin::RpcClient;
@@ -15,7 +15,7 @@ pub fn run(postgres_url: String, rpc_client: RpcClient, skip_missed_blocks: bool
             postgres: pg_processor,
         });
 
-        Arbiter::start(move |_| {
+        let poller_address = Arbiter::start(move |_| {
             Poller::new(
                 block_processor_address,
                 pg_addr,
@@ -23,5 +23,7 @@ pub fn run(postgres_url: String, rpc_client: RpcClient, skip_missed_blocks: bool
                 skip_missed_blocks,
             )
         });
+
+        poller_address.do_send(Start);
     });
 }

@@ -1,14 +1,14 @@
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum EthNetwork {
+pub enum Network {
     Main,
     Ropsten,
 }
 
-impl EthNetwork {
+impl Network {
     pub fn chain_id(&self) -> u64 {
         match self {
-            EthNetwork::Main => 1,
-            EthNetwork::Ropsten => 3,
+            Network::Main => 1,
+            Network::Ropsten => 3,
         }
     }
 }

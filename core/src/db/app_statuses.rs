@@ -1,8 +1,10 @@
 use actix::prelude::*;
 use diesel::prelude::*;
 
-use db::postgres::{PgExecutor, PooledConnection};
-use db::Error;
+use db::{
+    postgres::{PgExecutor, PooledConnection},
+    Error,
+};
 use models::app_status::{AppStatus, AppStatusPayload};
 
 pub fn insert(payload: AppStatusPayload, conn: &PooledConnection) -> Result<AppStatus, Error> {

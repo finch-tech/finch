@@ -5,14 +5,10 @@ use std::str::FromStr;
 
 use actix_web::{client, HttpMessage};
 use bigdecimal::BigDecimal;
-use diesel::deserialize::{self, FromSql, Queryable};
-use diesel::dsl::AsExprOf;
-use diesel::expression::AsExpression;
+use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
-use diesel::row::Row;
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
-use diesel::types::FromSqlRow;
 use futures::future::{err, ok, Future};
 use serde_json::{self, Value};
 use url::Url;
@@ -20,7 +16,7 @@ use url::Url;
 use errors::Error as ApiClientError;
 use types::Currency;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Api {
     CoinApi,
@@ -97,15 +93,6 @@ impl fmt::Display for Api {
     }
 }
 
-impl FromSqlRow<Text, Pg> for Api {
-    fn build_from_row<R: Row<Pg>>(row: &mut R) -> Result<Self, Box<Error + Send + Sync>> {
-        match String::build_from_row(row)?.as_ref() {
-            "coin_api" => Ok(Api::CoinApi),
-            v => Err(format!("Unknown value {} for currency api found", v).into()),
-        }
-    }
-}
-
 impl ToSql<Text, Pg> for Api {
     fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         let text = self.to_str();
@@ -122,28 +109,6 @@ impl FromSql<Text, Pg> for Api {
             "coin_api" => Ok(Api::CoinApi),
             v => Err(format!("Unknown value {} for currency api found", v).into()),
         }
-    }
-}
-
-impl Queryable<Text, Pg> for Api {
-    type Row = Self;
-
-    fn build(row: Self::Row) -> Self {
-        row
-    }
-}
-
-impl AsExpression<Text> for Api {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
-    }
-}
-
-impl<'a> AsExpression<Text> for &'a Api {
-    type Expression = AsExprOf<String, Text>;
-    fn as_expression(self) -> Self::Expression {
-        <String as AsExpression<Text>>::as_expression(self.to_string())
     }
 }
 

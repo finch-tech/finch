@@ -3,9 +3,7 @@ use chrono::prelude::*;
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use db::postgres::{PgExecutor, PooledConnection};
-use db::stores;
-use db::Error;
+use db::{Error, stores, postgres::{PgExecutor, PooledConnection}};
 use models::user::{User, UserPayload};
 
 pub fn insert(payload: UserPayload, conn: &PooledConnection) -> Result<User, Error> {

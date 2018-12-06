@@ -11,7 +11,9 @@ use dotenv::dotenv;
 use currency_api_client::{Api as CurrencyApi, Client as CurrencyApiClient};
 use rpc_client::bitcoin::RpcClient as BtcRpcClient;
 use rpc_client::ethereum::RpcClient as EthRpcClient;
-use types::{BtcNetwork, EthNetwork, PrivateKey, PublicKey};
+use types::{
+    bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PrivateKey, PublicKey,
+};
 
 #[derive(Clone)]
 pub struct SmtpConfig {

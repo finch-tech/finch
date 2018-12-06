@@ -9,7 +9,7 @@ use core::app_status::AppStatus;
 use core::db::postgres::PgExecutorAddr;
 use ethereum::errors::Error;
 use ethereum::processor::{ProcessBlock, ProcessorAddr};
-use rpc_client::ethereum::{Error as RpcClientError, RpcClient};
+use rpc_client::{errors::Error as RpcClientError, ethereum::RpcClient};
 use types::U128;
 
 const RETRY_LIMIT: i8 = 10;
@@ -39,8 +39,16 @@ impl Poller {
 
 impl Actor for Poller {
     type Context = Context<Self>;
+}
 
-    fn started(&mut self, ctx: &mut Context<Self>) {
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Start;
+
+impl Handler<Start> for Poller {
+    type Result = ();
+
+    fn handle(&mut self, Start: Start, ctx: &mut Self::Context) -> Self::Result {
         let address = ctx.address();
 
         let poller_process = address
@@ -68,7 +76,7 @@ impl Actor for Poller {
 #[rtype(result = "Result<U128, Error>")]
 pub struct ProcessMissedBlocks;
 
-impl<'a> Handler<ProcessMissedBlocks> for Poller {
+impl Handler<ProcessMissedBlocks> for Poller {
     type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(
@@ -148,7 +156,7 @@ pub struct Poll {
     pub retry_count: i8,
 }
 
-impl<'a> Handler<Poll> for Poller {
+impl Handler<Poll> for Poller {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(

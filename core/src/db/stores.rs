@@ -2,8 +2,7 @@ use actix::prelude::*;
 use diesel::prelude::*;
 
 use db::client_tokens;
-use db::postgres::{PgExecutor, PooledConnection};
-use db::Error;
+use db::{Error, postgres::{PgExecutor, PooledConnection}};
 use models::store::{Store, StorePayload};
 use uuid::Uuid;
 

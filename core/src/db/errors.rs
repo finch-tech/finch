@@ -1,5 +1,6 @@
 use diesel::result::Error as DieselError;
 use r2d2::Error as PoolError;
+use serde_json::Error as SerdeJsonError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -7,6 +8,8 @@ pub enum Error {
     DieselError(#[cause] DieselError),
     #[fail(display = "{}", _0)]
     PoolError(#[cause] PoolError),
+    #[fail(display = "{}", _0)]
+    SerdeJsonError(#[cause] SerdeJsonError),
 }
 
 impl From<DieselError> for Error {
@@ -18,5 +21,11 @@ impl From<DieselError> for Error {
 impl From<PoolError> for Error {
     fn from(e: PoolError) -> Error {
         Error::PoolError(e)
+    }
+}
+
+impl From<SerdeJsonError> for Error {
+    fn from(e: SerdeJsonError) -> Error {
+        Error::SerdeJsonError(e)
     }
 }

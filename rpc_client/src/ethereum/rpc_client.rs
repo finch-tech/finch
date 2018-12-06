@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::time::Duration;
 
 use actix_web::{client, HttpMessage};
@@ -6,10 +5,9 @@ use futures::future::{err, ok, Future};
 use serde_json::{self, Value};
 
 use core::ethereum::Block;
-use types::{H160, H256, U128, U256};
-
-use ethereum::Error;
+use errors::Error;
 use ethereum::SignedTransaction;
+use types::{H160, H256, U128, U256};
 
 #[derive(Clone)]
 pub struct RpcClient {
@@ -31,7 +29,7 @@ impl RpcClient {
                 "id": 1
             })) {
             Ok(req) => req,
-            Err(_) => return Box::new(err(Error::ResponseError)),
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
@@ -42,7 +40,10 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
+                    Some(result) => match serde_json::from_str::<U256>(&format!("{}", result)) {
+                        Ok(balance) => ok(balance),
+                        Err(e) => err(Error::from(e)),
+                    },
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -59,7 +60,7 @@ impl RpcClient {
                 "id": 1
             })) {
             Ok(req) => req,
-            Err(_) => return Box::new(err(Error::ResponseError)),
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
@@ -70,7 +71,10 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U128::from_str(&result.as_str().unwrap()[2..]).unwrap()),
+                    Some(result) => match serde_json::from_str::<U128>(&format!("{}", result)) {
+                        Ok(block_number) => ok(block_number),
+                        Err(e) => return err(Error::from(e)),
+                    },
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -91,7 +95,7 @@ impl RpcClient {
                 "id": 1
             })) {
             Ok(req) => req,
-            Err(_) => return Box::new(err(Error::ResponseError)),
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
@@ -104,7 +108,7 @@ impl RpcClient {
                 match body.get("result") {
                     Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
                         Ok(block) => ok(block),
-                        Err(e) => return err(Error::EmptyResponseError),
+                        Err(e) => return err(Error::from(e)),
                     },
                     None => return err(Error::EmptyResponseError),
                 }
@@ -122,7 +126,7 @@ impl RpcClient {
                 "id": 1
             })) {
             Ok(req) => req,
-            Err(_) => return Box::new(err(Error::ResponseError)),
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
@@ -135,7 +139,10 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
+                    Some(result) => match serde_json::from_str::<U256>(&format!("{}", result)) {
+                        Ok(gas_price) => ok(gas_price),
+                        Err(e) => err(Error::from(e)),
+                    },
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -152,7 +159,7 @@ impl RpcClient {
                 "id": 1
             })) {
             Ok(req) => req,
-            Err(_) => return Box::new(err(Error::ResponseError)),
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
@@ -163,7 +170,10 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(U128::from_str(&result.as_str().unwrap()[2..]).unwrap()),
+                    Some(result) => match serde_json::from_str::<U128>(&format!("{}", result)) {
+                        Ok(count) => ok(count),
+                        Err(e) => err(Error::from(e)),
+                    },
                     None => err(Error::EmptyResponseError),
                 }
             })
@@ -177,11 +187,11 @@ impl RpcClient {
         let rlp = signed_transaction.rlp_encode();
 
         let req = match client::ClientRequest::post(&self.url).json(json!({
-                "jsonrpc": "2.0",
-                "method": "eth_sendRawTransaction",
-                "params": vec!(format!("0x{}", &rlp)),
-                "id": 1
-            })) {
+            "jsonrpc": "2.0",
+            "method": "eth_sendRawTransaction",
+            "params": vec!(format!("0x{}", &rlp)),
+            "id": 1
+        })) {
             Ok(req) => req,
             Err(_) => return Box::new(err(Error::ResponseError)),
         };
@@ -194,8 +204,11 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    Some(result) => ok(H256::from_str(&result.as_str().unwrap()[2..]).unwrap()),
-                    None => err(Error::EmptyResponseError),
+                    Some(result) => match serde_json::from_str::<H256>(&format!("{}", result)) {
+                        Ok(hash) => ok(hash),
+                        Err(e) => err(Error::from(e)),
+                    },
+                    None => return err(Error::EmptyResponseError),
                 }
             })
         }))
