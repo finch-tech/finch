@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
 use rust_base58::ToBase58;
-use secp256k1::key::{PublicKey, SecretKey};
-use secp256k1::Secp256k1;
+use secp256k1::{
+    key::{PublicKey, SecretKey},
+    Secp256k1,
+};
 use tiny_keccak::keccak256;
 
 use errors::Error;

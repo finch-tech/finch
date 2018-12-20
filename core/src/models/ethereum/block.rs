@@ -37,7 +37,7 @@ pub struct Block {
     #[serde(rename = "sha3Uncles")]
     pub uncles_hash: H256,
     #[serde(rename = "miner")]
-    pub author: H160,
+    pub author: Option<H160>,
     #[serde(rename = "stateRoot")]
     pub state_root: H256,
     #[serde(rename = "transactionsRoot")]
@@ -56,7 +56,7 @@ pub struct Block {
     pub timestamp: U256,
     pub difficulty: U256,
     #[serde(rename = "totalDifficulty")]
-    pub total_difficulty: U256,
+    pub total_difficulty: Option<U256>,
     pub uncles: Vec<H256>,
     pub transactions: Vec<Transaction>,
     pub size: Option<U256>,

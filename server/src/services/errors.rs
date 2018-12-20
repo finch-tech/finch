@@ -1,6 +1,5 @@
 use actix::MailboxError;
-use actix_web::client::SendRequestError;
-use actix_web::{error, http, HttpResponse};
+use actix_web::{client::SendRequestError, error, http, HttpResponse};
 use data_encoding::DecodeError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use jwt::errors::Error as JwtError;
@@ -9,8 +8,7 @@ use rustc_hex::FromHexError;
 use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 
-use core::db::Error as DbError;
-use core::ModelError;
+use core::{db::Error as DbError, ModelError};
 use currency_api_client::Error as CurrencyApiClientError;
 use hd_keyring::Error as KeyringError;
 use mailer::Error as MailerError;

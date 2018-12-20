@@ -5,9 +5,11 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::postgres::PgExecutorAddr;
-use db::users::{
-    Activate, Delete, DeleteExpired, FindByEmail, FindById, FindByResetToken, Insert, Update,
+use db::{
+    postgres::PgExecutorAddr,
+    users::{
+        Activate, Delete, DeleteExpired, FindByEmail, FindById, FindByResetToken, Insert, Update,
+    },
 };
 use models::Error;
 use schema::users;

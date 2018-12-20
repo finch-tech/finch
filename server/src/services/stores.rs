@@ -3,8 +3,10 @@ use openssl::rsa::Rsa;
 use uuid::Uuid;
 
 use config::Config;
-use core::db::postgres::PgExecutorAddr;
-use core::store::{Store, StorePayload};
+use core::{
+    db::postgres::PgExecutorAddr,
+    store::{Store, StorePayload},
+};
 use hd_keyring::HdKeyring;
 use services::Error;
 use types::{PrivateKey, PublicKey};

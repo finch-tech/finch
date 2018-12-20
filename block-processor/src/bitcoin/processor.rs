@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use actix::prelude::*;
 use bigdecimal::BigDecimal;
@@ -7,11 +6,13 @@ use chrono::prelude::*;
 use futures::{future, stream, Future, Stream};
 
 use bitcoin::Error;
-use core::app_status::{AppStatus, AppStatusPayload};
-use core::bitcoin::{Block, Transaction};
-use core::db::postgres::PgExecutorAddr;
-use core::payment::{Payment, PaymentPayload};
-use core::payout::{Payout, PayoutPayload};
+use core::{
+    app_status::{AppStatus, AppStatusPayload},
+    bitcoin::{Block, Transaction},
+    db::postgres::PgExecutorAddr,
+    payment::{Payment, PaymentPayload},
+    payout::{Payout, PayoutPayload},
+};
 use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
@@ -22,6 +23,82 @@ pub struct Processor {
 
 impl Actor for Processor {
     type Context = Context<Self>;
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct ProcessMempoolTransactions(pub Vec<Transaction>);
+
+impl Handler<ProcessMempoolTransactions> for Processor {
+    type Result = Box<Future<Item = (), Error = Error>>;
+
+    fn handle(
+        &mut self,
+        ProcessMempoolTransactions(pooled_transactions): ProcessMempoolTransactions,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let postgres = self.postgres.clone();
+
+        let mut addresses = Vec::new();
+        let mut transactions = HashMap::new();
+        let mut outputs = HashMap::new();
+
+        for (_, transaction) in pooled_transactions.iter().enumerate() {
+            for output in transaction.vout.clone() {
+                if let Some(output_addresses) = output.script.addresses.clone() {
+                    addresses.push(output_addresses[0].clone());
+                    transactions.insert(output_addresses[0].clone(), transaction.clone());
+                    outputs.insert(output_addresses[0].clone(), output.clone());
+                }
+            }
+        }
+
+        let process = Payment::find_all_by_address(addresses, Currency::Btc, &postgres)
+            .from_err()
+            .map(move |payments| stream::iter_ok(payments))
+            .flatten_stream()
+            .and_then(move |payment| {
+                let transaction = transactions.get(&payment.clone().address.unwrap()).unwrap();
+
+                let mut payment_payload = PaymentPayload::from(payment.clone());
+                payment_payload.transaction_hash = Some(transaction.hash);
+                payment_payload.set_paid_at();
+
+                let vout = outputs.get(&payment.address.unwrap()).unwrap();
+
+                let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
+                    .expect("Failed to parse transaction amount.");
+
+                // Todo: Verify transaction fee.
+
+                let price = payment.price.unwrap();
+                match payment.status {
+                    PaymentStatus::Pending => {
+                        // Paid enough.
+                        if btc_paid >= price {
+                            payment_payload.status = Some(PaymentStatus::Paid);
+                        }
+
+                        // Insufficient amount paid.
+                        if btc_paid < price {
+                            payment_payload.status = Some(PaymentStatus::InsufficientAmount);
+                        }
+
+                        // Expired
+                        if payment.expires_at < Utc::now() {
+                            payment_payload.status = Some(PaymentStatus::Expired);
+                        }
+                    }
+                    _ => (),
+                };
+                println!("Detected zero confirmation payment");
+
+                Payment::update(payment.id, payment_payload, &postgres).from_err()
+            })
+            .for_each(move |_| future::ok(()));
+
+        Box::new(process)
+    }
 }
 
 #[derive(Message)]
@@ -59,7 +136,6 @@ impl Handler<ProcessBlock> for Processor {
             .and_then(move |payment| {
                 let transaction = transactions.get(&payment.clone().address.unwrap()).unwrap();
 
-                // Prepare payment update.
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
@@ -71,7 +147,6 @@ impl Handler<ProcessBlock> for Processor {
                 payment_payload.block_height_required = Some(block_height_required);
                 payment_payload.set_paid_at();
 
-                // Prepare payout object.
                 let mut payout_payload = PayoutPayload {
                     action: None,
                     status: Some(PayoutStatus::Pending),
@@ -85,24 +160,20 @@ impl Handler<ProcessBlock> for Processor {
 
                 let vout = outputs.get(&payment.address.unwrap()).unwrap();
 
-                let btc_paid = match BigDecimal::from_str(&format!("{}", vout.value)) {
-                    Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
-                    Err(_) => {
-                        // TODO: Handle error.
-                        panic!("Failed to parse transaction amount.");
-                    }
-                };
+                let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
+                    .expect("Failed to parse transaction amount.");
 
+                let price = payment.price.unwrap();
                 match payment.status {
-                    PaymentStatus::Pending => {
+                    PaymentStatus::Pending | PaymentStatus::Paid => {
                         // Paid enough.
-                        if btc_paid >= payment.price.clone().unwrap() {
-                            payment_payload.status = Some(PaymentStatus::Paid);
+                        if btc_paid >= price {
+                            payment_payload.status = Some(PaymentStatus::Confirmed);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if btc_paid < payment.price.clone().unwrap() {
+                        if btc_paid < price {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }

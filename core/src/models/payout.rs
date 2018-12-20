@@ -4,11 +4,8 @@ use chrono::prelude::*;
 use futures::Future;
 use uuid::Uuid;
 
-use db::payouts::{FindAllConfirmed, Insert, Update};
-use db::postgres::PgExecutorAddr;
-use models::payment::Payment;
-use models::store::Store;
-use models::Error;
+use db::{postgres::PgExecutorAddr, payouts::{FindAllConfirmed, Insert, Update}};
+use models::{Error, store::Store, payment::Payment};
 use schema::payouts;
 use types::{Currency, PayoutAction, PayoutStatus, H256, U128};
 

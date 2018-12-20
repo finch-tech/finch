@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use actix_web::{Json, Path, State};
 use bigdecimal::BigDecimal;
 use futures::future::{self, err, ok, Future, IntoFuture};
@@ -7,12 +5,14 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use auth::{AuthClient, JWTPayload};
-use core::app_status::AppStatus;
-use core::client_token::ClientToken;
-use core::payment::{Payment, PaymentPayload};
+use core::{
+    app_status::AppStatus,
+    client_token::ClientToken,
+    payment::{Payment, PaymentPayload},
+};
 use server::AppState;
 use services::{self, Error};
-use types::{Currency, H160, U128, U256};
+use types::{Currency, PaymentStatus, U128};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
@@ -38,8 +38,8 @@ pub fn create(
 
             let payload = PaymentPayload {
                 status: None,
-                store_id: auth_client.store_id,
-                created_by: auth_client.id,
+                store_id: Some(auth_client.store_id),
+                created_by: Some(auth_client.id),
                 created_at: None,
                 expires_at: None,
                 paid_at: None,
@@ -87,58 +87,6 @@ fn validate_client(payment: &Payment, client: &AuthClient) -> Result<bool, Error
     Ok(true)
 }
 
-pub fn get_eth_payment_status(
-    state: State<AppState>,
-    block_height: U128,
-    payment: Payment,
-) -> impl Future<Item = Json<Value>, Error = Error> {
-    state
-        .config
-        .eth_rpc_client
-        .get_balance(H160::from_str(&payment.address.clone().unwrap()[2..]).unwrap())
-        .from_err()
-        .map(move |balance| balance > U256::from(0))
-        .and_then(move |payment_detected| {
-
-            match payment.block_height_required {
-                Some(block_height_required) => Ok(Json(json!({
-                    "payment_detected": payment_detected,
-                    "status": payment.status,
-                    "confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
-                    "block_height": format!("{}", block_height),
-                    "block_height_required": format!("{}", block_height_required)
-                }))),
-                None => Ok(Json(json!({
-                    "payment_detected": payment_detected,
-                    "status": payment.status,
-                    "eth_confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
-                    "block_height": format!("{}", block_height),
-                }))),
-            }
-        })
-}
-
-pub fn get_btc_payment_status(
-    block_height: U128,
-    payment: Payment,
-) -> impl Future<Item = Json<Value>, Error = Error> {
-    match payment.block_height_required {
-        Some(block_height_required) => future::ok(Json(json!({
-            "payment_detected": true,
-            "status": payment.status,
-            "confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
-            "block_height": format!("{}", block_height),
-            "block_height_required": format!("{}", block_height_required)
-        }))),
-        None => future::ok(Json(json!({
-            "payment_detected": false,
-            "status": payment.status,
-            "eth_confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
-            "block_height": format!("{}", block_height),
-        }))),
-    }
-}
-
 pub fn get_status(
     (state, client, path): (State<AppState>, AuthClient, Path<Uuid>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
@@ -156,13 +104,30 @@ pub fn get_status(
                 return future::Either::B(future::err(Error::CurrencyNotSupported));
             }
 
-            let res = match payment.typ {
-                Currency::Btc => future::Either::A(get_btc_payment_status(block_height, payment)),
-                Currency::Eth => {
-                    future::Either::B(get_eth_payment_status(state, block_height, payment))
+            let mut remaining_confirmations = U128::from(payment.confirmations_required.unwrap());
+
+            if payment.status == PaymentStatus::Paid && payment.confirmations_required.unwrap() == 0
+            {
+                remaining_confirmations = U128::from(0);
+            }
+
+            match payment.block_height_required {
+                Some(block_height_required) => {
+                    if block_height_required < block_height {
+                        remaining_confirmations = U128::from(0);
+                    } else {
+                        remaining_confirmations = block_height_required - block_height;
+                    }
                 }
-                _ => panic!("Invalid currency."),
+                None => (),
             };
+
+            let res = future::ok(Json(json!({
+                "status": payment.status,
+                "confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
+                "remaining_confirmations": remaining_confirmations,
+            })));
+
             future::Either::A(res)
         } else {
             return future::Either::B(future::err(Error::InternalServerError));

@@ -1,5 +1,4 @@
-use actix_web::client::SendRequestError;
-use actix_web::error::PayloadError;
+use actix_web::{error::PayloadError, client::SendRequestError};
 use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 

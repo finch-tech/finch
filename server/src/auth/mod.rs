@@ -130,7 +130,7 @@ impl FromRequest<AppState> for ClientToken {
             None => {
                 return Box::new(err(error::ErrorUnauthorized(
                     "Invalid authorization token.",
-                )))
+                )));
             }
         };
 
@@ -154,13 +154,13 @@ impl FromRequest<AppState> for ClientToken {
                 Err(_) => {
                     return Box::new(err(error::ErrorUnauthorized(
                         "Invalid authorization token.",
-                    )))
+                    )));
                 }
             },
             Err(_) => {
                 return Box::new(err(error::ErrorUnauthorized(
                     "Invalid authorization token.",
-                )))
+                )));
             }
         };
 

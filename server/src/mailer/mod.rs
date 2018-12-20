@@ -4,14 +4,15 @@ pub use self::errors::Error;
 use std::time::Duration;
 
 use actix::prelude::*;
-use lettre::smtp::authentication::{Credentials, Mechanism};
-use lettre::smtp::response::Response;
-use lettre::smtp::ConnectionReuseParameters;
-use lettre::smtp::SmtpTransportBuilder;
-use lettre::{ClientSecurity, ClientTlsParameters, EmailTransport, SmtpTransport};
+use lettre::{
+    smtp::authentication::{Credentials, Mechanism},
+    smtp::response::Response,
+    smtp::ConnectionReuseParameters,
+    smtp::SmtpTransportBuilder,
+    ClientSecurity, ClientTlsParameters, EmailTransport, SmtpTransport,
+};
 use lettre_email::EmailBuilder;
-use native_tls::Protocol;
-use native_tls::TlsConnector;
+use native_tls::{Protocol, TlsConnector};
 
 pub type MailerAddr = Addr<Mailer>;
 

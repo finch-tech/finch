@@ -4,8 +4,7 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use auth::AuthUser;
-use core::client_token::ClientTokenPayload;
-use core::store::Store;
+use core::{client_token::ClientTokenPayload, store::Store};
 use server::AppState;
 use services::{self, Error};
 use types::Client;
@@ -93,10 +92,10 @@ pub fn list(
                                 .into_iter()
                                 .for_each(|client_token| exported.push(client_token.export()));
                             Ok(Json(json!({
-                            "client_tokens": exported,
-                            "limit": limit,
-                            "offset": offset,
-                        })))
+                                "client_tokens": exported,
+                                "limit": limit,
+                                "offset": offset,
+                            })))
                         })
                     })
             })

@@ -1,8 +1,7 @@
 use std::ops::Deref;
 
 use actix::prelude::*;
-use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::{r2d2::{ConnectionManager, Pool}, pg::PgConnection};
 use r2d2;
 
 pub type PgExecutorAddr = Addr<PgExecutor>;

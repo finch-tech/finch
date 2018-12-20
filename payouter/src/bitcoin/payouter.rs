@@ -5,12 +5,15 @@ use errors::Error;
 use rpc_client::bitcoin::{RpcClient, UnsignedTransaction};
 
 use config::Config;
-use core::bitcoin::{ScriptType, Transaction};
-use core::db::postgres::PgExecutorAddr;
-use core::payout::{Payout, PayoutPayload};
-use core::store::Store;
+use core::{
+    bitcoin::{ScriptType, Transaction},
+    db::postgres::PgExecutorAddr,
+    payment::{Payment, PaymentPayload},
+    payout::{Payout, PayoutPayload},
+    store::Store,
+};
 use hd_keyring::{HdKeyring, Wallet};
-use types::{bitcoin::Network as BtcNetwork, PayoutStatus, H256};
+use types::{bitcoin::Network as BtcNetwork, PaymentStatus, PayoutStatus, H256};
 
 pub type PayouterAddr = Addr<Payouter>;
 
@@ -160,19 +163,26 @@ impl Handler<PayOut> for Payouter {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, PayOut(payout): PayOut, _: &mut Self::Context) -> Self::Result {
-        let postgres_a = self.postgres.clone();
-        let postgres_b = self.postgres.clone();
+        let postgres = self.postgres.clone();
 
         Box::new(
             self.payout(payout)
                 .from_err()
                 .and_then(move |hash| {
                     println!("Paid out {}", hash);
-                    let mut payload = PayoutPayload::from(payout);
-                    payload.transaction_hash = Some(Some(hash));
-                    payload.status = Some(PayoutStatus::PaidOut);
 
-                    Payout::update(payout.id, payload, &postgres_a).from_err()
+                    let mut payout_payload = PayoutPayload::from(payout);
+                    payout_payload.transaction_hash = Some(Some(hash));
+                    payout_payload.status = Some(PayoutStatus::PaidOut);
+                    let payout_update =
+                        Payout::update(payout.id, payout_payload, &postgres).from_err();
+
+                    let mut payment_payload = PaymentPayload::new();
+                    payment_payload.status = Some(PaymentStatus::Completed);
+                    let payment_update =
+                        Payment::update(payout.payment_id, payment_payload, &postgres).from_err();
+
+                    payout_update.join(payment_update)
                 })
                 .map(move |_| ()),
         )

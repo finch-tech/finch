@@ -1,18 +1,21 @@
-use core::fmt::LowerHex;
-use std::cmp::Ordering;
-use std::fmt;
-use std::io::Write;
-use std::ops::{Add, Deref, Div, Mul, Sub};
-use std::str::FromStr;
+use core::cmp::Ordering;
+use std::{
+    fmt,
+    fmt::LowerHex,
+    io::Write,
+    ops::{Add, Deref, Div, Mul, Sub},
+    str::FromStr,
+};
 
 use bigdecimal::BigDecimal;
-use diesel::deserialize::{self, FromSql};
-use diesel::pg::Pg;
-use diesel::serialize::{self, Output, ToSql};
-use diesel::sql_types::Numeric;
+use diesel::{
+    deserialize::{self, FromSql},
+    pg::Pg,
+    serialize::{self, Output, ToSql},
+    sql_types::Numeric,
+};
 use rlp::{Encodable, RlpStream};
-use uint::rustc_hex::FromHexError;
-use uint::FromDecStrErr;
+use uint::{rustc_hex::FromHexError, FromDecStrErr};
 
 construct_uint!(_U256, 4);
 
@@ -26,7 +29,6 @@ impl serde::Serialize for _U256 {
 }
 
 impl<'de> serde::Deserialize<'de> for _U256 {
-    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

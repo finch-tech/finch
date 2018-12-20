@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 use std::io::Write;
 use std::str::FromStr;
@@ -42,7 +41,7 @@ impl Api {
         key: &str,
     ) -> Box<Future<Item = BigDecimal, Error = ApiClientError>> {
         // Currently only supports CoinAPI.
-        // Add support for other external APIs later.
+        // TODO: Add support for other external APIs later.
         let mut url = self.base_url();
 
         url.set_path(&format!(

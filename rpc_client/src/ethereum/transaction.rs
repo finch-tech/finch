@@ -1,7 +1,6 @@
 use rlp::RlpStream;
 use rustc_hex::ToHex;
-use secp256k1::key::SecretKey;
-use secp256k1::{Message, Secp256k1};
+use secp256k1::{Message, Secp256k1, key::SecretKey};
 use tiny_keccak::keccak256;
 
 use errors::Error;

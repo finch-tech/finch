@@ -1,8 +1,10 @@
 use futures::future::Future;
 use uuid::Uuid;
 
-use core::client_token::{ClientToken, ClientTokenPayload};
-use core::db::postgres::PgExecutorAddr;
+use core::{
+    client_token::{ClientToken, ClientTokenPayload},
+    db::postgres::PgExecutorAddr,
+};
 use services::Error;
 
 pub fn create(

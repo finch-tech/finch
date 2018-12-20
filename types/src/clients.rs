@@ -1,10 +1,7 @@
 use std::fmt;
 use std::io::Write;
 
-use diesel::deserialize::{self, FromSql};
-use diesel::pg::Pg;
-use diesel::serialize::{self, Output, ToSql};
-use diesel::types::VarChar;
+use diesel::{pg::Pg,serialize::{self, Output, ToSql},types::VarChar,deserialize::{self, FromSql}};
 
 #[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
 #[serde(rename_all = "snake_case")]

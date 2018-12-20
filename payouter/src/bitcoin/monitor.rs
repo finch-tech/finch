@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use actix::fut::{self, wrap_future};
-use actix::prelude::*;
+use actix::{
+    fut::{self, wrap_future},
+    prelude::*,
+};
 use futures::{future, stream, Future, Stream};
 
 use super::payouter::{PayouterAddr, ProcessPayout};
-use core::app_status::AppStatus;
-use core::db::postgres::PgExecutorAddr;
-use core::payout::Payout;
+use core::{app_status::AppStatus, db::postgres::PgExecutorAddr, payout::Payout};
 use types::{Currency, U128};
 
 use errors::Error;
@@ -83,10 +83,10 @@ impl Handler<ProcessBlock> for Monitor {
         ProcessBlock(block_number): ProcessBlock,
         _: &mut Self::Context,
     ) -> Self::Result {
+        println!("Payment check before {}", block_number);
+
         let postgres = self.postgres.clone();
         let payouter = self.payouter.clone();
-
-        println!("Payment check before {}", block_number);
 
         let process_payouts = Payout::find_all_confirmed(block_number, Currency::Btc, &postgres)
             .from_err()

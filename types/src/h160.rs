@@ -1,14 +1,18 @@
 use core::cmp;
 use libc;
-use std::fmt;
-use std::io::Write;
-use std::ops::{Deref, DerefMut};
-use std::str::{from_utf8, FromStr};
+use std::{
+    fmt,
+    io::Write,
+    ops::{Deref, DerefMut},
+    str::{from_utf8, FromStr},
+};
 
-use diesel::deserialize::{self, FromSql};
-use diesel::pg::Pg;
-use diesel::serialize::{self, Output, ToSql};
-use diesel::types::VarChar;
+use diesel::{
+    deserialize::{self, FromSql},
+    pg::Pg,
+    serialize::{self, Output, ToSql},
+    types::VarChar,
+};
 use digest::Digest;
 use ripemd160::Ripemd160;
 use rlp::{Encodable, RlpStream};
@@ -24,7 +28,6 @@ impl H160 {
         H160([0; 20])
     }
 
-    #[inline]
     pub fn clone_from_slice(&mut self, src: &[u8]) -> usize {
         let min = cmp::min(20, src.len());
         self.0[..min].copy_from_slice(&src[..min]);
@@ -113,7 +116,6 @@ pub enum HexError {
 }
 
 impl<'de> serde::Deserialize<'de> for H160 {
-    #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -199,14 +201,12 @@ impl Deref for H160 {
 }
 
 impl DerefMut for H160 {
-    #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
         &mut self.0
     }
 }
 
 impl AsRef<[u8]> for H160 {
-    #[inline]
     fn as_ref(&self) -> &[u8] {
         &self.0
     }

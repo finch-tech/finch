@@ -47,10 +47,9 @@ impl RpcClient {
                 };
 
                 match body.get("result") {
-                    // TODO: Use serialization. ex. serde_json::from_str::<U128>()
-                    Some(result) => match U128::from_dec_str(&format!("{}", result)) {
-                        Ok(block_count) => ok(block_count),
-                        Err(e) => err(Error::CustomError(format!("{:?}", e))),
+                    Some(result) => match serde_json::from_str::<U128>(&format!("{}", result)) {
+                        Ok(block_number) => ok(block_number),
+                        Err(e) => return err(Error::from(e)),
                     },
                     None => err(Error::EmptyResponseError),
                 }
@@ -233,6 +232,39 @@ impl RpcClient {
                         panic!("Got invalid fee rate.");
                     }
                     None => err(Error::EmptyResponseError),
+                }
+            })
+        }))
+    }
+
+    pub fn get_raw_mempool(&self) -> Box<Future<Item = Vec<H256>, Error = Error>> {
+        let req = match client::ClientRequest::post(&self.url)
+            .header("Authorization", format!("{}", self.basic_auth))
+            .content_type("application/json")
+            .json(json!({
+                "jsonrpc": "1.0",
+                "method": "getrawmempool",
+                "params": (),
+                "id": "1"
+            })) {
+            Ok(req) => req,
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
+        };
+
+        Box::new(req.send().from_err().and_then(move |resp| {
+            resp.body().from_err().and_then(move |body| {
+                let body: Value = match serde_json::from_slice(&body) {
+                    Ok(body) => body,
+                    Err(e) => return err(Error::from(e)),
+                };
+
+                match body.get("result") {
+                    Some(result) => match serde_json::from_str::<Vec<H256>>(&format!("{}", result))
+                    {
+                        Ok(hash) => ok(hash),
+                        Err(e) => err(Error::from(e)),
+                    },
+                    None => return err(Error::EmptyResponseError),
                 }
             })
         }))

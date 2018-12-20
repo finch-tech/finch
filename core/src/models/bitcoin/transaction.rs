@@ -1,7 +1,9 @@
 use futures::Future;
 
-use db::bitcoin::transactions::{FindByTxId, Insert};
-use db::postgres::PgExecutorAddr;
+use db::{
+    bitcoin::transactions::{FindByTxId, Insert},
+    postgres::PgExecutorAddr,
+};
 use models::Error;
 use types::H256;
 
@@ -71,10 +73,10 @@ pub struct Transaction {
     pub locktime: i32,
     pub vin: Vec<SignedTransactionInput>,
     pub vout: Vec<SignedTransactionOutput>,
-    pub blockhash: H256,
-    pub confirmations: u32,
-    pub time: u32,
-    pub blocktime: u32,
+    pub blockhash: Option<H256>,
+    pub confirmations: Option<u32>,
+    pub time: Option<u32>,
+    pub blocktime: Option<u32>,
 }
 
 impl Transaction {

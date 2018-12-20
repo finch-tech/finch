@@ -5,10 +5,11 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::postgres::PgExecutorAddr;
-use db::stores::{FindById, FindByIdWithDeleted, FindByOwner, Insert, SoftDelete, Update};
-use models::user::User;
-use models::Error;
+use db::{
+    postgres::PgExecutorAddr,
+    stores::{FindById, FindByIdWithDeleted, FindByOwner, Insert, SoftDelete, Update},
+};
+use models::{user::User, Error};
 use schema::stores;
 use types::{Currency, PrivateKey, PublicKey, H160};
 

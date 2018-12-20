@@ -4,10 +4,11 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::client_tokens::{Delete, FindById, FindByStore, FindByTokenAndDomain, Insert};
-use db::postgres::PgExecutorAddr;
-use models::store::Store;
-use models::Error;
+use db::{
+    client_tokens::{Delete, FindById, FindByStore, FindByTokenAndDomain, Insert},
+    postgres::PgExecutorAddr,
+};
+use models::{store::Store, Error};
 use schema::client_tokens;
 use types::Client;
 

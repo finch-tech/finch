@@ -1,16 +1,14 @@
-use std::default::Default;
-use std::io::Cursor;
-use std::ops::Deref;
-use std::str::FromStr;
-use std::string::ToString;
+use std::{default::Default, io::Cursor, ops::Deref, str::FromStr, string::ToString};
 
 use bip39::Seed;
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use hmac::{Hmac, Mac};
 use regex::Regex;
 use rust_base58::{FromBase58, ToBase58};
-use secp256k1::key::{PublicKey, SecretKey};
-use secp256k1::{All, Secp256k1};
+use secp256k1::{
+    key::{PublicKey, SecretKey},
+    {All, Secp256k1},
+};
 use sha2::Sha512;
 
 use errors::Error;

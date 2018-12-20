@@ -1,6 +1,5 @@
 #![allow(proc_macro_derive_resolution_fallback)]
 
-#[macro_use]
 extern crate actix;
 extern crate actix_web;
 extern crate bigdecimal;

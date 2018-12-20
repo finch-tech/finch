@@ -2,8 +2,10 @@ use futures::future::{Future, IntoFuture};
 use uuid::Uuid;
 
 use config::Config;
-use core::db::postgres::PgExecutorAddr;
-use core::payment::{Payment, PaymentPayload};
+use core::{
+    db::postgres::PgExecutorAddr,
+    payment::{Payment, PaymentPayload},
+};
 use currency_api_client::Client as CurrencyApiClient;
 use hd_keyring::HdKeyring;
 use services::Error;

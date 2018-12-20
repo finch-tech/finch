@@ -6,10 +6,11 @@ use futures::Future;
 use serde_json::Value;
 use uuid::Uuid;
 
-use db::payments::{FindAllByAddress, FindById, Insert, Update};
-use db::postgres::PgExecutorAddr;
-use models::store::Store;
-use models::Error;
+use db::{
+    payments::{FindAllByAddress, FindById, Insert, Update},
+    postgres::PgExecutorAddr,
+};
+use models::{store::Store, Error};
 use schema::payments;
 use types::{Currency, PaymentStatus, H256, U128};
 
@@ -17,8 +18,8 @@ use types::{Currency, PaymentStatus, H256, U128};
 #[table_name = "payments"]
 pub struct PaymentPayload {
     pub status: Option<PaymentStatus>,
-    pub store_id: Uuid,
-    pub created_by: Uuid, // AuthClient id
+    pub store_id: Option<Uuid>,
+    pub created_by: Option<Uuid>, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub paid_at: Option<Option<DateTime<Utc>>>,
@@ -33,6 +34,25 @@ pub struct PaymentPayload {
 }
 
 impl PaymentPayload {
+    pub fn new() -> Self {
+        PaymentPayload {
+            status: None,
+            store_id: None,
+            created_by: None,
+            created_at: None,
+            expires_at: None,
+            paid_at: None,
+            index: None,
+            base_price: None,
+            typ: None,
+            address: None,
+            price: None,
+            confirmations_required: None,
+            block_height_required: None,
+            transaction_hash: None,
+        }
+    }
+
     pub fn set_created_at(&mut self) {
         self.created_at = Some(Utc::now());
     }
@@ -50,8 +70,8 @@ impl From<Payment> for PaymentPayload {
     fn from(payment: Payment) -> Self {
         PaymentPayload {
             status: Some(payment.status),
-            store_id: payment.store_id,
-            created_by: payment.created_by,
+            store_id: Some(payment.store_id),
+            created_by: Some(payment.created_by),
             created_at: Some(payment.created_at),
             expires_at: Some(payment.expires_at),
             paid_at: Some(payment.paid_at),

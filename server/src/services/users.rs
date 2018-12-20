@@ -1,13 +1,14 @@
 use chrono::{prelude::*, Duration};
 use data_encoding::BASE64;
 use futures::future::{err, Future, IntoFuture};
-use ring::rand::SecureRandom;
-use ring::{digest, pbkdf2, rand};
+use ring::{digest, pbkdf2, rand, rand::SecureRandom};
 use uuid::Uuid;
 
 use auth::{AuthUser, JWTPayload};
-use core::db::postgres::PgExecutorAddr;
-use core::user::{User, UserPayload};
+use core::{
+    db::postgres::PgExecutorAddr,
+    user::{User, UserPayload},
+};
 use mailer::{MailerAddr, SendMail};
 use services::Error;
 use types::PrivateKey;

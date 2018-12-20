@@ -1,7 +1,6 @@
 use futures::Future;
 
-use db::app_statuses::{FindById, Insert, Update};
-use db::postgres::PgExecutorAddr;
+use db::{postgres::PgExecutorAddr, app_statuses::{FindById, Insert, Update}};
 use models::Error;
 use schema::app_statuses;
 use types::{Currency, U128};

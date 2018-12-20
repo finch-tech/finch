@@ -81,6 +81,38 @@ impl RpcClient {
         }))
     }
 
+    pub fn get_pending_block(&self) -> Box<Future<Item = Block, Error = Error>> {
+        let req = match client::ClientRequest::post(&self.url)
+            .timeout(Duration::from_secs(20))
+            .content_type("application/json")
+            .json(json!({
+                "jsonrpc": "2.0",
+                "method": "eth_getBlockByNumber",
+                "params": ("pending", true),
+                "id": 1
+            })) {
+            Ok(req) => req,
+            Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
+        };
+
+        Box::new(req.send().from_err().and_then(move |resp| {
+            resp.body().limit(4194304).from_err().and_then(move |body| {
+                let body: Value = match serde_json::from_slice(&body) {
+                    Ok(body) => body,
+                    Err(e) => return err(Error::from(e)),
+                };
+
+                match body.get("result") {
+                    Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
+                        Ok(block) => ok(block),
+                        Err(e) => return err(Error::from(e)),
+                    },
+                    None => return err(Error::EmptyResponseError),
+                }
+            })
+        }))
+    }
+
     pub fn get_block_by_number(
         &self,
         block_number: U128,

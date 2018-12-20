@@ -1,10 +1,9 @@
 use chrono::{prelude::*, Duration};
 use futures::future::{err, ok, Future, IntoFuture};
 
-use core::app_status::AppStatus;
-use core::db::postgres::PgExecutorAddr;
-use core::payment::Payment;
-use core::voucher::Voucher;
+use core::{
+    app_status::AppStatus, db::postgres::PgExecutorAddr, payment::Payment, voucher::Voucher,
+};
 use services::Error;
 use types::{Currency, PaymentStatus};
 
@@ -14,7 +13,6 @@ pub fn create(
 ) -> Box<Future<Item = String, Error = Error>> {
     let postgres = postgres.clone();
 
-
     let store = payment.store(&postgres).from_err();
     let status = AppStatus::find(&postgres).from_err();
 
@@ -22,15 +20,14 @@ pub fn create(
         store
             .join(status)
             .and_then(move |(store, status)| {
-
                 let block_height = match payment.typ {
                     Currency::Btc => status.btc_block_height,
                     Currency::Eth => status.eth_block_height,
-                    _ => panic!("Invalid currency")
+                    _ => panic!("Invalid currency"),
                 };
 
                 if block_height.is_none() {
-                 return err(Error::PaymentNotConfirmed);
+                    return err(Error::PaymentNotConfirmed);
                 }
 
                 if let None = payment.block_height_required {

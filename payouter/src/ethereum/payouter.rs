@@ -3,17 +3,19 @@ use std::str::FromStr;
 use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
+use core::{
+    db::postgres::PgExecutorAddr,
+    ethereum::Transaction,
+    payment::{Payment, PaymentPayload},
+    payout::{Payout, PayoutPayload},
+    store::Store,
+};
 use errors::Error;
-use rpc_client::ethereum::{RpcClient, UnsignedTransaction};
-
-use core::db::postgres::PgExecutorAddr;
-use core::ethereum::Transaction;
-use core::payout::{Payout, PayoutPayload};
-use core::store::Store;
 use hd_keyring::{HdKeyring, Wallet};
+use rpc_client::ethereum::{RpcClient, UnsignedTransaction};
 use types::{
-    bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PayoutAction, PayoutStatus,
-    H160, H256, U128, U256,
+    bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PaymentStatus, PayoutAction,
+    PayoutStatus, H160, H256, U128, U256,
 };
 
 pub type PayouterAddr = Addr<Payouter>;
@@ -74,7 +76,7 @@ impl Payouter {
                             &store.mnemonic.clone(),
                             0,
                             // Dummy
-                            BtcNetwork::MainNet,
+                            BtcNetwork::TestNet,
                         )
                         .into_future()
                         .from_err()
@@ -200,22 +202,22 @@ impl Handler<PayOut> for Payouter {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, PayOut(payout): PayOut, _: &mut Self::Context) -> Self::Result {
-        let postgres_a = self.postgres.clone();
-        let postgres_b = self.postgres.clone();
+        let postgres = self.postgres.clone();
 
-        Box::new(
-            self.payout(payout)
-                .from_err()
-                .and_then(move |hash| {
-                    println!("Paid out {}", hash.hex());
-                    let mut payload = PayoutPayload::from(payout);
-                    payload.transaction_hash = Some(Some(hash));
-                    payload.status = Some(PayoutStatus::PaidOut);
+        Box::new(self.payout(payout).from_err().and_then(move |hash| {
+            println!("Paid out {}", hash.hex());
+            let mut payout_payload = PayoutPayload::from(payout);
+            payout_payload.transaction_hash = Some(Some(hash));
+            payout_payload.status = Some(PayoutStatus::PaidOut);
+            let payout_update = Payout::update(payout.id, payout_payload, &postgres).from_err();
 
-                    Payout::update(payout.id, payload, &postgres_a).from_err()
-                })
-                .map(move |_| ())
-                .or_else(move |e| -> Box<Future<Item = (), Error = Error>> {
+            let mut payment_payload = PaymentPayload::new();
+            payment_payload.status = Some(PaymentStatus::Completed);
+            let payment_update =
+                Payment::update(payout.payment_id, payment_payload, &postgres).from_err();
+
+            payout_update.join(payment_update).map(move |_| ()).or_else(
+                move |e| -> Box<Future<Item = (), Error = Error>> {
                     match e {
                         // If payout address doesn't exist for the store, change payout object's action to Refund.
                         Error::NoPayoutAddress => {
@@ -223,15 +225,16 @@ impl Handler<PayOut> for Payouter {
                             payload.action = Some(PayoutAction::Refund);
 
                             Box::new(
-                                Payout::update(payout.id, payload, &postgres_b)
+                                Payout::update(payout.id, payload, &postgres)
                                     .from_err()
                                     .map(move |_| ()),
                             )
                         }
                         _ => Box::new(future::err(e)),
                     }
-                }),
-        )
+                },
+            )
+        }))
     }
 }
 

@@ -1,20 +1,19 @@
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use actix::prelude::*;
 use bigdecimal::BigDecimal;
 use chrono::prelude::*;
 use futures::{future, stream, Future, Stream};
 
-use core::app_status::{AppStatus, AppStatusPayload};
-use core::db::postgres::PgExecutorAddr;
-use core::ethereum::Block;
-use core::ethereum::Transaction;
-use core::payment::{Payment, PaymentPayload};
-use core::payout::{Payout, PayoutPayload};
-use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
-
+use core::{
+    app_status::{AppStatus, AppStatusPayload},
+    db::postgres::PgExecutorAddr,
+    ethereum::{Block, Transaction},
+    payment::{Payment, PaymentPayload},
+    payout::{Payout, PayoutPayload},
+};
 use ethereum::errors::Error;
+use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
 
@@ -57,7 +56,6 @@ impl Handler<ProcessBlock> for Processor {
             .and_then(move |payment| {
                 let transaction = transactions.get(&payment.address.clone().unwrap()).unwrap();
 
-                // Prepare payment update.
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
@@ -69,7 +67,6 @@ impl Handler<ProcessBlock> for Processor {
                 payment_payload.block_height_required = Some(block_height_required);
                 payment_payload.set_paid_at();
 
-                // Prepare payout object.
                 let mut payout_payload = PayoutPayload {
                     action: None,
                     status: Some(PayoutStatus::Pending),
@@ -89,16 +86,17 @@ impl Handler<ProcessBlock> for Processor {
                     }
                 };
 
+                let price = payment.price.unwrap();
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if ether_paid >= payment.price.clone().unwrap() {
-                            payment_payload.status = Some(PaymentStatus::Paid);
+                        if ether_paid >= price {
+                            payment_payload.status = Some(PaymentStatus::Confirmed);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if ether_paid < payment.price.clone().unwrap() {
+                        if ether_paid < price {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }
@@ -129,6 +127,80 @@ impl Handler<ProcessBlock> for Processor {
                 AppStatus::update(payload, &_postgres).from_err()
             })
             .map(|_| ());
+
+        Box::new(process)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct ProcessPendingTransactions(pub Vec<Transaction>);
+
+impl Handler<ProcessPendingTransactions> for Processor {
+    type Result = Box<Future<Item = (), Error = Error>>;
+
+    fn handle(
+        &mut self,
+        ProcessPendingTransactions(pending_transactions): ProcessPendingTransactions,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let postgres = self.postgres.clone();
+
+        let mut addresses = Vec::new();
+        let mut transactions = HashMap::new();
+
+        for (_, transaction) in pending_transactions.iter().enumerate() {
+            if let Some(to) = transaction.to_address {
+                addresses.push(format!("0x{}", to));
+                transactions.insert(format!("0x{}", to), transaction.clone());
+            }
+        }
+
+        let process = Payment::find_all_by_address(addresses, Currency::Eth, &postgres)
+            .from_err()
+            .map(move |payments| stream::iter_ok(payments))
+            .flatten_stream()
+            .and_then(move |payment| {
+                let transaction = transactions.get(&payment.address.clone().unwrap()).unwrap();
+
+                let mut payment_payload = PaymentPayload::from(payment.clone());
+
+                let ether_paid = match BigDecimal::from_str(&format!("{}", transaction.value)) {
+                    Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
+                    Err(_) => {
+                        // TODO: Handle error.
+                        panic!("Failed to parse transaction amount.");
+                    }
+                };
+
+                let price = payment.price.unwrap();
+                match payment.status {
+                    PaymentStatus::Pending => {
+                        // Paid enough.
+                        if ether_paid >= price {
+                            payment_payload.status = Some(PaymentStatus::Paid);
+                        }
+
+                        // Insufficient amount paid.
+                        if ether_paid < price {
+                            payment_payload.status = Some(PaymentStatus::InsufficientAmount);
+                        }
+
+                        // Expired
+                        if payment.expires_at < Utc::now() {
+                            payment_payload.status = Some(PaymentStatus::Expired);
+                        }
+                    }
+                    _ => {
+                        println!("Already processed");
+                        ()
+                    }
+                };
+                println!("Detected zero confirmation payment");
+
+                Payment::update(payment.id, payment_payload, &postgres).from_err()
+            })
+            .for_each(move |_| future::ok(()));
 
         Box::new(process)
     }

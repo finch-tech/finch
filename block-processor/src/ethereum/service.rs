@@ -2,7 +2,7 @@ use actix::prelude::*;
 
 use core::db::postgres;
 use ethereum::{
-    poller::{Poller, Start},
+    poller::{Poller, StartPolling},
     processor::Processor,
 };
 use rpc_client::ethereum::RpcClient;
@@ -17,15 +17,9 @@ pub fn run(postgres_url: String, rpc_client: RpcClient, skip_missed_blocks: bool
             postgres: pg_processor,
         });
 
-        let poller_address = Arbiter::start(move |_| {
-            Poller::new(
-                block_processor_address,
-                pg_addr,
-                rpc_client,
-                skip_missed_blocks,
-            )
-        });
+        let poller =
+            Arbiter::start(move |_| Poller::new(block_processor_address, pg_addr, rpc_client));
 
-        poller_address.do_send(Start);
+        poller.do_send(StartPolling { skip_missed_blocks });
     });
 }

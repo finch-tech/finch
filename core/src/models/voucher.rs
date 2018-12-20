@@ -3,8 +3,7 @@ use jwt;
 use serde_json::Value;
 use uuid::Uuid;
 
-use models::payment::Payment;
-use models::Error;
+use models::{payment::Payment, Error};
 use types::H256;
 
 #[derive(Debug, Serialize, Deserialize)]

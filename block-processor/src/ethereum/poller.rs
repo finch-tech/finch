@@ -1,38 +1,31 @@
-use std::time::Duration;
+use std::{collections::HashSet, iter::FromIterator, time::Duration};
 
-use actix::fut::wrap_future;
 use actix::prelude::*;
 use futures::{future, stream, Future, Stream};
 use futures_timer::Delay;
 
-use core::app_status::AppStatus;
-use core::db::postgres::PgExecutorAddr;
-use ethereum::errors::Error;
-use ethereum::processor::{ProcessBlock, ProcessorAddr};
+use core::{app_status::AppStatus, db::postgres::PgExecutorAddr, ethereum::Transaction};
+use ethereum::{
+    errors::Error,
+    processor::{ProcessBlock, ProcessPendingTransactions, ProcessorAddr},
+};
 use rpc_client::{errors::Error as RpcClientError, ethereum::RpcClient};
 use types::U128;
 
-const RETRY_LIMIT: i8 = 10;
+const RETRY_LIMIT: usize = 10;
 
 pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
     rpc_client: RpcClient,
-    skip_missed_blocks: bool,
 }
 
 impl Poller {
-    pub fn new(
-        processor: ProcessorAddr,
-        postgres: PgExecutorAddr,
-        rpc_client: RpcClient,
-        skip_missed_blocks: bool,
-    ) -> Self {
+    pub fn new(processor: ProcessorAddr, postgres: PgExecutorAddr, rpc_client: RpcClient) -> Self {
         Poller {
             processor,
             postgres,
             rpc_client,
-            skip_missed_blocks,
         }
     }
 }
@@ -42,110 +35,204 @@ impl Actor for Poller {
 }
 
 #[derive(Message)]
-#[rtype(result = "()")]
-pub struct Start;
+#[rtype(result = "Result<(), Error>")]
+pub struct StartPolling {
+    pub skip_missed_blocks: bool,
+}
 
-impl Handler<Start> for Poller {
-    type Result = ();
+impl Handler<StartPolling> for Poller {
+    type Result = Box<Future<Item = (), Error = Error>>;
 
-    fn handle(&mut self, Start: Start, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(
+        &mut self,
+        StartPolling { skip_missed_blocks }: StartPolling,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
         let address = ctx.address();
 
-        let poller_process = address
-            .send(ProcessMissedBlocks)
+        let process = address
+            .send(Bootstrap { skip_missed_blocks })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block| {
-                address
+                let poller_process = address
                     .send(Poll {
                         block_number: current_block + U128::from(1),
                         retry_count: 0,
                     })
                     .from_err()
-                    .and_then(|res| res.map_err(|e| Error::from(e)))
+                    .and_then(|res| res.map_err(|e| Error::from(e)));
+
+                let pending_blocks_poller_process = address
+                    .send(PollPendingBlocks {
+                        previous: HashSet::new(),
+                        retry_count: 0,
+                    })
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e)));
+
+                poller_process.join(pending_blocks_poller_process)
             })
             .map_err(|e| match e {
-                _ => println!("Poller error: {:?}", e),
-            });
+                _ => {
+                    println!("Poller error: {:?}", e);
+                    e
+                }
+            })
+            .map(|_| ());
 
-        ctx.spawn(wrap_future(poller_process));
+        Box::new(process)
     }
 }
 
 #[derive(Message)]
 #[rtype(result = "Result<U128, Error>")]
-pub struct ProcessMissedBlocks;
+pub struct Bootstrap {
+    pub skip_missed_blocks: bool,
+}
 
-impl Handler<ProcessMissedBlocks> for Poller {
+impl Handler<Bootstrap> for Poller {
     type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(
         &mut self,
-        ProcessMissedBlocks: ProcessMissedBlocks,
+        Bootstrap { skip_missed_blocks }: Bootstrap,
         ctx: &mut Self::Context,
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
         let rpc_client = self.rpc_client.clone();
-        let skip_missed_blocks = self.skip_missed_blocks;
 
         let app_status = AppStatus::find(&self.postgres).from_err::<Error>();
         let current_block_number = rpc_client.get_block_number().from_err::<Error>();
 
-        Box::new(
-            app_status
-                .join(current_block_number)
-                .from_err::<Error>()
-                .and_then(move |(status, current_block_number)| {
-                    if skip_missed_blocks {
-                        return future::Either::A(future::ok(current_block_number));
+        let bootstrap_process = app_status
+            .join(current_block_number)
+            .from_err::<Error>()
+            .and_then(move |(status, current_block_number)| {
+                if skip_missed_blocks {
+                    return future::Either::A(future::ok(current_block_number));
+                }
+
+                if let Some(block_height) = status.eth_block_height {
+                    if block_height == current_block_number {
+                        return future::Either::A(future::ok(block_height));
                     }
 
-                    if let Some(block_height) = status.eth_block_height {
-                        if block_height == current_block_number {
-                            return future::Either::A(future::ok(block_height));
-                        }
+                    println!(
+                        "Fetching missed blocks: {} ~ {}",
+                        block_height + U128::from(1),
+                        current_block_number
+                    );
 
-                        println!(
-                            "Fetching missed blocks: {} ~ {}",
-                            block_height + U128::from(1),
-                            current_block_number
-                        );
+                    future::Either::B(
+                        stream::unfold(block_height + U128::from(1), move |block_number| {
+                            if block_number <= current_block_number {
+                                return Some(future::ok::<_, _>((
+                                    block_number,
+                                    block_number + U128::from(1),
+                                )));
+                            }
 
-                        future::Either::B(
-                            stream::unfold(block_height + U128::from(1), move |block_number| {
-                                if block_number <= current_block_number {
-                                    let next_block_number = block_number + U128::from(1);
-                                    Some(future::ok::<_, _>((block_number, next_block_number)))
-                                } else {
-                                    None
-                                }
-                            })
-                            .for_each(move |block_number| {
-                                let processor = processor.clone();
+                            None
+                        })
+                        .for_each(move |block_number| {
+                            let processor = processor.clone();
 
-                                rpc_client
-                                    .get_block_by_number(U128::from(block_number))
-                                    .from_err()
-                                    .and_then(move |block| {
-                                        processor
-                                            .send(ProcessBlock(block))
-                                            .from_err()
-                                            .and_then(|res| res.map_err(|e| Error::from(e)))
-                                    })
-                            })
+                            rpc_client
+                                .get_block_by_number(block_number)
+                                .from_err()
+                                .and_then(move |block| {
+                                    processor
+                                        .send(ProcessBlock(block))
+                                        .from_err()
+                                        .and_then(|res| res.map_err(|e| Error::from(e)))
+                                })
+                        })
+                        .and_then(move |_| {
+                            address
+                                .send(Bootstrap { skip_missed_blocks })
+                                .from_err()
+                                .and_then(|res| res.map_err(|e| Error::from(e)))
+                        }),
+                    )
+                } else {
+                    return future::Either::A(future::ok(current_block_number));
+                }
+            });
+
+        Box::new(bootstrap_process)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<(), Error>")]
+pub struct PollPendingBlocks {
+    pub previous: HashSet<Transaction>,
+    pub retry_count: usize,
+}
+
+impl Handler<PollPendingBlocks> for Poller {
+    type Result = Box<Future<Item = (), Error = Error>>;
+
+    fn handle(
+        &mut self,
+        PollPendingBlocks {
+            previous,
+            retry_count,
+        }: PollPendingBlocks,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let address = ctx.address();
+        let processor = self.processor.clone();
+        let rpc_client = self.rpc_client.clone();
+
+        if retry_count == RETRY_LIMIT {
+            return Box::new(future::err(Error::RetryLimitError(retry_count)));
+        }
+
+        let polling = rpc_client
+            .get_pending_block()
+            .from_err::<Error>()
+            .and_then(move |block| {
+                let transactions = HashSet::from_iter(block.transactions.iter().cloned());
+
+                let diff = transactions
+                    .clone()
+                    .iter()
+                    .filter(|ref t| !previous.contains(t))
+                    .map(|t| t.to_owned())
+                    .collect::<Vec<Transaction>>();
+
+                processor
+                    .send(ProcessPendingTransactions(diff))
+                    .from_err::<Error>()
+                    .and_then(|res| res.map_err(|e| Error::from(e)))
+                    .map(move |_| 0)
+                    .or_else(move |e| match e {
+                        Error::RpcClientError(e) => match e {
+                            RpcClientError::EmptyResponseError => future::ok(0),
+                            _ => future::ok(retry_count + 1),
+                        },
+                        _ => future::err(e),
+                    })
+                    .and_then(move |retry_count| {
+                        Delay::new(Duration::from_secs(3))
+                            .from_err::<Error>()
                             .and_then(move |_| {
                                 address
-                                    .send(ProcessMissedBlocks)
-                                    .from_err()
+                                    .send(PollPendingBlocks {
+                                        previous: transactions,
+                                        retry_count,
+                                    })
+                                    .from_err::<Error>()
                                     .and_then(|res| res.map_err(|e| Error::from(e)))
-                            }),
-                        )
-                    } else {
-                        return future::Either::A(future::ok(current_block_number));
-                    }
-                }),
-        )
+                            })
+                    })
+                    .map(|_| ())
+            });
+
+        Box::new(polling)
     }
 }
 
@@ -153,7 +240,7 @@ impl Handler<ProcessMissedBlocks> for Poller {
 #[rtype(result = "Result<(), Error>")]
 pub struct Poll {
     pub block_number: U128,
-    pub retry_count: i8,
+    pub retry_count: usize,
 }
 
 impl Handler<Poll> for Poller {
