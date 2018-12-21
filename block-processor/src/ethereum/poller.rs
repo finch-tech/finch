@@ -128,7 +128,7 @@ impl Handler<Bootstrap> for Poller {
                     future::Either::B(
                         stream::unfold(block_height + U128::from(1), move |block_number| {
                             if block_number <= current_block_number {
-                                return Some(future::ok::<_, _>((
+                                return Some(future::ok((
                                     block_number,
                                     block_number + U128::from(1),
                                 )));

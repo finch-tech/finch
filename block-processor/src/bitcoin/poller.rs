@@ -107,93 +107,94 @@ impl Handler<Bootstrap> for Poller {
         let app_status = AppStatus::find(&self.postgres).from_err::<Error>();
         let current_block_number = rpc_client.get_block_count().from_err::<Error>();
 
-        let bootstrap_process =
-            app_status
-                .join(current_block_number)
-                .from_err::<Error>()
-                .and_then(move |(status, current_block_number)| {
-                    if skip_missed_blocks {
-                        return future::Either::A(future::ok(current_block_number));
+        let bootstrap_process = app_status
+            .join(current_block_number)
+            .from_err::<Error>()
+            .and_then(move |(status, current_block_number)| {
+                if skip_missed_blocks {
+                    return future::Either::A(future::ok(current_block_number));
+                }
+
+                if let Some(block_height) = status.btc_block_height {
+                    if block_height == current_block_number {
+                        return future::Either::A(future::ok(block_height));
                     }
 
-                    if let Some(block_height) = status.btc_block_height {
-                        if block_height == current_block_number {
-                            return future::Either::A(future::ok(block_height));
-                        }
+                    println!(
+                        "Fetching missed blocks: {} ~ {}",
+                        block_height + U128::from(1),
+                        current_block_number
+                    );
 
-                        println!(
-                            "Fetching missed blocks: {} ~ {}",
-                            block_height + U128::from(1),
-                            current_block_number
-                        );
+                    future::Either::B(
+                        stream::unfold(block_height + U128::from(1), move |block_number| {
+                            if block_number <= current_block_number {
+                                return Some(future::ok::<_, _>((
+                                    block_number,
+                                    block_number + U128::from(1),
+                                )));
+                            }
 
-                        future::Either::B(
-                            stream::unfold(block_height + U128::from(1), move |block_number| {
-                                if block_number <= current_block_number {
-                                    return Some(future::ok::<_, _>((
-                                        block_number,
-                                        block_number + U128::from(1),
-                                    )));
-                                }
+                            None
+                        })
+                        .for_each(move |block_number| {
+                            let processor = processor.clone();
+                            let rpc_client = rpc_client.clone();
 
-                                None
-                            })
-                            .for_each(move |block_number| {
-                                let processor = processor.clone();
-                                let rpc_client = rpc_client.clone();
+                            rpc_client
+                                .get_block_hash(block_number)
+                                .from_err::<Error>()
+                                .and_then(move |hash| {
+                                    let rpc_client = rpc_client.clone();
 
-                                rpc_client
-                                    .get_block_hash(block_number)
-                                    .from_err::<Error>()
-                                    .and_then(move |hash| {
-                                        let rpc_client = rpc_client.clone();
+                                    rpc_client.get_block(hash).from_err::<Error>().and_then(
+                                        move |block| {
+                                            future::ok(stream::iter_ok(
+                                                block.tx_hashes[1..].to_vec().clone(),
+                                            ))
+                                            .flatten_stream()
+                                            .and_then(move |hash| {
+                                                rpc_client.get_raw_transaction(hash).from_err()
+                                            })
+                                            .fold(
+                                                Vec::new(),
+                                                |mut vec,
+                                                 tx|
+                                                 -> Box<
+                                                    Future<Item = Vec<Transaction>, Error = Error>,
+                                                > {
+                                                    vec.push(tx);
+                                                    Box::new(future::ok(vec))
+                                                },
+                                            )
+                                            .and_then(
+                                                move |transactions| {
+                                                    let mut block = block;
+                                                    block.transactions = Some(transactions);
 
-                                        rpc_client.get_block(hash).from_err::<Error>().and_then(
-                                            move |block| {
-                                                future::ok(stream::iter_ok(
-                                            block.tx_hashes[1..].to_vec().clone(),
-                                        ))
-                                        .flatten_stream()
-                                        .and_then(move |hash| {
-                                            rpc_client.get_raw_transaction(hash).from_err()
-                                        })
-                                        .fold(
-                                            Vec::new(),
-                                            |mut vec, tx| -> Box<
-                                                Future<Item = Vec<Transaction>, Error = Error>,
-                                            > {
-                                                vec.push(tx);
-                                                Box::new(future::ok(vec))
-                                            },
-                                        )
-                                        .and_then(
-                                            move |transactions| {
-                                                let mut block = block;
-                                                block.transactions = Some(transactions);
-
-                                                processor
-                                                    .send(ProcessBlock(block))
-                                                    .from_err()
-                                                    .and_then(|res| {
-                                                        res.map_err(|e| Error::from(e))
-                                                    })
-                                            },
-                                        )
-                                            },
-                                        )
-                                    })
-                            })
-                            .and_then(move |_| {
-                                address
-                                    .send(Bootstrap { skip_missed_blocks })
-                                    .from_err()
-                                    .and_then(|res| res.map_err(|e| Error::from(e)))
-                            }),
-                        )
-                    } else {
-                        return future::Either::A(future::ok(current_block_number));
-                    }
-                });
+                                                    processor
+                                                        .send(ProcessBlock(block))
+                                                        .from_err()
+                                                        .and_then(|res| {
+                                                            res.map_err(|e| Error::from(e))
+                                                        })
+                                                },
+                                            )
+                                        },
+                                    )
+                                })
+                        })
+                        .and_then(move |_| {
+                            address
+                                .send(Bootstrap { skip_missed_blocks })
+                                .from_err()
+                                .and_then(|res| res.map_err(|e| Error::from(e)))
+                        }),
+                    )
+                } else {
+                    return future::Either::A(future::ok(current_block_number));
+                }
+            });
 
         Box::new(bootstrap_process)
     }
@@ -317,21 +318,23 @@ impl Handler<Poll> for Poller {
             .get_block_hash(block_number)
             .from_err::<Error>()
             .and_then(move |hash| {
+                let rpc_client = rpc_client.clone();
+
                 rpc_client
                     .get_block(hash)
                     .from_err::<Error>()
                     .and_then(move |block| {
-                        let mut requests = Vec::new();
-
-                        for idx in 1..block.tx_hashes.len() {
-                            requests.push(
-                                rpc_client
-                                    .get_raw_transaction(block.tx_hashes[idx])
-                                    .from_err(),
-                            )
-                        }
-
-                        future::join_all(requests).and_then(move |transactions| {
+                        future::ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
+                        .flatten_stream()
+                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
+                        .fold(
+                            Vec::new(),
+                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
+                                vec.push(tx);
+                                Box::new(future::ok(vec))
+                            },
+                        )
+                        .and_then(move |transactions| {
                             let mut block = block;
                             block.transactions = Some(transactions);
 
