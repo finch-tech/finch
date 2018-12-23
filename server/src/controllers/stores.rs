@@ -78,14 +78,6 @@ pub fn patch(
         params.name = Some(String::from("My Store"));
     }
 
-    if (params.eth_confirmations_required.is_some()
-        && params.eth_confirmations_required.unwrap() < 1)
-        || (params.btc_confirmations_required.is_some()
-            && params.btc_confirmations_required.unwrap() < 1)
-    {
-        return Box::new(err(Error::BadRequest));
-    }
-
     Box::new(
         services::stores::get(id, &state.postgres).and_then(move |store| {
             validate_store_owner(&store, &user)
