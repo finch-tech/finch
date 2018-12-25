@@ -6,7 +6,7 @@ use jwt;
 use uuid::Uuid;
 
 use core::client_token::ClientToken;
-use server::AppState;
+use state::AppState;
 use services;
 use types::PrivateKey;
 
@@ -58,7 +58,7 @@ impl FromRequest<AppState> for JWTPayload {
 
         match jwt::decode::<JWTPayload>(
             &auth_header_parts[1],
-            &state.config.jwt_public,
+            &state.jwt_public,
             &validation,
         ) {
             Ok(token) => Ok(token.claims),

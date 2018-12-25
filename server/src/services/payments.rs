@@ -1,7 +1,6 @@
 use futures::future::{Future, IntoFuture};
 use uuid::Uuid;
 
-use config::Config;
 use core::{
     db::postgres::PgExecutorAddr,
     payment::{Payment, PaymentPayload},
@@ -9,7 +8,7 @@ use core::{
 use currency_api_client::Client as CurrencyApiClient;
 use hd_keyring::HdKeyring;
 use services::Error;
-use types::{Currency, PaymentStatus};
+use types::{bitcoin::Network as BtcNetwork, Currency, PaymentStatus};
 
 const BTC_SCALE: i64 = 8;
 const ETH_SCALE: i64 = 6;
@@ -18,6 +17,7 @@ pub fn create(
     mut payload: PaymentPayload,
     postgres: &PgExecutorAddr,
     currency_api_client: CurrencyApiClient,
+    btc_network: Option<BtcNetwork>,
 ) -> impl Future<Item = Payment, Error = Error> {
     let postgres = postgres.clone();
 
@@ -43,48 +43,52 @@ pub fn create(
                 path.push_str("/");
                 path.push_str(nano_second);
 
-                let config = Config::new();
                 let payment_index = payment.index.clone() as u32;
 
-                HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0, config.btc_network)
-                    .into_future()
-                    .from_err()
-                    .and_then(move |keyring| {
-                        keyring
-                            .get_wallet_by_index(payment_index)
-                            .into_future()
-                            .from_err()
-                    })
-                    .and_then(move |wallet| {
-                        let mut payload = PaymentPayload::from(payment.clone());
+                HdKeyring::from_mnemonic(
+                    &path,
+                    &store.mnemonic.clone(),
+                    0,
+                    btc_network.unwrap_or(BtcNetwork::TestNet),
+                )
+                .into_future()
+                .from_err()
+                .and_then(move |keyring| {
+                    keyring
+                        .get_wallet_by_index(payment_index)
+                        .into_future()
+                        .from_err()
+                })
+                .and_then(move |wallet| {
+                    let mut payload = PaymentPayload::from(payment.clone());
 
-                        currency_api_client
-                            .get_rate(&store.base_currency, &payment.typ)
-                            .from_err()
-                            .and_then(move |rate| {
-                                match payment.typ {
-                                    Currency::Btc => {
-                                        payload.confirmations_required =
-                                            store.btc_confirmations_required;
-                                        payload.price = Some(
-                                            payment.base_price.clone() * rate.with_scale(BTC_SCALE),
-                                        );
-                                    }
-                                    Currency::Eth => {
-                                        payload.confirmations_required =
-                                            store.eth_confirmations_required;
-                                        payload.price = Some(
-                                            payment.base_price.clone() * rate.with_scale(ETH_SCALE),
-                                        );
-                                    }
-                                    _ => panic!("Invalid currency"),
-                                };
+                    currency_api_client
+                        .get_rate(&store.base_currency, &payment.typ)
+                        .from_err()
+                        .and_then(move |rate| {
+                            match payment.typ {
+                                Currency::Btc => {
+                                    payload.confirmations_required =
+                                        store.btc_confirmations_required;
+                                    payload.price = Some(
+                                        payment.base_price.clone() * rate.with_scale(BTC_SCALE),
+                                    );
+                                }
+                                Currency::Eth => {
+                                    payload.confirmations_required =
+                                        store.eth_confirmations_required;
+                                    payload.price = Some(
+                                        payment.base_price.clone() * rate.with_scale(ETH_SCALE),
+                                    );
+                                }
+                                _ => panic!("Invalid currency"),
+                            };
 
-                                payload.address = Some(wallet.get_address(&payment.typ));
+                            payload.address = Some(wallet.get_address(&payment.typ));
 
-                                Payment::update(payment.id, payload, &postgres).from_err()
-                            })
-                    })
+                            Payment::update(payment.id, payload, &postgres).from_err()
+                        })
+                })
             })
         })
 }

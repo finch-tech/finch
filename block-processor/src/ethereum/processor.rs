@@ -33,7 +33,7 @@ impl Handler<ProcessBlock> for Processor {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, ProcessBlock(block): ProcessBlock, _: &mut Self::Context) -> Self::Result {
-        println!("Processing block: {}", block.number.unwrap());
+        info!("Processing block: {}", block.number.unwrap());
         let postgres = self.postgres.clone();
 
         let mut addresses = Vec::new();
@@ -191,12 +191,8 @@ impl Handler<ProcessPendingTransactions> for Processor {
                             payment_payload.status = Some(PaymentStatus::Expired);
                         }
                     }
-                    _ => {
-                        println!("Already processed");
-                        ()
-                    }
+                    _ => ()
                 };
-                println!("Detected zero confirmation payment");
 
                 Payment::update(payment.id, payment_payload, &postgres).from_err()
             })

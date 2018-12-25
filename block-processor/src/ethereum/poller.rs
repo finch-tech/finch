@@ -75,7 +75,7 @@ impl Handler<StartPolling> for Poller {
             })
             .map_err(|e| match e {
                 _ => {
-                    println!("Poller error: {:?}", e);
+                    error!("{:?}", e);
                     e
                 }
             })
@@ -119,7 +119,7 @@ impl Handler<Bootstrap> for Poller {
                         return future::Either::A(future::ok(block_height));
                     }
 
-                    println!(
+                    info!(
                         "Fetching missed blocks: {} ~ {}",
                         block_height + U128::from(1),
                         current_block_number

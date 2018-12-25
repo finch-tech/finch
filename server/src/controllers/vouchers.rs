@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use auth::AuthClient;
 use core::payment::Payment;
-use server::AppState;
+use state::AppState;
 use services::{self, Error};
 
 #[derive(Debug, Deserialize)]

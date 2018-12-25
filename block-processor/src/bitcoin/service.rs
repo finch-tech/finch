@@ -7,19 +7,11 @@ use bitcoin::{
 use core::db::postgres;
 use rpc_client::bitcoin::RpcClient;
 
-pub fn run(postgres_url: String, rpc_client: RpcClient, skip_missed_blocks: bool) {
-    System::run(move || {
-        let pg_pool = postgres::init_pool(&postgres_url);
-        let pg_addr = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
+pub fn run(postgres: postgres::PgExecutorAddr, rpc_client: RpcClient, skip_missed_blocks: bool) {
+    let pg = postgres.clone();
+    let block_processor = Arbiter::start(move |_| Processor { postgres: pg });
 
-        let pg_processor = pg_addr.clone();
-        let block_processor_address = Arbiter::start(move |_| Processor {
-            postgres: pg_processor,
-        });
+    let poller = Arbiter::start(move |_| Poller::new(block_processor, postgres, rpc_client));
 
-        let poller =
-            Arbiter::start(move |_| Poller::new(block_processor_address, pg_addr, rpc_client));
-
-        poller.do_send(StartPolling { skip_missed_blocks });
-    });
+    poller.do_send(StartPolling { skip_missed_blocks });
 }

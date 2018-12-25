@@ -4,7 +4,6 @@ use futures::future::{self, Future, IntoFuture};
 use errors::Error;
 use rpc_client::bitcoin::{RpcClient, UnsignedTransaction};
 
-use config::Config;
 use core::{
     bitcoin::{ScriptType, Transaction},
     db::postgres::PgExecutorAddr,
@@ -36,10 +35,9 @@ impl Payouter {
         &self,
         payout: Payout,
     ) -> impl Future<Item = (Wallet, Transaction, Store, f64), Error = Error> {
-        let config = Config::new();
-
         let postgres = self.postgres.clone();
         let rpc_client = self.rpc_client.clone();
+        let network = self.network.clone();
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
@@ -61,23 +59,18 @@ impl Payouter {
                         path.push_str("/");
                         path.push_str(nano_second);
 
-                        HdKeyring::from_mnemonic(
-                            &path,
-                            &store.mnemonic.clone(),
-                            0,
-                            config.btc_network,
-                        )
-                        .into_future()
-                        .from_err()
-                        .and_then(move |keyring| {
-                            keyring
-                                .get_wallet_by_index(payment.index as u32)
-                                .into_future()
-                                .from_err()
-                                .and_then(move |wallet| {
-                                    future::ok((wallet, transaction, store, transaction_fee))
-                                })
-                        })
+                        HdKeyring::from_mnemonic(&path, &store.mnemonic.clone(), 0, network)
+                            .into_future()
+                            .from_err()
+                            .and_then(move |keyring| {
+                                keyring
+                                    .get_wallet_by_index(payment.index as u32)
+                                    .into_future()
+                                    .from_err()
+                                    .and_then(move |wallet| {
+                                        future::ok((wallet, transaction, store, transaction_fee))
+                                    })
+                            })
                     })
             })
     }
@@ -169,7 +162,7 @@ impl Handler<PayOut> for Payouter {
             self.payout(payout)
                 .from_err()
                 .and_then(move |hash| {
-                    println!("Paid out {}", hash);
+                    info!("Paid out {}", hash);
 
                     let mut payout_payload = PayoutPayload::from(payout);
                     payout_payload.transaction_hash = Some(Some(hash));

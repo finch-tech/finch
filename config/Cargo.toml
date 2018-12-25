@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Artefact Inc. <admin@artefact.co.jp>"]
 
 [dependencies]
-dotenv = "0.13.0"
+serde = "1.0"
+serde_derive = "1.0"
 
 currency-api-client = { path = "../currency-api-client" }
 types = { path = "../types" }
-rpc_client = { path = "../rpc_client" }

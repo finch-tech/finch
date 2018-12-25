@@ -62,7 +62,7 @@ impl Actor for Monitor {
                     fut::Either::A(fut::ok(()))
                 })
                 .map_err(|e, _, _| match e {
-                    _ => println!("Monitor error: {:?}", e),
+                    _ => error!("{:?}", e),
                 })
                 .map(|_, _, _| ());
 
@@ -83,7 +83,7 @@ impl Handler<ProcessBlock> for Monitor {
         ProcessBlock(block_number): ProcessBlock,
         _: &mut Self::Context,
     ) -> Self::Result {
-        println!("Payment check before {}", block_number);
+        info!("Payment check before {}", block_number);
 
         let postgres = self.postgres.clone();
         let payouter = self.payouter.clone();

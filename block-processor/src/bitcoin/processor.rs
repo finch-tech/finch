@@ -91,7 +91,6 @@ impl Handler<ProcessMempoolTransactions> for Processor {
                     }
                     _ => (),
                 };
-                println!("Detected zero confirmation payment");
 
                 Payment::update(payment.id, payment_payload, &postgres).from_err()
             })
@@ -109,7 +108,7 @@ impl Handler<ProcessBlock> for Processor {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, ProcessBlock(block): ProcessBlock, _: &mut Self::Context) -> Self::Result {
-        println!("Processing block: {}", block.hash);
+        info!("Processing block: {}", block.hash);
         let postgres = self.postgres.clone();
 
         let mut addresses = Vec::new();

@@ -205,7 +205,7 @@ impl Handler<PayOut> for Payouter {
         let postgres = self.postgres.clone();
 
         Box::new(self.payout(payout).from_err().and_then(move |hash| {
-            println!("Paid out {}", hash.hex());
+            info!("Paid out {}", hash.hex());
             let mut payout_payload = PayoutPayload::from(payout);
             payout_payload.transaction_hash = Some(Some(hash));
             payout_payload.status = Some(PayoutStatus::PaidOut);
@@ -249,7 +249,7 @@ impl Handler<Refund> for Payouter {
         let postgres = self.postgres.clone();
 
         Box::new(self.refund(payout).from_err().and_then(move |hash| {
-            println!("Refunded {}", hash.hex());
+            info!("Refunded {}", hash.hex());
             let mut payload = PayoutPayload::from(payout);
             payload.transaction_hash = Some(Some(hash));
             payload.status = Some(PayoutStatus::Refunded);

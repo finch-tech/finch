@@ -15,9 +15,9 @@ extern crate url;
 
 extern crate types;
 
-pub mod api;
-pub mod client;
-pub mod errors;
+mod api;
+mod client;
+mod errors;
 
 pub use self::api::Api;
 pub use self::client::Client;

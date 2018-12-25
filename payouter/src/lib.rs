@@ -6,6 +6,9 @@ extern crate byteorder;
 #[macro_use]
 extern crate failure;
 extern crate futures;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate serde;
 extern crate serde_json;
 extern crate tokio;

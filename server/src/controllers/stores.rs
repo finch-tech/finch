@@ -1,11 +1,11 @@
 use actix_web::{Json, Path, Query, State};
-use futures::future::{err, Future, IntoFuture};
+use futures::future::{Future, IntoFuture};
 use serde_json::Value;
 use uuid::Uuid;
 
 use auth::AuthUser;
 use core::store::{Store, StorePayload};
-use server::AppState;
+use state::AppState;
 use services::{self, Error};
 use types::{Currency, H160};
 
@@ -46,7 +46,7 @@ pub fn create(
         deleted_at: None,
     };
 
-    services::stores::create(payload, &state.postgres)
+    services::stores::create(payload, state.btc_network, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 

@@ -15,9 +15,9 @@ pub struct RpcClient {
 }
 
 impl RpcClient {
-    pub fn new(url: String, user: String, password: String) -> Self {
+    pub fn new(url: &str, user: &str, password: &str) -> Self {
         RpcClient {
-            url,
+            url: url.to_owned(),
             basic_auth: format!(
                 "Basic {}",
                 encode(format!("{}:{}", user, password).as_bytes())

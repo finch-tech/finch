@@ -10,7 +10,7 @@ use core::{
     client_token::ClientToken,
     payment::{Payment, PaymentPayload},
 };
-use server::AppState;
+use state::AppState;
 use services::{self, Error};
 use types::{Currency, PaymentStatus, U128};
 
@@ -56,11 +56,12 @@ pub fn create(
             services::payments::create(
                 payload,
                 &state.postgres,
-                state.config.currency_api_client.clone(),
+                state.currency_api_client.clone(),
+                state.btc_network,
             )
             .and_then(move |payment| {
                 JWTPayload::new(None, Some(auth_client), payment.expires_at)
-                    .encode(&state.config.jwt_private)
+                    .encode(&state.jwt_private)
                     .map_err(|e| Error::from(e))
                     .into_future()
                     .then(move |res| {

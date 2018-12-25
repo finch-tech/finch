@@ -7,7 +7,6 @@ extern crate bigdecimal;
 extern crate chrono;
 extern crate data_encoding;
 extern crate diesel;
-extern crate dotenv;
 #[macro_use]
 extern crate failure;
 extern crate futures;
@@ -38,5 +37,140 @@ mod auth;
 mod controllers;
 mod mailer;
 mod services;
+mod state;
 
-pub mod server;
+use std::fs;
+
+use actix::prelude::*;
+use actix_web::{http, middleware, server, App};
+
+use config::Config;
+use core::db::postgres;
+use currency_api_client::Client as CurrencyApiClient;
+use mailer::Mailer;
+
+pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
+    let smtp_config = config.smtp.clone();
+    let mailer = SyncArbiter::start(num_cpus::get() * 1, move || {
+        Mailer(mailer::init_mailer(
+            smtp_config.host.clone(),
+            smtp_config.port.clone(),
+            smtp_config.user.clone(),
+            smtp_config.pass.clone(),
+        ))
+    });
+
+    let host = config.server.host.clone();
+    let port = config.server.port.clone();
+
+    server::new(move || {
+        App::with_state(state::AppState {
+            postgres: postgres.clone(),
+            mailer: mailer.clone(),
+            config: config.server.clone(),
+            jwt_public: fs::read(config.server.public_key_path.clone())
+                .expect("Failed to open the public key file."),
+            jwt_private: fs::read(config.server.private_key_path.clone())
+                .expect("Failed to open the private key file."),
+            btc_network: {
+                if let Some(btc_config) = config.bitcoin.clone() {
+                    Some(btc_config.network)
+                } else {
+                    None
+                }
+            },
+            currency_api_client: CurrencyApiClient::new(
+                config.server.currency_api.clone(),
+                config.server.currency_api_key.clone(),
+            ),
+        })
+        .middleware(middleware::Logger::default())
+        .resource("/", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET).with(controllers::root::index);
+        })
+        .resource("/registration", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::auth::registration);
+        })
+        .resource("/activation", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::auth::activation);
+        })
+        .resource("/login", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::auth::authentication);
+        })
+        .resource("/reset_password", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::auth::reset_password);
+        })
+        .resource("/change_password", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::auth::change_password);
+        })
+        .resource("/profile", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::auth::profile);
+        })
+        .resource("/users/{id}", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::DELETE)
+                .with_async(controllers::auth::delete);
+        })
+        .resource("/client_tokens", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::client_tokens::list);
+            r.method(http::Method::POST)
+                .with_async(controllers::client_tokens::create);
+        })
+        .resource("/client_tokens/{id}", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::client_tokens::get);
+            r.method(http::Method::DELETE)
+                .with_async(controllers::client_tokens::delete);
+        })
+        .resource("/stores", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::stores::list);
+            r.method(http::Method::POST)
+                .with_async(controllers::stores::create);
+        })
+        .resource("/stores/{id}", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::stores::get);
+            r.method(http::Method::PATCH)
+                .with_async(controllers::stores::patch);
+            r.method(http::Method::DELETE)
+                .with_async(controllers::stores::delete);
+        })
+        .resource("/payments", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::payments::create);
+        })
+        .resource("/payments/{id}/status", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::GET)
+                .with_async(controllers::payments::get_status)
+        })
+        .resource("/vouchers", |r| {
+            middleware::cors::Cors::build().finish().register(r);
+            r.method(http::Method::POST)
+                .with_async(controllers::vouchers::create);
+        })
+    })
+    .bind(format!("{}:{}", host, port))
+    .expect(&format!("Can not bind {}:{}", host, port))
+    .start();
+}

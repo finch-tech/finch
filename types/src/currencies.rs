@@ -1,7 +1,11 @@
-use std::fmt;
-use std::io::Write;
+use std::{fmt, io::Write, str::FromStr};
 
-use diesel::{pg::Pg,serialize::{self, Output, ToSql},types::VarChar,deserialize::{self, FromSql}};
+use diesel::{
+    deserialize::{self, FromSql},
+    pg::Pg,
+    serialize::{self, Output, ToSql},
+    types::VarChar,
+};
 
 #[derive(
     FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash,
@@ -40,13 +44,21 @@ impl ToSql<VarChar, Pg> for Currency {
 
 impl FromSql<VarChar, Pg> for Currency {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
-        let text: String = FromSql::<VarChar, Pg>::from_sql(bytes)?;
+        let s: String = FromSql::<VarChar, Pg>::from_sql(bytes)?;
 
-        match text.as_ref() {
+        Currency::from_str(&s).map_err(|e| e.into())
+    }
+}
+
+impl FromStr for Currency {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Currency, Self::Err> {
+        match s.as_ref() {
             "btc" => Ok(Currency::Btc),
             "eth" => Ok(Currency::Eth),
             "usd" => Ok(Currency::Usd),
-            v => Err(format!("Unknown value {} for Currency found", v).into()),
+            _ => Err(String::from("Invalid value for currency.")),
         }
     }
 }

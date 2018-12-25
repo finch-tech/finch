@@ -8,6 +8,9 @@ extern crate chrono;
 extern crate failure;
 extern crate futures;
 extern crate futures_timer;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate serde;
 extern crate serde_json;
 extern crate tokio;

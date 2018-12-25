@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::{client_token::ClientTokenPayload, store::Store};
-use server::AppState;
+use state::AppState;
 use services::{self, Error};
 use types::Client;
 

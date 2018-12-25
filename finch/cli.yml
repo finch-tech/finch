@@ -1,0 +1,17 @@
+name: Finch
+version: "0.1.0"
+author: Artefact Inc. <admin@artefact.co.jp>
+about: Finch Cryptocurrency Payment Processor
+args:
+  - settings:
+      long: conf
+      help: Sets path to settings file
+      takes_value: true
+  - currencies:
+      long: currencies
+      multiple: true
+      possible_values: [eth, btc]
+      takes_value: true
+      required: true
+  - skip_missed_blocks:
+      long: skip-missed-blocks

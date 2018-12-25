@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::user::UserPayload;
-use server::AppState;
+use state::AppState;
 use services::{self, Error};
 
 #[derive(Debug, Deserialize)]
@@ -63,7 +63,7 @@ pub fn authentication(
         params.email,
         params.password,
         &state.postgres,
-        state.config.jwt_private.clone(),
+        state.jwt_private.clone(),
     )
     .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
@@ -80,14 +80,11 @@ pub fn activation(
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let params = params.into_inner();
 
-    services::users::activate(
-        params.token,
-        &state.postgres,
-        state.config.jwt_private.clone(),
+    services::users::activate(params.token, &state.postgres, state.jwt_private.clone()).then(
+        |res| {
+            res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
+        },
     )
-    .then(|res| {
-        res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
-    })
 }
 
 #[derive(Deserialize)]
@@ -125,7 +122,7 @@ pub fn change_password(
         params.token,
         params.password,
         &state.postgres,
-        state.config.jwt_private.clone(),
+        state.jwt_private.clone(),
     )
     .then(|res| {
         res.and_then(|(token, user)| Ok(Json(json!({ "token": token, "user": user.export() }))))
