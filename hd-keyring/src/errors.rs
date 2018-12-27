@@ -5,7 +5,7 @@ use std::io::Error as IoError;
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
-    Bip39Error(String),
+    Bip39Error(#[cause] Bip39Error),
     #[fail(display = "{}", _0)]
     Secp256k1Error(#[cause] Secp256k1Error),
     #[fail(display = "Invalid derivation path")]
@@ -26,7 +26,7 @@ pub enum Error {
 
 impl From<Bip39Error> for Error {
     fn from(e: Bip39Error) -> Error {
-        Error::Bip39Error(e.kind().description().to_owned())
+        Error::Bip39Error(e)
     }
 }
 

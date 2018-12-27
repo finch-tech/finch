@@ -26,11 +26,7 @@ impl HdKeyring {
     ) -> Result<Self, Error> {
         let path = DerivationPath::from_str(path)?;
 
-        let mnemonic = Mnemonic::new(
-            MnemonicType::Type12Words,
-            Language::English,
-            String::from(""),
-        )?;
+        let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English, String::from(""))?;
 
         let mut keyring = HdKeyring::init_from_mnemonic(mnemonic, &path, btc_network)?;
         keyring.load_wallets(number_of_accounts)?;
@@ -56,7 +52,7 @@ impl HdKeyring {
         path: &DerivationPath,
         btc_network: BtcNetwork,
     ) -> Result<Self, Error> {
-        let master_node = XKeyPair::from_seed(mnemonic.get_seed(), btc_network)?;
+        let master_node = XKeyPair::from_seed(mnemonic.seed(), btc_network)?;
         let root = master_node.from_path(path)?;
 
         Ok(HdKeyring {

@@ -37,7 +37,7 @@ pub fn create(
     kay_pair
         .join(keyring)
         .and_then(move |((private_key, public_key), keyring)| {
-            payload.mnemonic = Some(keyring.mnemonic.get_string());
+            payload.mnemonic = Some(keyring.mnemonic.phrase());
             payload.hd_path = Some(keyring.hd_path.to_string());
             payload.private_key = Some(private_key);
             payload.public_key = Some(public_key);
