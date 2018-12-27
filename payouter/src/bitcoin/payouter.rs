@@ -84,7 +84,7 @@ impl Payouter {
                     let recepient = wallet.get_btc_address();
 
                     let mut utxo_n = 0;
-                    for (_, output) in transaction.vout.iter().enumerate() {
+                    for output in transaction.vout.iter() {
                         match output.script.script_type {
                             ScriptType::PubKeyHash => {
                                 if let Some(ref addresses) = output.script.addresses {

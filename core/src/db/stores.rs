@@ -1,7 +1,13 @@
 use actix::prelude::*;
 use diesel::prelude::*;
 
-use db::{client_tokens, {Error, postgres::{PgExecutor, PooledConnection}}};
+use db::{
+    client_tokens,
+    {
+        postgres::{PgExecutor, PooledConnection},
+        Error,
+    },
+};
 use models::store::{Store, StorePayload};
 use uuid::Uuid;
 
@@ -97,7 +103,7 @@ pub fn soft_delete_by_owner_id(owner_id: Uuid, conn: &PooledConnection) -> Resul
             .set(&payload)
             .get_results::<Store>(conn)?;
 
-    for (_, store) in deleted_stores.iter().enumerate() {
+    for store in deleted_stores {
         client_tokens::delete_by_store_id(store.id, conn)?;
     }
 

@@ -43,7 +43,7 @@ impl Handler<ProcessMempoolTransactions> for Processor {
         let mut transactions = HashMap::new();
         let mut outputs = HashMap::new();
 
-        for (_, transaction) in pooled_transactions.iter().enumerate() {
+        for transaction in pooled_transactions {
             for output in transaction.vout.clone() {
                 if let Some(output_addresses) = output.script.addresses.clone() {
                     addresses.push(output_addresses[0].clone());
@@ -115,7 +115,7 @@ impl Handler<ProcessBlock> for Processor {
         let mut transactions = HashMap::new();
         let mut outputs = HashMap::new();
 
-        for (_, transaction) in block.clone().transactions.unwrap().iter().enumerate() {
+        for transaction in block.clone().transactions.unwrap() {
             for output in transaction.vout.clone() {
                 if let Some(output_addresses) = output.script.addresses.clone() {
                     addresses.push(output_addresses[0].clone());

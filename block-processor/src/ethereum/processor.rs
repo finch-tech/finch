@@ -39,7 +39,7 @@ impl Handler<ProcessBlock> for Processor {
         let mut addresses = Vec::new();
         let mut transactions = HashMap::new();
 
-        for (_, transaction) in block.transactions.iter().enumerate() {
+        for transaction in block.transactions.iter() {
             if let Some(to) = transaction.to_address {
                 addresses.push(format!("0x{}", to));
                 transactions.insert(format!("0x{}", to), transaction.clone());
@@ -149,7 +149,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
         let mut addresses = Vec::new();
         let mut transactions = HashMap::new();
 
-        for (_, transaction) in pending_transactions.iter().enumerate() {
+        for transaction in pending_transactions {
             if let Some(to) = transaction.to_address {
                 addresses.push(format!("0x{}", to));
                 transactions.insert(format!("0x{}", to), transaction.clone());
@@ -191,7 +191,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
                             payment_payload.status = Some(PaymentStatus::Expired);
                         }
                     }
-                    _ => ()
+                    _ => (),
                 };
 
                 Payment::update(payment.id, payment_payload, &postgres).from_err()

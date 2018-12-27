@@ -128,7 +128,7 @@ impl ToString for DerivationPath {
     fn to_string(&self) -> String {
         let index_list = self.0.clone();
         let mut path = String::from("m");
-        for (_, index) in index_list.iter().enumerate() {
+        for index in index_list {
             path.push('/');
             match index {
                 Index::Hard(n) => {
@@ -215,7 +215,7 @@ impl Xprv {
     pub fn derive(&self, path: &DerivationPath) -> Result<Self, Error> {
         let mut xprv = *self;
 
-        for (_, index) in path.iter().enumerate() {
+        for index in path.iter() {
             xprv = xprv.ckd_priv(index)?;
         }
 

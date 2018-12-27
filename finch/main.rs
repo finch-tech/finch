@@ -53,7 +53,7 @@ fn main() {
 
         let skip_missed_blocks = matches.is_present("skip_missed_blocks");
 
-        for (_, c) in currencies.iter().enumerate() {
+        for c in currencies {
             match c {
                 Currency::Btc => {
                     use block_processor::bitcoin::service as block_processor;
