@@ -12,29 +12,27 @@ use diesel::{
 )]
 #[serde(rename_all = "snake_case")]
 #[sql_type = "VarChar"]
-pub enum Currency {
+pub enum Crypto {
     Btc,
     Eth,
-    Usd,
 }
 
-impl Currency {
+impl Crypto {
     pub fn to_str(&self) -> &str {
         match *self {
-            Currency::Btc => "btc",
-            Currency::Eth => "eth",
-            Currency::Usd => "usd",
+            Crypto::Btc => "btc",
+            Crypto::Eth => "eth",
         }
     }
 }
 
-impl fmt::Display for Currency {
+impl fmt::Display for Crypto {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_str())
     }
 }
 
-impl ToSql<VarChar, Pg> for Currency {
+impl ToSql<VarChar, Pg> for Crypto {
     fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
         let text = self.to_str();
 
@@ -42,23 +40,22 @@ impl ToSql<VarChar, Pg> for Currency {
     }
 }
 
-impl FromSql<VarChar, Pg> for Currency {
+impl FromSql<VarChar, Pg> for Crypto {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let s: String = FromSql::<VarChar, Pg>::from_sql(bytes)?;
 
-        Currency::from_str(&s).map_err(|e| e.into())
+        Crypto::from_str(&s).map_err(|e| e.into())
     }
 }
 
-impl FromStr for Currency {
+impl FromStr for Crypto {
     type Err = String;
 
-    fn from_str(s: &str) -> Result<Currency, Self::Err> {
+    fn from_str(s: &str) -> Result<Crypto, Self::Err> {
         match s.as_ref() {
-            "btc" => Ok(Currency::Btc),
-            "eth" => Ok(Currency::Eth),
-            "usd" => Ok(Currency::Usd),
-            _ => Err(String::from("Invalid value for currency.")),
+            "btc" => Ok(Crypto::Btc),
+            "eth" => Ok(Crypto::Eth),
+            _ => Err(String::from("Invalid value for crypto.")),
         }
     }
 }

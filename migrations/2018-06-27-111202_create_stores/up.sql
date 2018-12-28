@@ -17,6 +17,5 @@ CREATE TABLE stores
     btc_confirmations_required INTEGER,
     mnemonic VARCHAR NOT NULL,
     hd_path VARCHAR NOT NULL,
-    base_currency VARCHAR NOT NULL,
     deleted_at TIMESTAMPTZ
 )

@@ -20,7 +20,7 @@ use std::{env, fs::File, io::prelude::*};
 use config::Config;
 use core::db::postgres;
 use rpc_client::{bitcoin::RpcClient as BtcRpcClient, ethereum::RpcClient as EthRpcClient};
-use types::Currency;
+use types::currency::Crypto;
 
 fn main() {
     env::set_var(
@@ -45,7 +45,7 @@ fn main() {
 
         let config: Config = toml::from_str(&settings).unwrap();
 
-        let currencies = values_t!(matches, "currencies", Currency).unwrap();
+        let currencies = values_t!(matches, "currencies", Crypto).unwrap();
 
         let postgres_url = config.postgres.clone();
         let pg_pool = postgres::init_pool(&postgres_url);
@@ -55,7 +55,7 @@ fn main() {
 
         for c in currencies {
             match c {
-                Currency::Btc => {
+                Crypto::Btc => {
                     use block_processor::bitcoin::service as block_processor;
                     use payouter::bitcoin::service as payouter;
 
@@ -71,7 +71,7 @@ fn main() {
                     block_processor::run(postgres.clone(), rpc_client.clone(), skip_missed_blocks);
                     payouter::run(postgres.clone(), rpc_client.clone(), btc_config.network);
                 }
-                Currency::Eth => {
+                Crypto::Eth => {
                     use block_processor::ethereum::service as block_processor;
                     use payouter::ethereum::service as payouter;
 
@@ -82,8 +82,6 @@ fn main() {
                     block_processor::run(postgres.clone(), rpc_client.clone(), skip_missed_blocks);
                     payouter::run(postgres.clone(), rpc_client.clone(), eth_config.network);
                 }
-
-                _ => panic!(),
             }
         }
 

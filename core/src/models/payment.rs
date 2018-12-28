@@ -12,25 +12,34 @@ use db::{
 };
 use models::{store::Store, Error};
 use schema::payments;
-use types::{Currency, PaymentStatus, H256, U128};
+use types::{
+    bitcoin::Network as BtcNetwork,
+    currency::{Crypto, Fiat},
+    ethereum::Network as EthNetwork,
+    PaymentStatus, H256, U128,
+};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payments"]
 pub struct PaymentPayload {
     pub status: Option<PaymentStatus>,
     pub store_id: Option<Uuid>,
+    pub index: Option<i32>,
     pub created_by: Option<Uuid>, // AuthClient id
     pub created_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub paid_at: Option<Option<DateTime<Utc>>>,
-    pub index: Option<i32>,
-    pub base_price: Option<BigDecimal>,
-    pub typ: Option<Currency>,
-    pub address: Option<String>,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub amount_paid: Option<BigDecimal>,
+    pub transaction_hash: Option<H256>,
+    pub fiat: Option<Fiat>,
     pub price: Option<BigDecimal>,
+    pub crypto: Option<Crypto>,
+    pub address: Option<String>,
+    pub charge: Option<BigDecimal>,
     pub confirmations_required: Option<i32>,
     pub block_height_required: Option<U128>,
-    pub transaction_hash: Option<H256>,
+    pub btc_network: Option<BtcNetwork>,
+    pub eth_network: Option<EthNetwork>,
 }
 
 impl PaymentPayload {
@@ -38,18 +47,22 @@ impl PaymentPayload {
         PaymentPayload {
             status: None,
             store_id: None,
+            index: None,
             created_by: None,
             created_at: None,
             expires_at: None,
             paid_at: None,
-            index: None,
-            base_price: None,
-            typ: None,
-            address: None,
+            amount_paid: None,
+            transaction_hash: None,
+            fiat: None,
             price: None,
+            crypto: None,
+            address: None,
+            charge: None,
             confirmations_required: None,
             block_height_required: None,
-            transaction_hash: None,
+            btc_network: None,
+            eth_network: None,
         }
     }
 
@@ -58,7 +71,7 @@ impl PaymentPayload {
     }
 
     pub fn set_paid_at(&mut self) {
-        self.paid_at = Some(Some(Utc::now()));
+        self.paid_at = Some(Utc::now());
     }
 
     pub fn set_expires_at(&mut self) {
@@ -71,18 +84,22 @@ impl From<Payment> for PaymentPayload {
         PaymentPayload {
             status: Some(payment.status),
             store_id: Some(payment.store_id),
+            index: Some(payment.index),
             created_by: Some(payment.created_by),
             created_at: Some(payment.created_at),
             expires_at: Some(payment.expires_at),
-            paid_at: Some(payment.paid_at),
-            index: Some(payment.index),
-            base_price: Some(payment.base_price),
-            typ: Some(payment.typ),
-            address: payment.address,
-            price: payment.price,
-            confirmations_required: payment.confirmations_required,
-            block_height_required: payment.block_height_required,
+            paid_at: payment.paid_at,
+            amount_paid: payment.amount_paid,
             transaction_hash: payment.transaction_hash,
+            fiat: Some(payment.fiat),
+            price: Some(payment.price),
+            crypto: Some(payment.crypto),
+            address: payment.address,
+            charge: payment.charge,
+            confirmations_required: Some(payment.confirmations_required),
+            block_height_required: payment.block_height_required,
+            btc_network: payment.btc_network,
+            eth_network: payment.eth_network,
         }
     }
 }
@@ -93,18 +110,22 @@ pub struct Payment {
     pub id: Uuid,
     pub status: PaymentStatus,
     pub store_id: Uuid,
+    pub index: i32,
     pub created_by: Uuid,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub paid_at: Option<DateTime<Utc>>,
-    pub index: i32,
-    pub base_price: BigDecimal,
-    pub typ: Currency,
-    pub address: Option<String>,
-    pub price: Option<BigDecimal>,
-    pub confirmations_required: Option<i32>,
-    pub block_height_required: Option<U128>,
+    pub amount_paid: Option<BigDecimal>,
     pub transaction_hash: Option<H256>,
+    pub fiat: Fiat,
+    pub price: BigDecimal,
+    pub crypto: Crypto,
+    pub address: Option<String>,
+    pub charge: Option<BigDecimal>,
+    pub confirmations_required: i32,
+    pub block_height_required: Option<U128>,
+    pub btc_network: Option<BtcNetwork>,
+    pub eth_network: Option<EthNetwork>,
 }
 
 impl Payment {
@@ -148,13 +169,13 @@ impl Payment {
 
     pub fn find_all_by_address(
         addresses: Vec<String>,
-        currency: Currency,
+        crypto: Crypto,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Payment>, Error = Error> {
         (*postgres)
             .send(FindAllByAddress {
                 addresses,
-                typ: currency,
+                crypto: crypto,
             })
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
@@ -165,14 +186,17 @@ impl Payment {
             "id": self.id,
             "status": self.status,
             "store_id": self.store_id,
-            "base_price": self.base_price,
-            "type": self.typ,
-            "address": self.address,
+            "expires_at": self.expires_at.timestamp(),
+            "paid_at": self.paid_at,
+            "amount_paid": self.amount_paid,
+            "transaction_hash": self.transaction_hash,
+            "fiat": self.fiat,
             "price": self.price,
+            "crypto": self.crypto,
+            "address": self.address,
+            "charge": self.charge,
             "confirmations_required": self.confirmations_required,
             "block_height_required": self.block_height_required,
-            "transaction_hash": self.transaction_hash,
-            "expires_at": self.expires_at.timestamp()
         })
     }
 }

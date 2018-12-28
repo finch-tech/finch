@@ -8,7 +8,7 @@ use futures::{future, stream, Future, Stream};
 
 use super::payouter::{PayouterAddr, ProcessPayout};
 use core::{app_status::AppStatus, db::postgres::PgExecutorAddr, payout::Payout};
-use types::{Currency, U128};
+use types::{currency::Crypto, U128};
 
 use errors::Error;
 
@@ -88,7 +88,7 @@ impl Handler<ProcessBlock> for Monitor {
         let postgres = self.postgres.clone();
         let payouter = self.payouter.clone();
 
-        let process_payouts = Payout::find_all_confirmed(block_number, Currency::Btc, &postgres)
+        let process_payouts = Payout::find_all_confirmed(block_number, Crypto::Btc, &postgres)
             .from_err()
             .map(move |payouts| stream::iter_ok(payouts))
             .flatten_stream()

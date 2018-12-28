@@ -13,6 +13,9 @@ extern crate futures;
 extern crate jsonwebtoken as jwt;
 extern crate lettre;
 extern crate lettre_email;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate native_tls;
 extern crate num_cpus;
 extern crate openssl;
@@ -79,9 +82,16 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
                     None
                 }
             },
+            eth_network: {
+                if let Some(eth_config) = config.ethereum.clone() {
+                    Some(eth_config.network)
+                } else {
+                    None
+                }
+            },
             currency_api_client: CurrencyApiClient::new(
-                config.server.currency_api.clone(),
-                config.server.currency_api_key.clone(),
+                &config.server.currency_api,
+                &config.server.currency_api_key,
             ),
         })
         .middleware(middleware::Logger::default())

@@ -13,7 +13,7 @@ use serde_json::{self, Value};
 use url::Url;
 
 use errors::Error as ApiClientError;
-use types::Currency;
+use types::currency::{Crypto, Fiat};
 
 #[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -36,8 +36,8 @@ impl Api {
 
     pub fn get_rate(
         &self,
-        from: &Currency,
-        to: &Currency,
+        from: &Fiat,
+        to: &Crypto,
         key: &str,
     ) -> Box<Future<Item = BigDecimal, Error = ApiClientError>> {
         // Currently only supports CoinAPI.

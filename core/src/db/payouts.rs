@@ -7,7 +7,7 @@ use db::{
     Error,
 };
 use models::payout::{Payout, PayoutPayload};
-use types::{Currency, PayoutStatus, U128};
+use types::{currency::Crypto, PayoutStatus, U128};
 
 pub fn insert(payload: PayoutPayload, conn: &PooledConnection) -> Result<Payout, Error> {
     use diesel::insert_into;
@@ -31,7 +31,7 @@ pub fn update(id: Uuid, payload: PayoutPayload, conn: &PooledConnection) -> Resu
 
 pub fn find_all_confirmed(
     block_height: U128,
-    typ: Currency,
+    typ: Crypto,
     conn: &PooledConnection,
 ) -> Result<Vec<Payout>, Error> {
     use schema::payouts::dsl;
@@ -80,7 +80,7 @@ impl Handler<Update> for PgExecutor {
 #[rtype(result = "Result<Vec<Payout>, Error>")]
 pub struct FindAllConfirmed {
     pub block_height: U128,
-    pub typ: Currency,
+    pub typ: Crypto,
 }
 
 impl Handler<FindAllConfirmed> for PgExecutor {

@@ -5,9 +5,9 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::store::{Store, StorePayload};
-use state::AppState;
 use services::{self, Error};
-use types::{Currency, H160};
+use state::AppState;
+use types::H160;
 
 const LIMIT: i64 = 15;
 const OFFSET: i64 = 0;
@@ -42,7 +42,6 @@ pub fn create(
         btc_confirmations_required: None,
         mnemonic: None,
         hd_path: None,
-        base_currency: Some(Currency::Usd),
         deleted_at: None,
     };
 

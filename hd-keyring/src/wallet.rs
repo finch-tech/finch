@@ -8,7 +8,7 @@ use secp256k1::{
 use tiny_keccak::keccak256;
 
 use errors::Error;
-use types::{bitcoin::Network as BtcNetwork, Currency, H160, H256};
+use types::{bitcoin::Network as BtcNetwork, currency::Crypto, H160, H256};
 
 #[derive(Debug)]
 pub struct Wallet {
@@ -29,11 +29,10 @@ impl Wallet {
         })
     }
 
-    pub fn get_address(&self, currency: &Currency) -> String {
+    pub fn get_address(&self, currency: &Crypto) -> String {
         match currency {
-            Currency::Btc => self.get_btc_address(),
-            Currency::Eth => format!("0x{}", self.get_eth_address()),
-            _ => panic!("Invalid currency for wallet"),
+            Crypto::Btc => self.get_btc_address(),
+            Crypto::Eth => format!("0x{}", self.get_eth_address()),
         }
     }
 

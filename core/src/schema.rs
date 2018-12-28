@@ -46,18 +46,22 @@ table! {
         id -> Uuid,
         status -> Varchar,
         store_id -> Uuid,
+        index -> Int4,
         created_by -> Uuid,
         created_at -> Timestamptz,
         expires_at -> Timestamptz,
         paid_at -> Nullable<Timestamptz>,
-        index -> Int4,
-        base_price -> Numeric,
-        typ -> Varchar,
-        address -> Nullable<Varchar>,
-        price -> Nullable<Numeric>,
-        confirmations_required -> Nullable<Int4>,
-        block_height_required -> Nullable<Numeric>,
+        amount_paid -> Nullable<Numeric>,
         transaction_hash -> Nullable<Varchar>,
+        fiat -> Varchar,
+        price -> Numeric,
+        crypto -> Varchar,
+        address -> Nullable<Varchar>,
+        charge -> Nullable<Numeric>,
+        confirmations_required -> Int4,
+        block_height_required -> Nullable<Numeric>,
+        btc_network -> Nullable<Varchar>,
+        eth_network -> Nullable<Varchar>,
     }
 }
 
@@ -91,7 +95,6 @@ table! {
         btc_confirmations_required -> Nullable<Int4>,
         mnemonic -> Varchar,
         hd_path -> Varchar,
-        base_currency -> Varchar,
         deleted_at -> Nullable<Timestamptz>,
     }
 }

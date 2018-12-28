@@ -3,7 +3,7 @@ use futures::future::Future;
 
 use api::Api;
 use errors::Error;
-use types::Currency;
+use types::currency::{Crypto, Fiat};
 
 #[derive(Clone)]
 pub struct Client {
@@ -12,14 +12,17 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(api: Api, key: String) -> Self {
-        Client { api, key }
+    pub fn new(api: &Api, key: &str) -> Self {
+        Client {
+            api: api.to_owned(),
+            key: key.to_owned(),
+        }
     }
 
     pub fn get_rate(
         &self,
-        from: &Currency,
-        to: &Currency,
+        from: &Fiat,
+        to: &Crypto,
     ) -> Box<Future<Item = BigDecimal, Error = Error>> {
         self.api.get_rate(from, to, &self.key)
     }

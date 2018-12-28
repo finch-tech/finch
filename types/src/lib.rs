@@ -25,7 +25,7 @@ extern crate uint;
 
 pub mod bitcoin;
 mod clients;
-mod currencies;
+pub mod currency;
 pub mod ethereum;
 mod h160;
 mod h256;
@@ -39,7 +39,6 @@ pub type PrivateKey = Vec<u8>;
 pub type PublicKey = Vec<u8>;
 
 pub use self::clients::Client;
-pub use self::currencies::Currency;
 pub use self::h160::H160;
 pub use self::h256::H256;
 pub use self::payment_status::PaymentStatus;

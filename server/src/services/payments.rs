@@ -8,7 +8,7 @@ use core::{
 use currency_api_client::Client as CurrencyApiClient;
 use hd_keyring::HdKeyring;
 use services::Error;
-use types::{bitcoin::Network as BtcNetwork, Currency, PaymentStatus};
+use types::{bitcoin::Network as BtcNetwork, currency::Crypto, PaymentStatus};
 
 const BTC_SCALE: i64 = 8;
 const ETH_SCALE: i64 = 6;
@@ -63,28 +63,21 @@ pub fn create(
                     let mut payload = PaymentPayload::from(payment.clone());
 
                     currency_api_client
-                        .get_rate(&store.base_currency, &payment.typ)
+                        .get_rate(&payment.fiat, &payment.crypto)
                         .from_err()
                         .and_then(move |rate| {
-                            match payment.typ {
-                                Currency::Btc => {
-                                    payload.confirmations_required =
-                                        store.btc_confirmations_required;
-                                    payload.price = Some(
-                                        payment.base_price.clone() * rate.with_scale(BTC_SCALE),
-                                    );
+                            match payment.crypto {
+                                Crypto::Btc => {
+                                    payload.charge =
+                                        Some(payment.price.clone() * rate.with_scale(BTC_SCALE));
                                 }
-                                Currency::Eth => {
-                                    payload.confirmations_required =
-                                        store.eth_confirmations_required;
-                                    payload.price = Some(
-                                        payment.base_price.clone() * rate.with_scale(ETH_SCALE),
-                                    );
+                                Crypto::Eth => {
+                                    payload.charge =
+                                        Some(payment.price.clone() * rate.with_scale(ETH_SCALE));
                                 }
-                                _ => panic!("Invalid currency"),
                             };
 
-                            payload.address = Some(wallet.get_address(&payment.typ));
+                            payload.address = Some(wallet.get_address(&payment.crypto));
 
                             Payment::update(payment.id, payload, &postgres).from_err()
                         })

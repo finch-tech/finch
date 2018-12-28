@@ -5,7 +5,7 @@ use core::{
     app_status::AppStatus, db::postgres::PgExecutorAddr, payment::Payment, voucher::Voucher,
 };
 use services::Error;
-use types::{Currency, PaymentStatus};
+use types::{currency::Crypto, PaymentStatus};
 
 pub fn create(
     payment: Payment,
@@ -20,32 +20,32 @@ pub fn create(
         store
             .join(status)
             .and_then(move |(store, status)| {
-                let block_height = match payment.typ {
-                    Currency::Btc => status.btc_block_height,
-                    Currency::Eth => status.eth_block_height,
-                    _ => panic!("Invalid currency"),
+                let block_height = match payment.crypto {
+                    Crypto::Btc => status.btc_block_height,
+                    Crypto::Eth => status.eth_block_height,
                 };
 
                 if block_height.is_none() {
                     return err(Error::PaymentNotConfirmed);
                 }
 
-                if let None = payment.block_height_required {
-                    return err(Error::PaymentNotConfirmed);
-                }
-
-                if block_height.unwrap() < payment.block_height_required.unwrap() {
-                    return err(Error::PaymentNotConfirmed);
-                }
-
+                let zero_confirmation_payment = payment.confirmations_required == 0;
                 match payment.status {
-                    PaymentStatus::Paid => ok((payment, store)),
+                    PaymentStatus::Pending => return err(Error::PaymentNotConfirmed),
+                    PaymentStatus::Paid => {
+                        if zero_confirmation_payment {
+                            ok((payment, store))
+                        } else {
+                            return err(Error::PaymentNotConfirmed);
+                        }
+                    }
+                    PaymentStatus::Confirmed | PaymentStatus::Completed => ok((payment, store)),
                     _ => err(Error::PaymentNotConfirmed),
                 }
             })
             .and_then(move |(payment, store)| {
                 // Voucher JWT expires in 1 minute.
-                Voucher::new(payment, Utc::now() + Duration::minutes(1))
+                Voucher::from_payment(payment, Utc::now() + Duration::minutes(1))
                     .encode(&store.private_key)
                     .into_future()
                     .from_err()

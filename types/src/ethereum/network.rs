@@ -1,6 +1,15 @@
-use std::str::FromStr;
+use std::{fmt, io::Write, str::FromStr};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+use diesel::{
+    deserialize::{self, FromSql},
+    pg::Pg,
+    serialize::{self, Output, ToSql},
+    types::VarChar,
+};
+
+#[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Copy, Clone, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+#[sql_type = "VarChar"]
 pub enum Network {
     Main,
     Ropsten,
@@ -13,39 +22,34 @@ impl Network {
             Network::Ropsten => 3,
         }
     }
+
+    pub fn to_str(&self) -> &str {
+        match *self {
+            Network::Main => "main",
+            Network::Ropsten => "ropsten",
+        }
+    }
 }
 
-impl<'de> serde::Deserialize<'de> for Network {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use std::fmt::{self, Formatter};
+impl fmt::Display for Network {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_str())
+    }
+}
 
-        struct Visitor;
-        impl<'de> serde::de::Visitor<'de> for Visitor {
-            type Value = Network;
+impl ToSql<VarChar, Pg> for Network {
+    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> serialize::Result {
+        let text = self.to_str();
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("string value for bitcoin network.")
-            }
+        ToSql::<VarChar, Pg>::to_sql(&text, out)
+    }
+}
 
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Network::from_str(v).map_err(E::custom)
-            }
+impl FromSql<VarChar, Pg> for Network {
+    fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
+        let s: String = FromSql::<VarChar, Pg>::from_sql(bytes)?;
 
-            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                self.visit_str(&v)
-            }
-        }
-
-        deserializer.deserialize_any(Visitor)
+        Network::from_str(&s).map_err(|e| e.into())
     }
 }
 

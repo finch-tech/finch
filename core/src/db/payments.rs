@@ -8,7 +8,7 @@ use db::{
 use models::payment::{Payment, PaymentPayload};
 use uuid::Uuid;
 
-use types::Currency;
+use types::currency::Crypto;
 
 pub fn insert(payload: PaymentPayload, conn: &PooledConnection) -> Result<Payment, Error> {
     use diesel::insert_into;
@@ -45,14 +45,14 @@ pub fn find_by_id(id: Uuid, conn: &PooledConnection) -> Result<Payment, Error> {
 
 pub fn find_all_by_addresses(
     addresses: Vec<String>,
-    currency: Currency,
+    crypto: Crypto,
     conn: &PooledConnection,
 ) -> Result<Vec<Payment>, Error> {
     use diesel::pg::expression::dsl::any;
     use schema::payments::dsl;
 
     dsl::payments
-        .filter(dsl::address.eq(any(addresses)).and(dsl::typ.eq(currency)))
+        .filter(dsl::address.eq(any(addresses)).and(dsl::crypto.eq(crypto)))
         .load::<Payment>(conn)
         .map_err(|e| Error::from(e))
 }
@@ -103,7 +103,7 @@ impl Handler<FindById> for PgExecutor {
 #[rtype(result = "Result<Vec<Payment>, Error>")]
 pub struct FindAllByAddress {
     pub addresses: Vec<String>,
-    pub typ: Currency,
+    pub crypto: Crypto,
 }
 
 impl Handler<FindAllByAddress> for PgExecutor {
@@ -111,11 +111,11 @@ impl Handler<FindAllByAddress> for PgExecutor {
 
     fn handle(
         &mut self,
-        FindAllByAddress { addresses, typ }: FindAllByAddress,
+        FindAllByAddress { addresses, crypto }: FindAllByAddress,
         _: &mut Self::Context,
     ) -> Self::Result {
         let conn = &self.get()?;
 
-        find_all_by_addresses(addresses, typ, &conn)
+        find_all_by_addresses(addresses, crypto, &conn)
     }
 }

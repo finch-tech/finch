@@ -13,7 +13,7 @@ use core::{
     payment::{Payment, PaymentPayload},
     payout::{Payout, PayoutPayload},
 };
-use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
+use types::{currency::Crypto, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
 
@@ -53,7 +53,7 @@ impl Handler<ProcessMempoolTransactions> for Processor {
             }
         }
 
-        let process = Payment::find_all_by_address(addresses, Currency::Btc, &postgres)
+        let process = Payment::find_all_by_address(addresses, Crypto::Btc, &postgres)
             .from_err()
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
@@ -71,16 +71,18 @@ impl Handler<ProcessMempoolTransactions> for Processor {
 
                 // Todo: Verify transaction fee.
 
-                let price = payment.price.unwrap();
+                let charge = payment.charge.unwrap();
+                payment_payload.amount_paid = Some(btc_paid.clone());
+
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if btc_paid >= price {
+                        if btc_paid >= charge {
                             payment_payload.status = Some(PaymentStatus::Paid);
                         }
 
                         // Insufficient amount paid.
-                        if btc_paid < price {
+                        if btc_paid < charge {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                         }
 
@@ -128,7 +130,7 @@ impl Handler<ProcessBlock> for Processor {
         let block_number = block.height;
         let _postgres = postgres.clone();
 
-        let process = Payment::find_all_by_address(addresses, Currency::Btc, &postgres)
+        let process = Payment::find_all_by_address(addresses, Crypto::Btc, &postgres)
             .from_err()
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
@@ -139,7 +141,7 @@ impl Handler<ProcessBlock> for Processor {
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
                 let block_height_required = block.height.unwrap()
-                    + U128::from(payment.confirmations_required.unwrap())
+                    + U128::from(payment.confirmations_required)
                     - U128::from(1);
 
                 payment_payload.transaction_hash = Some(transaction.hash);
@@ -151,7 +153,7 @@ impl Handler<ProcessBlock> for Processor {
                     status: Some(PayoutStatus::Pending),
                     store_id: Some(payment.store_id),
                     payment_id: Some(payment.id),
-                    typ: Some(Currency::Btc),
+                    typ: Some(Crypto::Btc),
                     block_height_required: Some(block_height_required),
                     transaction_hash: None,
                     created_at: None,
@@ -162,17 +164,19 @@ impl Handler<ProcessBlock> for Processor {
                 let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
                     .expect("Failed to parse transaction amount.");
 
-                let price = payment.price.unwrap();
+                let charge = payment.charge.unwrap();
+                payment_payload.amount_paid = Some(btc_paid.clone());
+
                 match payment.status {
                     PaymentStatus::Pending | PaymentStatus::Paid => {
                         // Paid enough.
-                        if btc_paid >= price {
+                        if btc_paid >= charge {
                             payment_payload.status = Some(PaymentStatus::Confirmed);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if btc_paid < price {
+                        if btc_paid < charge {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }

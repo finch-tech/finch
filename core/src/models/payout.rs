@@ -4,10 +4,13 @@ use chrono::prelude::*;
 use futures::Future;
 use uuid::Uuid;
 
-use db::{postgres::PgExecutorAddr, payouts::{FindAllConfirmed, Insert, Update}};
-use models::{Error, store::Store, payment::Payment};
+use db::{
+    payouts::{FindAllConfirmed, Insert, Update},
+    postgres::PgExecutorAddr,
+};
+use models::{payment::Payment, store::Store, Error};
 use schema::payouts;
-use types::{Currency, PayoutAction, PayoutStatus, H256, U128};
+use types::{currency::Crypto, PayoutAction, PayoutStatus, H256, U128};
 
 #[derive(Debug, Insertable, AsChangeset, Serialize)]
 #[table_name = "payouts"]
@@ -16,7 +19,7 @@ pub struct PayoutPayload {
     pub action: Option<PayoutAction>,
     pub store_id: Option<Uuid>,
     pub payment_id: Option<Uuid>,
-    pub typ: Option<Currency>,
+    pub typ: Option<Crypto>,
     pub block_height_required: Option<U128>,
     pub transaction_hash: Option<Option<H256>>,
     pub created_at: Option<DateTime<Utc>>,
@@ -52,7 +55,7 @@ pub struct Payout {
     pub action: PayoutAction,
     pub store_id: Uuid,
     pub payment_id: Uuid,
-    pub typ: Currency,
+    pub typ: Crypto,
     pub block_height_required: U128,
     pub transaction_hash: Option<H256>,
     pub created_at: DateTime<Utc>,
@@ -81,7 +84,7 @@ impl Payout {
 
     pub fn find_all_confirmed(
         block_height: U128,
-        typ: Currency,
+        typ: Crypto,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Vec<Payout>, Error = Error> {
         (*postgres)

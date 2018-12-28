@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use auth::AuthClient;
 use core::payment::Payment;
-use state::AppState;
 use services::{self, Error};
+use state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
@@ -36,9 +36,7 @@ pub fn create(
                             "status": payment.status,
                             "voucher": voucher,
                         }))),
-                        Err(_) => Ok(Json(json!({
-                            "status": payment.status,
-                        }))),
+                        Err(e) => Err(e),
                     }
                 })
             })

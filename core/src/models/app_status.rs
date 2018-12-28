@@ -1,9 +1,12 @@
 use futures::Future;
 
-use db::{postgres::PgExecutorAddr, app_statuses::{FindById, Insert, Update}};
+use db::{
+    app_statuses::{FindById, Insert, Update},
+    postgres::PgExecutorAddr,
+};
 use models::Error;
 use schema::app_statuses;
-use types::{Currency, U128};
+use types::{currency::Crypto, U128};
 
 #[derive(Insertable, AsChangeset, Deserialize)]
 #[table_name = "app_statuses"]
@@ -51,11 +54,10 @@ impl AppStatus {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn block_height(&self, currency: Currency) -> Option<U128> {
+    pub fn block_height(&self, currency: Crypto) -> Option<U128> {
         match currency {
-            Currency::Btc => self.btc_block_height,
-            Currency::Eth => self.eth_block_height,
-            _ => panic!("Invalid currency"),
+            Crypto::Btc => self.btc_block_height,
+            Crypto::Eth => self.eth_block_height,
         }
     }
 }

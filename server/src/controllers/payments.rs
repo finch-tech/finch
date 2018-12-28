@@ -10,13 +10,17 @@ use core::{
     client_token::ClientToken,
     payment::{Payment, PaymentPayload},
 };
-use state::AppState;
 use services::{self, Error};
-use types::{Currency, PaymentStatus, U128};
+use state::AppState;
+use types::{
+    currency::{Crypto, Fiat},
+    PaymentStatus, U128,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct CreateParams {
-    pub currency: Currency,
+    pub crypto: Crypto,
+    pub fiat: Fiat,
     pub price: BigDecimal,
 }
 
@@ -27,7 +31,7 @@ pub fn create(
 
     services::stores::get(client_token.store_id, &state.postgres)
         .and_then(move |store| {
-            if !store.can_accept(&params.currency) {
+            if !store.can_accept(&params.crypto) {
                 return err(Error::CurrencyNotSupported);
             }
 
@@ -36,22 +40,23 @@ pub fn create(
         .and_then(move |(store, params)| {
             let auth_client = AuthClient::new(client_token);
 
-            let payload = PaymentPayload {
-                status: None,
-                store_id: Some(auth_client.store_id),
-                created_by: Some(auth_client.id),
-                created_at: None,
-                expires_at: None,
-                paid_at: None,
-                index: None,
-                base_price: Some(params.price),
-                typ: Some(params.currency),
-                address: None,
-                price: None,
-                confirmations_required: None,
-                block_height_required: None,
-                transaction_hash: None,
-            };
+            let mut payload = PaymentPayload::new();
+            payload.store_id = Some(auth_client.store_id);
+            payload.created_by = Some(auth_client.id);
+            payload.fiat = Some(params.fiat);
+            payload.price = Some(params.price);
+            payload.crypto = Some(params.crypto);
+
+            match params.crypto {
+                Crypto::Btc => {
+                    payload.confirmations_required = store.btc_confirmations_required;
+                    payload.btc_network = state.btc_network;
+                }
+                Crypto::Eth => {
+                    payload.confirmations_required = store.eth_confirmations_required;
+                    payload.eth_network = state.eth_network;
+                }
+            }
 
             services::payments::create(
                 payload,
@@ -100,37 +105,34 @@ pub fn get_status(
     });
 
     app_status.join(payment).and_then(move |(status, payment)| {
-        if let Some(block_height) = status.block_height(payment.typ) {
+        if let Some(block_height) = status.block_height(payment.crypto) {
             if payment.address.is_none() {
                 return future::Either::B(future::err(Error::CurrencyNotSupported));
             }
 
-            let mut remaining_confirmations = U128::from(payment.confirmations_required.unwrap());
+            let mut remaining_confirmations = U128::from(payment.confirmations_required);
 
-            if payment.status == PaymentStatus::Paid && payment.confirmations_required.unwrap() == 0
-            {
+            if payment.status == PaymentStatus::Paid && payment.confirmations_required == 0 {
                 remaining_confirmations = U128::from(0);
             }
 
-            match payment.block_height_required {
-                Some(block_height_required) => {
-                    if block_height_required < block_height {
-                        remaining_confirmations = U128::from(0);
-                    } else {
-                        remaining_confirmations = block_height_required - block_height;
-                    }
+            if let Some(block_height_required) = payment.block_height_required {
+                if block_height_required < block_height {
+                    remaining_confirmations = U128::from(0);
+                } else {
+                    remaining_confirmations = block_height_required - block_height;
                 }
-                None => (),
-            };
+            }
 
             let res = future::ok(Json(json!({
                 "status": payment.status,
-                "confirmations_required": format!("{}", payment.confirmations_required.unwrap()),
+                "confirmations_required": payment.confirmations_required,
                 "remaining_confirmations": remaining_confirmations,
             })));
 
             future::Either::A(res)
         } else {
+            error!("No block height for {}", payment.crypto);
             return future::Either::B(future::err(Error::InternalServerError));
         }
     })

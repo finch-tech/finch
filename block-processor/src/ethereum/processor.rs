@@ -13,7 +13,7 @@ use core::{
     payout::{Payout, PayoutPayload},
 };
 use ethereum::errors::Error;
-use types::{Currency, PaymentStatus, PayoutAction, PayoutStatus, U128};
+use types::{currency::Crypto, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
 
@@ -49,7 +49,7 @@ impl Handler<ProcessBlock> for Processor {
         let block_number = block.number;
         let _postgres = postgres.clone();
 
-        let process = Payment::find_all_by_address(addresses, Currency::Eth, &postgres)
+        let process = Payment::find_all_by_address(addresses, Crypto::Eth, &postgres)
             .from_err()
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
@@ -60,7 +60,7 @@ impl Handler<ProcessBlock> for Processor {
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
                 let block_height_required = block.number.unwrap()
-                    + U128::from(payment.confirmations_required.unwrap())
+                    + U128::from(payment.confirmations_required)
                     - U128::from(1);
 
                 payment_payload.transaction_hash = Some(transaction.hash);
@@ -72,7 +72,7 @@ impl Handler<ProcessBlock> for Processor {
                     status: Some(PayoutStatus::Pending),
                     store_id: Some(payment.store_id),
                     payment_id: Some(payment.id),
-                    typ: Some(Currency::Eth),
+                    typ: Some(Crypto::Eth),
                     block_height_required: Some(block_height_required),
                     transaction_hash: None,
                     created_at: None,
@@ -86,17 +86,19 @@ impl Handler<ProcessBlock> for Processor {
                     }
                 };
 
-                let price = payment.price.unwrap();
+                let charge = payment.charge.unwrap();
+                payment_payload.amount_paid = Some(ether_paid.clone());
+
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if ether_paid >= price {
+                        if ether_paid >= charge {
                             payment_payload.status = Some(PaymentStatus::Confirmed);
                             payout_payload.action = Some(PayoutAction::Payout);
                         }
 
                         // Insufficient amount paid.
-                        if ether_paid < price {
+                        if ether_paid < charge {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                             payout_payload.action = Some(PayoutAction::Refund);
                         }
@@ -156,7 +158,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
             }
         }
 
-        let process = Payment::find_all_by_address(addresses, Currency::Eth, &postgres)
+        let process = Payment::find_all_by_address(addresses, Crypto::Eth, &postgres)
             .from_err()
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
@@ -173,16 +175,18 @@ impl Handler<ProcessPendingTransactions> for Processor {
                     }
                 };
 
-                let price = payment.price.unwrap();
+                let charge = payment.charge.unwrap();
+                payment_payload.amount_paid = Some(ether_paid.clone());
+
                 match payment.status {
                     PaymentStatus::Pending => {
                         // Paid enough.
-                        if ether_paid >= price {
+                        if ether_paid >= charge {
                             payment_payload.status = Some(PaymentStatus::Paid);
                         }
 
                         // Insufficient amount paid.
-                        if ether_paid < price {
+                        if ether_paid < charge {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                         }
 
