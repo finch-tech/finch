@@ -19,7 +19,7 @@ use types::{
     PaymentStatus, H256, U128,
 };
 
-#[derive(Debug, Insertable, AsChangeset, Serialize)]
+#[derive(Debug, Insertable, AsChangeset, Serialize, Clone)]
 #[table_name = "payments"]
 pub struct PaymentPayload {
     pub status: Option<PaymentStatus>,
@@ -94,8 +94,8 @@ impl From<Payment> for PaymentPayload {
             fiat: Some(payment.fiat),
             price: Some(payment.price),
             crypto: Some(payment.crypto),
-            address: payment.address,
-            charge: payment.charge,
+            address: Some(payment.address),
+            charge: Some(payment.charge),
             confirmations_required: Some(payment.confirmations_required),
             block_height_required: payment.block_height_required,
             btc_network: payment.btc_network,
@@ -120,8 +120,8 @@ pub struct Payment {
     pub fiat: Fiat,
     pub price: BigDecimal,
     pub crypto: Crypto,
-    pub address: Option<String>,
-    pub charge: Option<BigDecimal>,
+    pub address: String,
+    pub charge: BigDecimal,
     pub confirmations_required: i32,
     pub block_height_required: Option<U128>,
     pub btc_network: Option<BtcNetwork>,
@@ -133,7 +133,7 @@ impl Payment {
         mut payload: PaymentPayload,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Payment, Error = Error> {
-        payload.set_created_at();
+        // payload.set_created_at();
         payload.set_expires_at();
 
         (*postgres)

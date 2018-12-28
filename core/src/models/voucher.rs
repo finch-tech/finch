@@ -35,7 +35,7 @@ impl Voucher {
             uuid: Uuid::new_v4(),
             crypto: payment.crypto,
             tx_hash: payment.transaction_hash.unwrap(),
-            charge: payment.charge.unwrap(),
+            charge: payment.charge,
             amount_paid: payment.amount_paid.unwrap(),
             fiat: payment.fiat,
             price: payment.price,

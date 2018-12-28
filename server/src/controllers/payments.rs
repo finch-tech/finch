@@ -60,6 +60,7 @@ pub fn create(
 
             services::payments::create(
                 payload,
+                &store,
                 &state.postgres,
                 state.currency_api_client.clone(),
                 state.btc_network,
@@ -106,10 +107,6 @@ pub fn get_status(
 
     app_status.join(payment).and_then(move |(status, payment)| {
         if let Some(block_height) = status.block_height(payment.crypto) {
-            if payment.address.is_none() {
-                return future::Either::B(future::err(Error::CurrencyNotSupported));
-            }
-
             let mut remaining_confirmations = U128::from(payment.confirmations_required);
 
             if payment.status == PaymentStatus::Paid && payment.confirmations_required == 0 {

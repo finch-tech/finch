@@ -54,7 +54,7 @@ impl Handler<ProcessBlock> for Processor {
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions.get(&payment.address.clone().unwrap()).unwrap();
+                let transaction = transactions.get(&payment.address.clone()).unwrap();
 
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
@@ -86,7 +86,7 @@ impl Handler<ProcessBlock> for Processor {
                     }
                 };
 
-                let charge = payment.charge.unwrap();
+                let charge = payment.charge;
                 payment_payload.amount_paid = Some(ether_paid.clone());
 
                 match payment.status {
@@ -163,7 +163,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions.get(&payment.address.clone().unwrap()).unwrap();
+                let transaction = transactions.get(&payment.address.clone()).unwrap();
 
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
@@ -175,7 +175,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
                     }
                 };
 
-                let charge = payment.charge.unwrap();
+                let charge = payment.charge;
                 payment_payload.amount_paid = Some(ether_paid.clone());
 
                 match payment.status {

@@ -53,9 +53,7 @@ impl Payouter {
                     Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                         .from_err();
                 let nonce = rpc_client
-                    .get_transaction_count(
-                        H160::from_str(&payment.clone().address.unwrap()[2..]).unwrap(),
-                    )
+                    .get_transaction_count(H160::from_str(&payment.clone().address[2..]).unwrap())
                     .from_err();
 
                 transaction

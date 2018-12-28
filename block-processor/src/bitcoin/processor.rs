@@ -58,20 +58,20 @@ impl Handler<ProcessMempoolTransactions> for Processor {
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions.get(&payment.clone().address.unwrap()).unwrap();
+                let transaction = transactions.get(&payment.clone().address).unwrap();
 
                 let mut payment_payload = PaymentPayload::from(payment.clone());
                 payment_payload.transaction_hash = Some(transaction.hash);
                 payment_payload.set_paid_at();
 
-                let vout = outputs.get(&payment.address.unwrap()).unwrap();
+                let vout = outputs.get(&payment.address).unwrap();
 
                 let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
                     .expect("Failed to parse transaction amount.");
 
                 // Todo: Verify transaction fee.
 
-                let charge = payment.charge.unwrap();
+                let charge = payment.charge;
                 payment_payload.amount_paid = Some(btc_paid.clone());
 
                 match payment.status {
@@ -135,7 +135,7 @@ impl Handler<ProcessBlock> for Processor {
             .map(move |payments| stream::iter_ok(payments))
             .flatten_stream()
             .and_then(move |payment| {
-                let transaction = transactions.get(&payment.clone().address.unwrap()).unwrap();
+                let transaction = transactions.get(&payment.clone().address).unwrap();
 
                 let mut payment_payload = PaymentPayload::from(payment.clone());
 
@@ -159,12 +159,12 @@ impl Handler<ProcessBlock> for Processor {
                     created_at: None,
                 };
 
-                let vout = outputs.get(&payment.address.unwrap()).unwrap();
+                let vout = outputs.get(&payment.address).unwrap();
 
                 let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
                     .expect("Failed to parse transaction amount.");
 
-                let charge = payment.charge.unwrap();
+                let charge = payment.charge;
                 payment_payload.amount_paid = Some(btc_paid.clone());
 
                 match payment.status {
