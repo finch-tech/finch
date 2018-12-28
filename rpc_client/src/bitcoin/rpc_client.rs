@@ -1,6 +1,9 @@
 use actix_web::{client, HttpMessage};
 use base64::encode;
-use futures::future::{err, ok, Future};
+use futures::{
+    future::{err, ok},
+    stream, Future, Stream,
+};
 use rustc_hex::ToHex;
 use serde_json::{self, Value};
 
@@ -163,6 +166,40 @@ impl RpcClient {
                 }
             })
         }))
+    }
+
+    pub fn get_block_by_number(
+        &self,
+        block_number: U128,
+    ) -> Box<Future<Item = Block, Error = Error>> {
+        let rpc_client = self.clone();
+
+        Box::new(
+            self.get_block_hash(block_number)
+                .from_err::<Error>()
+                .and_then(move |hash| {
+                    rpc_client
+                        .get_block(hash)
+                        .from_err::<Error>()
+                        .and_then(move |block| {
+                            ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
+                        .flatten_stream()
+                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
+                        .fold(
+                            Vec::new(),
+                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
+                                vec.push(tx);
+                                Box::new(ok(vec))
+                            },
+                        )
+                        .and_then(move |transactions| {
+                            let mut block = block;
+                            block.transactions = Some(transactions);
+                            ok(block)
+                        })
+                        })
+                }),
+        )
     }
 
     pub fn send_raw_transaction(

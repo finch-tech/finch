@@ -142,46 +142,13 @@ impl Handler<Bootstrap> for Poller {
                             let rpc_client = rpc_client.clone();
 
                             rpc_client
-                                .get_block_hash(block_number)
-                                .from_err::<Error>()
-                                .and_then(move |hash| {
-                                    let rpc_client = rpc_client.clone();
-
-                                    rpc_client.get_block(hash).from_err::<Error>().and_then(
-                                        move |block| {
-                                            future::ok(stream::iter_ok(
-                                                block.tx_hashes[1..].to_vec().clone(),
-                                            ))
-                                            .flatten_stream()
-                                            .and_then(move |hash| {
-                                                rpc_client.get_raw_transaction(hash).from_err()
-                                            })
-                                            .fold(
-                                                Vec::new(),
-                                                |mut vec,
-                                                 tx|
-                                                 -> Box<
-                                                    Future<Item = Vec<Transaction>, Error = Error>,
-                                                > {
-                                                    vec.push(tx);
-                                                    Box::new(future::ok(vec))
-                                                },
-                                            )
-                                            .and_then(
-                                                move |transactions| {
-                                                    let mut block = block;
-                                                    block.transactions = Some(transactions);
-
-                                                    processor
-                                                        .send(ProcessBlock(block))
-                                                        .from_err()
-                                                        .and_then(|res| {
-                                                            res.map_err(|e| Error::from(e))
-                                                        })
-                                                },
-                                            )
-                                        },
-                                    )
+                                .get_block_by_number(block_number)
+                                .from_err()
+                                .and_then(move |block| {
+                                    processor
+                                        .send(ProcessBlock(block))
+                                        .from_err()
+                                        .and_then(|res| res.map_err(|e| Error::from(e)))
                                 })
                         })
                         .and_then(move |_| {
@@ -315,36 +282,14 @@ impl Handler<Poll> for Poller {
         }
 
         let polling = rpc_client
-            .get_block_hash(block_number)
-            .from_err::<Error>()
-            .and_then(move |hash| {
-                let rpc_client = rpc_client.clone();
-
-                rpc_client
-                    .get_block(hash)
-                    .from_err::<Error>()
-                    .and_then(move |block| {
-                        future::ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
-                        .flatten_stream()
-                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
-                        .fold(
-                            Vec::new(),
-                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
-                                vec.push(tx);
-                                Box::new(future::ok(vec))
-                            },
-                        )
-                        .and_then(move |transactions| {
-                            let mut block = block;
-                            block.transactions = Some(transactions);
-
-                            processor
-                                .send(ProcessBlock(block))
-                                .from_err()
-                                .and_then(|res| res.map_err(|e| Error::from(e)))
-                                .map(move |_| (block_number + U128::from(1), 0))
-                        })
-                    })
+            .get_block_by_number(block_number)
+            .from_err()
+            .and_then(move |block| {
+                processor
+                    .send(ProcessBlock(block))
+                    .from_err()
+                    .and_then(|res| res.map_err(|e| Error::from(e)))
+                    .map(move |_| (block_number + U128::from(1), 0))
             })
             .or_else(move |e| match e {
                 Error::RpcClientError(e) => match e {
