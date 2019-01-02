@@ -45,7 +45,13 @@ fn main() {
 
         let config: Config = toml::from_str(&settings).unwrap();
 
-        let currencies = values_t!(matches, "currencies", Crypto).unwrap();
+        let currencies = {
+            if matches.is_present("currencies") {
+                values_t!(matches, "currencies", Crypto).unwrap()
+            } else {
+                vec![Crypto::Btc, Crypto::Eth]
+            }
+        };
 
         let postgres_url = config.postgres.clone();
         let pg_pool = postgres::init_pool(&postgres_url);

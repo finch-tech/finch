@@ -12,6 +12,5 @@ args:
       multiple: true
       possible_values: [eth, btc]
       takes_value: true
-      required: true
   - skip_missed_blocks:
       long: skip-missed-blocks
