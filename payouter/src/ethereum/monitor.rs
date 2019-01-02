@@ -7,21 +7,23 @@ use actix::{
 use futures::{future, stream, Future, Stream};
 
 use super::payouter::{PayouterAddr, ProcessPayout};
-use core::{app_status::AppStatus, db::postgres::PgExecutorAddr, payout::Payout};
-use types::{currency::Crypto, U128};
+use core::{db::postgres::PgExecutorAddr, ethereum::BlockchainStatus, payout::Payout};
+use types::{currency::Crypto, ethereum::Network, U128};
 
 use errors::Error;
 
 pub struct Monitor {
     pub payouter: PayouterAddr,
+    pub network: Network,
     pub postgres: PgExecutorAddr,
     pub previous_block: Option<U128>,
 }
 
 impl Monitor {
-    pub fn new(payouter: PayouterAddr, postgres: PgExecutorAddr) -> Self {
+    pub fn new(payouter: PayouterAddr, network: Network, postgres: PgExecutorAddr) -> Self {
         Monitor {
             payouter,
+            network,
             postgres,
             previous_block: None,
         }
@@ -32,34 +34,34 @@ impl Actor for Monitor {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Context<Self>) {
+        let network = self.network;
+
         ctx.run_interval(Duration::new(10, 0), move |monitor, ctx| {
             let address = ctx.address();
 
-            let monitor_process = wrap_future(AppStatus::find(&monitor.postgres))
+            let monitor_process = wrap_future(BlockchainStatus::find(network, &monitor.postgres))
                 .from_err::<Error>()
                 .and_then(move |status, m: &mut Monitor, _| {
-                    if let Some(block_height) = status.eth_block_height {
-                        if let Some(ref previous_block) = m.previous_block {
-                            if block_height == *previous_block {
-                                return fut::Either::A(fut::ok(()));
-                            }
-                        };
+                    let block_height = status.block_height;
 
-                        return fut::Either::B(
-                            wrap_future(
-                                address
-                                    .send(ProcessBlock(block_height))
-                                    .from_err()
-                                    .and_then(|res| res.map_err(|e| Error::from(e))),
-                            )
-                            .and_then(move |_, m: &mut Monitor, _| {
-                                m.previous_block = Some(block_height);
-                                fut::ok(())
-                            }),
-                        );
+                    if let Some(ref previous_block) = m.previous_block {
+                        if block_height == *previous_block {
+                            return fut::Either::A(fut::ok(()));
+                        }
                     };
 
-                    fut::Either::A(fut::ok(()))
+                    return fut::Either::B(
+                        wrap_future(
+                            address
+                                .send(ProcessBlock(block_height))
+                                .from_err()
+                                .and_then(|res| res.map_err(|e| Error::from(e))),
+                        )
+                        .and_then(move |_, m: &mut Monitor, _| {
+                            m.previous_block = Some(block_height);
+                            fut::ok(())
+                        }),
+                    );
                 })
                 .map_err(|e, _, _| match e {
                     _ => error!("{:?}", e),

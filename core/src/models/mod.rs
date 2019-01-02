@@ -2,7 +2,6 @@ mod errors;
 
 pub use self::errors::Error;
 
-pub mod app_status;
 pub mod bitcoin;
 pub mod client_token;
 pub mod ethereum;

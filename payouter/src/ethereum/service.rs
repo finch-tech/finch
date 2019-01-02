@@ -9,5 +9,5 @@ pub fn run(postgres: postgres::PgExecutorAddr, rpc_client: RpcClient, network: E
     let pg = postgres.clone();
     let payouter = Arbiter::start(move |_| Payouter::new(pg, rpc_client, network));
 
-    Arbiter::start(move |_| Monitor::new(payouter, postgres));
+    Arbiter::start(move |_| Monitor::new(payouter, network, postgres));
 }

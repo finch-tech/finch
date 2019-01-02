@@ -1,8 +1,7 @@
 table! {
-    app_statuses (id) {
-        id -> Int2,
-        eth_block_height -> Nullable<Numeric>,
-        btc_block_height -> Nullable<Numeric>,
+    btc_blockchain_statuses (network) {
+        network -> Varchar,
+        block_height -> Numeric,
     }
 }
 
@@ -22,6 +21,13 @@ table! {
         domain -> Varchar,
         created_at -> Timestamptz,
         typ -> Varchar,
+    }
+}
+
+table! {
+    eth_blockchain_statuses (network) {
+        network -> Varchar,
+        block_height -> Numeric,
     }
 }
 
@@ -116,9 +122,10 @@ table! {
 }
 
 allow_tables_to_appear_in_same_query!(
-    app_statuses,
+    btc_blockchain_statuses,
     btc_transactions,
     client_tokens,
+    eth_blockchain_statuses,
     eth_transactions,
     payments,
     payouts,

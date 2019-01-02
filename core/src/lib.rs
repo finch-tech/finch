@@ -32,6 +32,5 @@ pub mod db;
 mod models;
 
 pub use models::{
-    app_status, bitcoin, client_token, ethereum, payment, payout, store, user, voucher,
-    Error as ModelError,
+    bitcoin, client_token, ethereum, payment, payout, store, user, voucher, Error as ModelError,
 };

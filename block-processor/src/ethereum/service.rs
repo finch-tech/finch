@@ -6,17 +6,23 @@ use ethereum::{
     processor::Processor,
 };
 use rpc_client::ethereum::RpcClient;
+use types::ethereum::Network;
 
 pub fn run(
     postgres: postgres::PgExecutorAddr,
     rpc_client: RpcClient,
+    network: Network,
     skip_missed_blocks: bool,
 ) {
     let pg = postgres.clone();
-    let block_processor_address = Arbiter::start(move |_| Processor { postgres: pg });
+    let block_processor_address = Arbiter::start(move |_| Processor {
+        network,
+        postgres: pg,
+    });
 
-    let poller =
-        Arbiter::start(move |_| Poller::new(block_processor_address, postgres, rpc_client));
+    let poller = Arbiter::start(move |_| {
+        Poller::new(block_processor_address, postgres, rpc_client, network)
+    });
 
     poller.do_send(StartPolling { skip_missed_blocks });
 }

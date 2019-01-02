@@ -6,8 +6,9 @@ use uuid::Uuid;
 
 use auth::{AuthClient, JWTPayload};
 use core::{
-    app_status::AppStatus,
+    bitcoin::BlockchainStatus as BtcBlockchainStatus,
     client_token::ClientToken,
+    ethereum::BlockchainStatus as EthBlockchainStatus,
     payment::{Payment, PaymentPayload},
 };
 use services::{self, Error};
@@ -98,39 +99,48 @@ pub fn get_status(
     (state, client, path): (State<AppState>, AuthClient, Path<Uuid>),
 ) -> impl Future<Item = Json<Value>, Error = Error> {
     let id = path.into_inner();
-    let app_status = AppStatus::find(&state.postgres).from_err();
-    let payment = services::payments::get(id, &state.postgres).and_then(move |payment| {
-        validate_client(&payment, &client)
-            .into_future()
-            .and_then(move |_| future::ok(payment))
-    });
 
-    app_status.join(payment).and_then(move |(status, payment)| {
-        if let Some(block_height) = status.block_height(payment.crypto) {
-            let mut remaining_confirmations = U128::from(payment.confirmations_required);
+    services::payments::get(id, &state.postgres)
+        .and_then(move |payment| {
+            validate_client(&payment, &client)
+                .into_future()
+                .and_then(move |_| future::ok(payment))
+        })
+        .and_then(move |payment| {
+            let block_height_future: Box<Future<Item = U128, Error = Error>> = match payment.crypto
+            {
+                Crypto::Btc => Box::new(
+                    BtcBlockchainStatus::find(payment.btc_network.unwrap(), &state.postgres)
+                        .from_err()
+                        .map(move |status| status.block_height),
+                ),
+                Crypto::Eth => Box::new(
+                    EthBlockchainStatus::find(payment.eth_network.unwrap(), &state.postgres)
+                        .from_err()
+                        .map(move |status| status.block_height),
+                ),
+            };
 
-            if payment.status == PaymentStatus::Paid && payment.confirmations_required == 0 {
-                remaining_confirmations = U128::from(0);
-            }
+            block_height_future.and_then(move |block_height| {
+                let mut remaining_confirmations = U128::from(payment.confirmations_required);
 
-            if let Some(block_height_required) = payment.block_height_required {
-                if block_height_required < block_height {
+                if payment.status == PaymentStatus::Paid && payment.confirmations_required == 0 {
                     remaining_confirmations = U128::from(0);
-                } else {
-                    remaining_confirmations = block_height_required - block_height;
                 }
-            }
 
-            let res = future::ok(Json(json!({
-                "status": payment.status,
-                "confirmations_required": payment.confirmations_required,
-                "remaining_confirmations": remaining_confirmations,
-            })));
+                if let Some(block_height_required) = payment.block_height_required {
+                    if block_height_required < block_height {
+                        remaining_confirmations = U128::from(0);
+                    } else {
+                        remaining_confirmations = block_height_required - block_height;
+                    }
+                }
 
-            future::Either::A(res)
-        } else {
-            error!("No block height for {}", payment.crypto);
-            return future::Either::B(future::err(Error::InternalServerError));
-        }
-    })
+                future::ok(Json(json!({
+                    "status": payment.status,
+                    "confirmations_required": payment.confirmations_required,
+                    "remaining_confirmations": remaining_confirmations,
+                })))
+            })
+        })
 }

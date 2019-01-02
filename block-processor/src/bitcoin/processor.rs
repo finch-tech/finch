@@ -7,17 +7,17 @@ use futures::{future, stream, Future, Stream};
 
 use bitcoin::Error;
 use core::{
-    app_status::{AppStatus, AppStatusPayload},
-    bitcoin::{Block, Transaction},
+    bitcoin::{Block, BlockchainStatus, BlockchainStatusPayload, Transaction},
     db::postgres::PgExecutorAddr,
     payment::{Payment, PaymentPayload},
     payout::{Payout, PayoutPayload},
 };
-use types::{currency::Crypto, PaymentStatus, PayoutAction, PayoutStatus, U128};
+use types::{bitcoin::Network, currency::Crypto, PaymentStatus, PayoutAction, PayoutStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
 
 pub struct Processor {
+    pub network: Network,
     pub postgres: PgExecutorAddr,
 }
 
@@ -112,6 +112,7 @@ impl Handler<ProcessBlock> for Processor {
     fn handle(&mut self, ProcessBlock(block): ProcessBlock, _: &mut Self::Context) -> Self::Result {
         info!("Processing block: {}", block.hash);
         let postgres = self.postgres.clone();
+        let network = self.network;
 
         let mut addresses = Vec::new();
         let mut transactions = HashMap::new();
@@ -198,13 +199,12 @@ impl Handler<ProcessBlock> for Processor {
             })
             .for_each(move |_| future::ok(()))
             .and_then(move |_| {
-                let payload = AppStatusPayload {
-                    id: 1,
-                    eth_block_height: None,
-                    btc_block_height: Some(block_number),
+                let payload = BlockchainStatusPayload {
+                    network: None,
+                    block_height: block_number,
                 };
 
-                AppStatus::update(payload, &_postgres).from_err()
+                BlockchainStatus::update(network, payload, &_postgres).from_err()
             })
             .map(|_| ());
 

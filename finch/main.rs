@@ -68,7 +68,12 @@ fn main() {
                         &btc_conf.rpc_pass,
                     );
 
-                    block_processor::run(postgres.clone(), rpc_client.clone(), skip_missed_blocks);
+                    block_processor::run(
+                        postgres.clone(),
+                        rpc_client.clone(),
+                        btc_config.network,
+                        skip_missed_blocks,
+                    );
                     payouter::run(postgres.clone(), rpc_client.clone(), btc_config.network);
                 }
                 Crypto::Eth => {
@@ -79,7 +84,12 @@ fn main() {
 
                     let rpc_client = EthRpcClient::new(eth_config.rpc_url);
 
-                    block_processor::run(postgres.clone(), rpc_client.clone(), skip_missed_blocks);
+                    block_processor::run(
+                        postgres.clone(),
+                        rpc_client.clone(),
+                        eth_config.network,
+                        skip_missed_blocks,
+                    );
                     payouter::run(postgres.clone(), rpc_client.clone(), eth_config.network);
                 }
             }

@@ -8,9 +8,12 @@ use bitcoin::{
     processor::{ProcessBlock, ProcessMempoolTransactions, ProcessorAddr},
     Error,
 };
-use core::{app_status::AppStatus, bitcoin::Transaction, db::postgres::PgExecutorAddr};
+use core::{
+    bitcoin::{BlockchainStatus, BlockchainStatusPayload, Transaction},
+    db::postgres::PgExecutorAddr,
+};
 use rpc_client::{bitcoin::RpcClient, errors::Error as RpcClientError};
-use types::{H256, U128};
+use types::{bitcoin::Network, H256, U128};
 
 const RETRY_LIMIT: usize = 10;
 
@@ -18,14 +21,21 @@ pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
     rpc_client: RpcClient,
+    network: Network,
 }
 
 impl Poller {
-    pub fn new(processor: ProcessorAddr, postgres: PgExecutorAddr, rpc_client: RpcClient) -> Self {
+    pub fn new(
+        processor: ProcessorAddr,
+        postgres: PgExecutorAddr,
+        rpc_client: RpcClient,
+        network: Network,
+    ) -> Self {
         Poller {
             processor,
             postgres,
             rpc_client,
+            network,
         }
     }
 }
@@ -103,64 +113,84 @@ impl Handler<Bootstrap> for Poller {
         let address = ctx.address();
         let processor = self.processor.clone();
         let rpc_client = self.rpc_client.clone();
+        let postgres = self.postgres.clone();
+        let network = self.network;
 
-        let app_status = AppStatus::find(&self.postgres).from_err::<Error>();
-        let current_block_number = rpc_client.get_block_count().from_err::<Error>();
+        let bootstrap_process = rpc_client
+            .get_block_count()
+            .from_err::<Error>()
+            .and_then(move |current_block_number| {
+                BlockchainStatus::find(network, &postgres)
+                    .from_err()
+                    .or_else(
+                        move |e| -> Box<Future<Item = BlockchainStatus, Error = Error>> {
+                            match e {
+                                Error::ModelError(_) => {
+                                    let payload = BlockchainStatusPayload {
+                                        network: Some(network),
+                                        block_height: Some(current_block_number),
+                                    };
 
-        let bootstrap_process = app_status
-            .join(current_block_number)
+                                    Box::new(
+                                        BlockchainStatus::insert(payload, &postgres).from_err(),
+                                    )
+                                }
+                                _ => Box::new(future::err(e)),
+                            }
+                        },
+                    )
+                    .map(move |status| (status, current_block_number))
+            })
             .from_err::<Error>()
             .and_then(move |(status, current_block_number)| {
+                let block_height = status.block_height;
+
                 if skip_missed_blocks {
                     return future::Either::A(future::ok(current_block_number));
                 }
 
-                if let Some(block_height) = status.btc_block_height {
-                    if block_height == current_block_number {
-                        return future::Either::A(future::ok(block_height));
-                    }
-
-                    info!(
-                        "Fetching missed blocks: {} ~ {}",
-                        block_height + U128::from(1),
-                        current_block_number
-                    );
-
-                    future::Either::B(
-                        stream::unfold(block_height + U128::from(1), move |block_number| {
-                            if block_number <= current_block_number {
-                                return Some(future::ok::<_, _>((
-                                    block_number,
-                                    block_number + U128::from(1),
-                                )));
-                            }
-
-                            None
-                        })
-                        .for_each(move |block_number| {
-                            let processor = processor.clone();
-                            let rpc_client = rpc_client.clone();
-
-                            rpc_client
-                                .get_block_by_number(block_number)
-                                .from_err()
-                                .and_then(move |block| {
-                                    processor
-                                        .send(ProcessBlock(block))
-                                        .from_err()
-                                        .and_then(|res| res.map_err(|e| Error::from(e)))
-                                })
-                        })
-                        .and_then(move |_| {
-                            address
-                                .send(Bootstrap { skip_missed_blocks })
-                                .from_err()
-                                .and_then(|res| res.map_err(|e| Error::from(e)))
-                        }),
-                    )
-                } else {
-                    return future::Either::A(future::ok(current_block_number));
+                if block_height == current_block_number {
+                    return future::Either::A(future::ok(block_height));
                 }
+
+                info!(
+                    "Fetching missed blocks: {} ~ {}",
+                    block_height + U128::from(1),
+                    current_block_number
+                );
+
+                future::Either::B(
+                    stream::unfold(block_height + U128::from(1), move |block_number| {
+                        if block_number <= current_block_number {
+                            return Some(future::ok::<_, _>((
+                                block_number,
+                                block_number + U128::from(1),
+                            )));
+                        }
+
+                        None
+                    })
+                    .for_each(move |block_number| {
+                        let processor = processor.clone();
+                        let rpc_client = rpc_client.clone();
+
+                        rpc_client
+                            .get_block_by_number(block_number)
+                            .from_err()
+                            .and_then(move |block| {
+                                processor
+                                    .send(ProcessBlock(block))
+                                    .from_err()
+                                    .and_then(|res| res.map_err(|e| Error::from(e)))
+                            })
+                    })
+                    .and_then(move |_| {
+                        address
+                            .send(Bootstrap { skip_missed_blocks })
+                            .from_err()
+                            .and_then(|res| res.map_err(|e| Error::from(e)))
+                    }),
+                )
             });
 
         Box::new(bootstrap_process)

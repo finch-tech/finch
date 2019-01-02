@@ -9,13 +9,12 @@ extern crate data_encoding;
 extern crate diesel;
 #[macro_use]
 extern crate failure;
+extern crate env_logger;
 extern crate futures;
 extern crate jsonwebtoken as jwt;
 extern crate lettre;
 extern crate lettre_email;
-#[macro_use]
 extern crate log;
-extern crate env_logger;
 extern crate native_tls;
 extern crate num_cpus;
 extern crate openssl;
