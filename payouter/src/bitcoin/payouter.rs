@@ -46,6 +46,13 @@ impl Payouter {
         store
             .join3(payment, transaction_fee)
             .and_then(move |(store, payment, transaction_fee)| {
+                if transaction_fee == 0 as f64 {
+                    return future::err(Error::InvalidGasPrice);
+                }
+
+                future::ok((store, payment, transaction_fee))
+            })
+            .and_then(move |(store, payment, transaction_fee)| {
                 Transaction::find_by_txid(payment.clone().transaction_hash.unwrap(), &postgres)
                     .from_err()
                     .and_then(move |transaction| {
@@ -78,9 +85,17 @@ impl Payouter {
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let rpc_client = self.rpc_client.clone();
 
-        self.prepare_payout(payout).and_then(
-            move |(wallet, transaction, store, transaction_fee)| {
-                if let Some(payout_addresses) = store.btc_payout_addresses {
+        self.prepare_payout(payout)
+            .and_then(move |(wallet, transaction, store, transaction_fee)| {
+                match store.btc_payout_addresses {
+                    Some(payout_addresses) => {
+                        future::ok((wallet, transaction, transaction_fee, payout_addresses))
+                    }
+                    None => future::err(Error::NoPayoutAddress),
+                }
+            })
+            .and_then(
+                move |(wallet, transaction, transaction_fee, payout_addresses)| {
                     let recepient = wallet.get_btc_address();
 
                     let mut utxo_n = 0;
@@ -112,14 +127,9 @@ impl Payouter {
                     tx.sign(wallet.secret_key, wallet.public_key);
                     let raw_transaction = tx.into_raw_transaction();
 
-                    return future::Either::A(
-                        rpc_client.send_raw_transaction(raw_transaction).from_err(),
-                    );
-                }
-
-                future::Either::B(future::err(Error::NoPayoutAddress))
-            },
-        )
+                    rpc_client.send_raw_transaction(raw_transaction).from_err()
+                },
+            )
     }
 }
 

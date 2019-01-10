@@ -49,6 +49,13 @@ impl Payouter {
         store
             .join3(payment, gas_price)
             .and_then(move |(store, payment, gas_price)| {
+                if gas_price == U256::from(0) {
+                    return future::err(Error::InvalidGasPrice);
+                }
+
+                future::ok((store, payment, gas_price))
+            })
+            .and_then(move |(store, payment, gas_price)| {
                 let transaction =
                     Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                         .from_err();
@@ -95,36 +102,39 @@ impl Payouter {
         let chain_id = self.network.chain_id();
         let rpc_client = self.rpc_client.clone();
 
-        self.prepare_payout(payout).and_then(
-            move |(wallet, transaction, store, gas_price, nonce)| {
-                if let Some(eth_payout_addresses) = store.eth_payout_addresses {
+        self.prepare_payout(payout)
+            .and_then(move |(wallet, transaction, store, gas_price, nonce)| {
+                match store.eth_payout_addresses {
+                    Some(payout_addresses) => {
+                        future::ok((wallet, transaction, gas_price, nonce, payout_addresses))
+                    }
+                    None => future::err(Error::NoPayoutAddress),
+                }
+            })
+            .and_then(
+                move |(wallet, transaction, gas_price, nonce, payout_addresses)| {
                     let value = transaction.value - gas_price * U256::from(21_000);
 
                     let raw_transaction = UnsignedTransaction {
                         nonce,
                         gas_price,
                         gas: U256::from(21_000),
-                        to: eth_payout_addresses[0],
+                        to: payout_addresses[0],
                         value,
                         data: b"".to_vec(),
                     };
 
-                    return future::Either::A(
-                        raw_transaction
-                            .sign(wallet.secret_key, chain_id)
-                            .into_future()
-                            .from_err()
-                            .and_then(move |signed_transaction| {
-                                rpc_client
-                                    .send_raw_transaction(signed_transaction)
-                                    .from_err()
-                            }),
-                    );
-                }
-
-                future::Either::B(future::err(Error::NoPayoutAddress))
-            },
-        )
+                    raw_transaction
+                        .sign(wallet.secret_key, chain_id)
+                        .into_future()
+                        .from_err()
+                        .and_then(move |signed_transaction| {
+                            rpc_client
+                                .send_raw_transaction(signed_transaction)
+                                .from_err()
+                        })
+                },
+            )
     }
 
     pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {

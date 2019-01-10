@@ -20,6 +20,8 @@ pub enum Error {
     MailboxError(#[cause] MailboxError),
     #[fail(display = "No payout address")]
     NoPayoutAddress,
+    #[fail(display = "Invalid gas price")]
+    InvalidGasPrice,
 }
 
 impl From<KeyringError> for Error {
