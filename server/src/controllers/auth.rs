@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use auth::AuthUser;
 use core::user::UserPayload;
-use state::AppState;
 use services::{self, Error};
+use state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct RegistrationParams {
@@ -23,18 +23,9 @@ pub fn registration(
         return Box::new(err(Error::BadRequest));
     }
 
-    let payload = UserPayload {
-        email: Some(params.email),
-        password: Some(params.password),
-        salt: None,
-        created_at: None,
-        updated_at: None,
-        is_verified: None,
-        verification_token: None,
-        verification_token_expires_at: None,
-        reset_token: None,
-        reset_token_expires_at: None,
-    };
+    let mut payload = UserPayload::new();
+    payload.email = Some(params.email);
+    payload.password = Some(params.password);
 
     Box::new(
         services::users::register(

@@ -7,7 +7,7 @@ use rpc_client::bitcoin::{RpcClient, UnsignedTransaction};
 use core::{
     bitcoin::{ScriptType, Transaction},
     db::postgres::PgExecutorAddr,
-    payment::{Payment, PaymentPayload},
+    payment::PaymentPayload,
     payout::{Payout, PayoutPayload},
     store::Store,
 };
@@ -167,15 +167,17 @@ impl Handler<PayOut> for Payouter {
                     let mut payout_payload = PayoutPayload::from(payout);
                     payout_payload.transaction_hash = Some(Some(hash));
                     payout_payload.status = Some(PayoutStatus::PaidOut);
-                    let payout_update =
-                        Payout::update(payout.id, payout_payload, &postgres).from_err();
 
                     let mut payment_payload = PaymentPayload::new();
                     payment_payload.status = Some(PaymentStatus::Completed);
-                    let payment_update =
-                        Payment::update(payout.payment_id, payment_payload, &postgres).from_err();
 
-                    payout_update.join(payment_update)
+                    Payout::update_with_payment(
+                        payout.id,
+                        payout_payload,
+                        payment_payload,
+                        &postgres,
+                    )
+                    .from_err()
                 })
                 .map(move |_| ()),
         )

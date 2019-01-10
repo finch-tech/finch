@@ -27,23 +27,10 @@ pub fn create(
         params.name = String::from("My Store");
     }
 
-    let payload = StorePayload {
-        id: None,
-        name: Some(params.name),
-        description: Some(params.description),
-        owner_id: Some(user.id),
-        private_key: None,
-        public_key: None,
-        created_at: None,
-        updated_at: None,
-        eth_payout_addresses: None,
-        eth_confirmations_required: None,
-        btc_payout_addresses: None,
-        btc_confirmations_required: None,
-        mnemonic: None,
-        hd_path: None,
-        deleted_at: None,
-    };
+    let mut payload = StorePayload::new();
+    payload.name = Some(params.name);
+    payload.description = Some(params.description);
+    payload.owner_id = Some(user.id);
 
     services::stores::create(payload, state.btc_network, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))

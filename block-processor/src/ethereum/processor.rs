@@ -9,10 +9,10 @@ use core::{
     db::postgres::PgExecutorAddr,
     ethereum::{Block, BlockchainStatus, BlockchainStatusPayload, Transaction},
     payment::{Payment, PaymentPayload},
-    payout::{Payout, PayoutPayload},
+    payout::Payout,
 };
 use ethereum::errors::Error;
-use types::{currency::Crypto, ethereum::Network, PaymentStatus, PayoutAction, PayoutStatus, U128};
+use types::{currency::Crypto, ethereum::Network, PaymentStatus, U128};
 
 pub type ProcessorAddr = Addr<Processor>;
 
@@ -57,29 +57,7 @@ impl Handler<ProcessBlock> for Processor {
             .and_then(move |payment| {
                 let transaction = transactions.get(&payment.address.clone()).unwrap();
 
-                let mut payment_payload = PaymentPayload::from(payment.clone());
-
-                // Block height required = transaction's block number + required number of confirmations - 1.
-                let block_height_required = block.number.unwrap()
-                    + U128::from(payment.confirmations_required)
-                    - U128::from(1);
-
-                payment_payload.transaction_hash = Some(transaction.hash);
-                payment_payload.block_height_required = Some(block_height_required);
-                payment_payload.set_paid_at();
-
-                let mut payout_payload = PayoutPayload {
-                    action: None,
-                    status: Some(PayoutStatus::Pending),
-                    store_id: Some(payment.store_id),
-                    payment_id: Some(payment.id),
-                    typ: Some(Crypto::Eth),
-                    block_height_required: Some(block_height_required),
-                    transaction_hash: None,
-                    created_at: None,
-                };
-
-                let ether_paid = match BigDecimal::from_str(&format!("{}", transaction.value)) {
+                let amount_paid = match BigDecimal::from_str(&format!("{}", transaction.value)) {
                     Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
                     Err(_) => {
                         // TODO: Handle error.
@@ -87,37 +65,19 @@ impl Handler<ProcessBlock> for Processor {
                     }
                 };
 
-                let charge = payment.charge;
-                payment_payload.amount_paid = Some(ether_paid.clone());
+                // Block height required = transaction's block number + required number of confirmations - 1.
+                let block_height_required = block.number.unwrap()
+                    + U128::from(payment.confirmations_required)
+                    - U128::from(1);
 
-                match payment.status {
-                    PaymentStatus::Pending => {
-                        // Paid enough.
-                        if ether_paid >= charge {
-                            payment_payload.status = Some(PaymentStatus::Confirmed);
-                            payout_payload.action = Some(PayoutAction::Payout);
-                        }
-
-                        // Insufficient amount paid.
-                        if ether_paid < charge {
-                            payment_payload.status = Some(PaymentStatus::InsufficientAmount);
-                            payout_payload.action = Some(PayoutAction::Refund);
-                        }
-
-                        // Expired
-                        if payment.expires_at < Utc::now() {
-                            payment_payload.status = Some(PaymentStatus::Expired);
-                            payout_payload.action = Some(PayoutAction::Refund);
-                        }
-                    }
-                    _ => payout_payload.action = Some(PayoutAction::Refund),
-                };
-
-                let transaction = Transaction::insert(transaction.clone(), &postgres).from_err();
-                let payment = Payment::update(payment.id, payment_payload, &postgres).from_err();
-                let payout = Payout::insert(payout_payload, &postgres).from_err();
-
-                transaction.join3(payment, payout)
+                Payout::insert_eth_payout(
+                    amount_paid,
+                    block_height_required,
+                    payment,
+                    transaction.to_owned(),
+                    &postgres,
+                )
+                .from_err()
             })
             .for_each(move |_| future::ok(()))
             .and_then(move |_| {
