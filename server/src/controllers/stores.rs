@@ -7,7 +7,7 @@ use auth::AuthUser;
 use core::store::{Store, StorePayload};
 use services::{self, Error};
 use state::AppState;
-use types::H160;
+use types::{bitcoin::Address as BtcAddress, H160};
 
 const LIMIT: i64 = 15;
 const OFFSET: i64 = 0;
@@ -42,7 +42,7 @@ pub struct PatchParams {
     pub description: Option<String>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<i32>,
-    pub btc_payout_addresses: Option<Vec<String>>, // TODO:: Use strict type for base58 address.
+    pub btc_payout_addresses: Option<Vec<BtcAddress>>, // TODO:: Use strict type for base58 address.
     pub btc_confirmations_required: Option<i32>,
 }
 

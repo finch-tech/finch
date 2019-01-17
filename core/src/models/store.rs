@@ -11,7 +11,7 @@ use db::{
 };
 use models::{user::User, Error};
 use schema::stores;
-use types::{currency::Crypto, PrivateKey, PublicKey, H160};
+use types::{bitcoin::Address as BtcAddress, currency::Crypto, PrivateKey, PublicKey, H160};
 
 #[derive(Debug, Insertable, AsChangeset, Deserialize)]
 #[table_name = "stores"]
@@ -26,7 +26,7 @@ pub struct StorePayload {
     pub updated_at: Option<DateTime<Utc>>,
     pub eth_payout_addresses: Option<Option<Vec<H160>>>,
     pub eth_confirmations_required: Option<Option<i32>>,
-    pub btc_payout_addresses: Option<Option<Vec<String>>>,
+    pub btc_payout_addresses: Option<Option<Vec<BtcAddress>>>,
     pub btc_confirmations_required: Option<Option<i32>>,
     pub mnemonic: Option<String>,
     pub hd_path: Option<String>,
@@ -106,7 +106,7 @@ pub struct Store {
     pub updated_at: DateTime<Utc>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<i32>,
-    pub btc_payout_addresses: Option<Vec<String>>,
+    pub btc_payout_addresses: Option<Vec<BtcAddress>>,
     pub btc_confirmations_required: Option<i32>,
     pub mnemonic: String,
     pub hd_path: String,

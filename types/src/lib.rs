@@ -14,6 +14,7 @@ extern crate failure;
 extern crate libc;
 extern crate ripemd160;
 extern crate rlp;
+extern crate rust_base58;
 extern crate rustc_hex;
 extern crate serde;
 #[macro_use]

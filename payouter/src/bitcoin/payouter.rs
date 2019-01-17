@@ -121,7 +121,7 @@ impl Payouter {
 
                     let mut tx = UnsignedTransaction::new(
                         vec![(transaction.clone(), utxo.n)],
-                        vec![(payout_addresses[0].clone(), value)],
+                        vec![(payout_addresses[0].to_string().clone(), value)],
                     );
 
                     tx.sign(wallet.secret_key, wallet.public_key);
