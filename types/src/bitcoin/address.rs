@@ -1,5 +1,6 @@
 use std::{
     io::Write,
+    ops::{Deref, DerefMut},
     str::{from_utf8, FromStr},
     string::ToString,
 };
@@ -12,10 +13,34 @@ use diesel::{
 };
 use rust_base58::FromBase58;
 
+use bitcoin::network::Network;
 use h256::H256;
+
+pub enum AddressType {
+    P2PKH,
+    P2SH,
+}
 
 #[derive(FromSqlRow, AsExpression, Debug, Serialize, Clone)]
 pub struct Address(String);
+
+impl Address {
+    fn address_type(&self) -> AddressType {
+        match self.chars().next().unwrap() {
+            '1' | 'm' | 'n' => AddressType::P2PKH,
+            '3' | '2' => AddressType::P2SH,
+            _ => panic!("invalid bitcion address found"),
+        }
+    }
+
+    fn network(&self) -> Network {
+        match self.chars().next().unwrap() {
+            'm' | 'n' => Network::MainNet,
+            '2' => Network::TestNet,
+            _ => panic!("invalid bitcoin address found"),
+        }
+    }
+}
 
 impl FromStr for Address {
     type Err = String;
@@ -30,6 +55,12 @@ impl FromStr for Address {
         if raw[21..25] != H256::from_data(&raw[0..21])[0..4] {
             return Err(String::from("Invalid bitcoin address checksum."));
         }
+
+        // Only support P2PKH for now.
+        match s.chars().next().unwrap() {
+            '1' | 'm' | 'n' => (),
+            _ => return Err(String::from("Address type not supported.")),
+        };
 
         Ok(Address(s.to_owned()))
     }
@@ -95,5 +126,19 @@ impl FromSql<VarChar, Pg> for Address {
             Ok(s) => Address::from_str(&s).map_err(|e| e.into()),
             Err(e) => Err(e.into()),
         }
+    }
+}
+
+impl Deref for Address {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Address {
+    fn deref_mut(&mut self) -> &mut String {
+        &mut self.0
     }
 }
