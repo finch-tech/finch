@@ -61,7 +61,7 @@ impl Handler<ProcessBlock> for Processor {
                     Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
                     Err(_) => {
                         // TODO: Handle error.
-                        panic!("Failed to parse transaction amount.");
+                        panic!("failed to parse transaction amount");
                     }
                 };
 
@@ -131,7 +131,7 @@ impl Handler<ProcessPendingTransactions> for Processor {
                     Ok(value) => value / BigDecimal::from_str("1000000000000000000").unwrap(),
                     Err(_) => {
                         // TODO: Handle error.
-                        panic!("Failed to parse transaction amount.");
+                        panic!("failed to parse transaction amount");
                     }
                 };
 

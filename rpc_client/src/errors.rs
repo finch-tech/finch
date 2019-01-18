@@ -1,12 +1,12 @@
-use actix_web::{error::PayloadError, client::SendRequestError};
+use actix_web::{client::SendRequestError, error::PayloadError};
 use secp256k1::Error as Secp256k1Error;
 use serde_json::Error as SerdeError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Response error")]
+    #[fail(display = "response error")]
     ResponseError,
-    #[fail(display = "Empty response error")]
+    #[fail(display = "empty response error")]
     EmptyResponseError,
     #[fail(display = "{}", _0)]
     SerdeError(#[cause] SerdeError),

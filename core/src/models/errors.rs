@@ -10,7 +10,7 @@ pub enum Error {
     MailboxError(#[cause] MailboxError),
     #[fail(display = "{}", _0)]
     JwtError(#[cause] JwtError),
-    #[fail(display = "Property not found")]
+    #[fail(display = "property not found")]
     PropertyNotFound,
 }
 

@@ -2,15 +2,15 @@ use std::num::ParseIntError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Invalid word length {}", _0)]
+    #[fail(display = "invalid word length {}", _0)]
     InvalidWordLength(usize),
     #[fail(display = "{}", _0)]
     ParseIntError(#[cause] ParseIntError),
-    #[fail(display = "Invalid word {} provided", _0)]
+    #[fail(display = "invalid word {} provided", _0)]
     InvalidWord(String),
     #[fail(display = "{}", _0)]
     CustomError(String),
-    #[fail(display = "Invalid checksum")]
+    #[fail(display = "invalid checksum")]
     InvalidChecksum,
 }
 

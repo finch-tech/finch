@@ -1,7 +1,10 @@
 use std::ops::Deref;
 
 use actix::prelude::*;
-use diesel::{r2d2::{ConnectionManager, Pool}, pg::PgConnection};
+use diesel::{
+    pg::PgConnection,
+    r2d2::{ConnectionManager, Pool},
+};
 use r2d2;
 
 pub type PgExecutorAddr = Addr<PgExecutor>;
@@ -15,7 +18,7 @@ pub fn init_pool(url: &str) -> PgPool {
 
     r2d2::Pool::builder()
         .build(manager)
-        .expect("DB pool failed.")
+        .expect("DB pool failed")
 }
 
 pub struct PgExecutor(pub PgPool);

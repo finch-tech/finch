@@ -52,7 +52,7 @@ impl FromStr for Fiat {
     fn from_str(s: &str) -> Result<Fiat, Self::Err> {
         match s.as_ref() {
             "usd" => Ok(Fiat::Usd),
-            _ => Err(String::from("Invalid value for fiat.")),
+            _ => Err(String::from("invalid value for fiat")),
         }
     }
 }

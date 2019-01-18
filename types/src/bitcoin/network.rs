@@ -53,7 +53,7 @@ impl FromStr for Network {
         match s.as_ref() {
             "testnet" => Ok(Network::TestNet),
             "mainnet" => Ok(Network::MainNet),
-            _ => Err(String::from("Invalid value for bitcoin network.")),
+            _ => Err(String::from("invalid value for bitcoin network")),
         }
     }
 }

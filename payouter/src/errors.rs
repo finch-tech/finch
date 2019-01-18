@@ -6,9 +6,9 @@ use hd_keyring::Error as KeyringError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Response error")]
+    #[fail(display = "response error")]
     ResponseError,
-    #[fail(display = "Payment iteration error")]
+    #[fail(display = "payment iteration error")]
     PaymentIterationError(Vec<Error>),
     #[fail(display = "{}", _0)]
     KeyringError(#[cause] KeyringError),
@@ -18,9 +18,9 @@ pub enum Error {
     RpcClientError(#[cause] RpcClientError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
-    #[fail(display = "No payout address")]
+    #[fail(display = "no payout address")]
     NoPayoutAddress,
-    #[fail(display = "Invalid gas price")]
+    #[fail(display = "invalid gas price")]
     InvalidGasPrice,
 }
 

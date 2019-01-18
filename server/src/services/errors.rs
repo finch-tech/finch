@@ -36,11 +36,11 @@ pub enum Error {
     FromHexError(#[cause] FromHexError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
-    #[fail(display = "Incorrect password")]
+    #[fail(display = "incorrect password")]
     IncorrectPassword,
-    #[fail(display = "Invalid request account")]
+    #[fail(display = "invalid request account")]
     InvalidRequestAccount,
-    #[fail(display = "Currency not supported")]
+    #[fail(display = "currency not supported")]
     CurrencyNotSupported,
     #[fail(display = "{}", _0)]
     SendRequestError(#[cause] SendRequestError),
@@ -48,13 +48,13 @@ pub enum Error {
     PayloadError(#[cause] error::PayloadError),
     #[fail(display = "{}", _0)]
     SerdeError(#[cause] SerdeError),
-    #[fail(display = "Payment not yet confirmed")]
+    #[fail(display = "payment not yet confirmed")]
     PaymentNotConfirmed,
     #[fail(display = "{}", _0)]
     MailerError(#[cause] MailerError),
-    #[fail(display = "Bad request")]
+    #[fail(display = "bad request")]
     BadRequest,
-    #[fail(display = "Internal server error")]
+    #[fail(display = "internal server error")]
     InternalServerError,
 }
 

@@ -55,7 +55,7 @@ impl FromStr for Crypto {
         match s.as_ref() {
             "btc" => Ok(Crypto::Btc),
             "eth" => Ok(Crypto::Eth),
-            _ => Err(String::from("Invalid value for crypto.")),
+            _ => Err(String::from("invalid value for crypto")),
         }
     }
 }

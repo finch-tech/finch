@@ -8,19 +8,19 @@ pub enum Error {
     Bip39Error(#[cause] Bip39Error),
     #[fail(display = "{}", _0)]
     Secp256k1Error(#[cause] Secp256k1Error),
-    #[fail(display = "Invalid derivation path")]
+    #[fail(display = "invalid derivation path")]
     InvalidDerivationPath,
-    #[fail(display = "Invalid derivation")]
+    #[fail(display = "invalid derivation")]
     InvalidDerivation,
-    #[fail(display = "Invalid key length")]
+    #[fail(display = "invalid key length")]
     InvalidKeyLength,
-    #[fail(display = "Invalid base58 byte")]
+    #[fail(display = "invalid base58 byte")]
     InvalidBase58Byte,
-    #[fail(display = "Bad checksum")]
+    #[fail(display = "bad checksum")]
     BadChecksum,
     #[fail(display = "IO error")]
     IoError(#[cause] IoError),
-    #[fail(display = "Invalid network")]
+    #[fail(display = "invalid network")]
     InvalidNetwork,
 }
 

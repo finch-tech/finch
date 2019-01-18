@@ -4,7 +4,7 @@ use serde_json::Error as SerdeError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Response error")]
+    #[fail(display = "response error")]
     ResponseError,
     #[fail(display = "{}", _0)]
     SerdeError(#[cause] SerdeError),

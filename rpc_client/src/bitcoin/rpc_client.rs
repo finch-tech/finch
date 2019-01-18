@@ -266,7 +266,7 @@ impl RpcClient {
                             }
                         }
 
-                        panic!("Got invalid fee rate.");
+                        panic!("got invalid fee rate.");
                     }
                     None => err(Error::EmptyResponseError),
                 }

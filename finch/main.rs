@@ -65,7 +65,7 @@ fn main() {
                     use block_processor::bitcoin::service as block_processor;
                     use payouter::bitcoin::service as payouter;
 
-                    let btc_config = config.bitcoin.clone().expect("No bitcoin configuration.");
+                    let btc_config = config.bitcoin.clone().expect("no bitcoin configuration");
 
                     let btc_conf = btc_config.clone();
                     let rpc_client = BtcRpcClient::new(
@@ -86,7 +86,7 @@ fn main() {
                     use block_processor::ethereum::service as block_processor;
                     use payouter::ethereum::service as payouter;
 
-                    let eth_config = config.clone().ethereum.expect("No ethereum configuration.");
+                    let eth_config = config.clone().ethereum.expect("no ethereum configuration");
 
                     let rpc_client = EthRpcClient::new(eth_config.rpc_url);
 

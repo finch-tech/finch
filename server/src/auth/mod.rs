@@ -6,8 +6,8 @@ use jwt;
 use uuid::Uuid;
 
 use core::client_token::ClientToken;
-use state::AppState;
 use services;
+use state::AppState;
 use types::PrivateKey;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,27 +42,23 @@ impl FromRequest<AppState> for JWTPayload {
 
         let auth_header = match req.headers().get("authorization") {
             Some(auth_header) => auth_header,
-            None => return Err(error::ErrorUnauthorized("Invalid authorization token.")),
+            None => return Err(error::ErrorUnauthorized("invalid authorization token")),
         };
 
         let auth_header_parts: Vec<_> = auth_header.to_str().unwrap().split_whitespace().collect();
         if auth_header_parts.len() != 2 {
-            return Err(error::ErrorUnauthorized("Invalid authorization token."));
+            return Err(error::ErrorUnauthorized("invalid authorization token"));
         }
 
         if auth_header_parts.len() != 2 || auth_header_parts[0].to_lowercase() != "bearer" {
-            return Err(error::ErrorUnauthorized("Invalid authorization token."));
+            return Err(error::ErrorUnauthorized("invalid authorization token"));
         }
 
         let validation = jwt::Validation::new(jwt::Algorithm::RS256);
 
-        match jwt::decode::<JWTPayload>(
-            &auth_header_parts[1],
-            &state.jwt_public,
-            &validation,
-        ) {
+        match jwt::decode::<JWTPayload>(&auth_header_parts[1], &state.jwt_public, &validation) {
             Ok(token) => Ok(token.claims),
-            Err(_) => Err(error::ErrorUnauthorized("Invalid authorization token.")),
+            Err(_) => Err(error::ErrorUnauthorized("invalid authorization token")),
         }
     }
 }
@@ -93,7 +89,7 @@ impl FromRequest<AppState> for AuthClient {
 
         match token.client {
             Some(client) => Ok(client),
-            None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
+            None => Err(error::ErrorUnauthorized("invalid authorization token")),
         }
     }
 }
@@ -112,7 +108,7 @@ impl FromRequest<AppState> for AuthUser {
 
         match token.user {
             Some(user) => Ok(user),
-            None => Err(error::ErrorUnauthorized("Invalid authorization token.")),
+            None => Err(error::ErrorUnauthorized("invalid authorization token")),
         }
     }
 }
@@ -128,51 +124,41 @@ impl FromRequest<AppState> for ClientToken {
         let auth_header = match headers.get("authorization") {
             Some(auth_header) => auth_header,
             None => {
-                return Box::new(err(error::ErrorUnauthorized(
-                    "Invalid authorization token.",
-                )));
+                return Box::new(err(error::ErrorUnauthorized("invalid authorization token")));
             }
         };
 
         let auth_header_parts: Vec<_> = auth_header.to_str().unwrap().split_whitespace().collect();
 
         if auth_header_parts.len() != 2 {
-            return Box::new(err(error::ErrorUnauthorized(
-                "Invalid authorization token.",
-            )));
+            return Box::new(err(error::ErrorUnauthorized("invalid authorization token")));
         }
 
         if auth_header_parts.len() != 2 || auth_header_parts[0].to_lowercase() != "bearer" {
-            return Box::new(err(error::ErrorUnauthorized(
-                "Invalid authorization token.",
-            )));
+            return Box::new(err(error::ErrorUnauthorized("invalid authorization token")));
         }
 
         let token = match decode(&auth_header_parts[1]) {
             Ok(decoded) => match Uuid::from_bytes(&decoded) {
                 Ok(token) => token,
                 Err(_) => {
-                    return Box::new(err(error::ErrorUnauthorized(
-                        "Invalid authorization token.",
-                    )));
+                    return Box::new(err(error::ErrorUnauthorized("invalid authorization token")));
                 }
             },
             Err(_) => {
-                return Box::new(err(error::ErrorUnauthorized(
-                    "Invalid authorization token.",
-                )));
+                return Box::new(err(error::ErrorUnauthorized("invalid authorization token")));
             }
         };
 
         let origin_header = match headers.get("origin") {
             Some(origin_header) => origin_header,
-            None => return Box::new(err(error::ErrorUnauthorized("Invalid origin header."))),
+            None => return Box::new(err(error::ErrorUnauthorized("invalid origin header"))),
         };
 
         let origin_header_parts: Vec<_> = origin_header.to_str().unwrap().split("://").collect();
 
         if origin_header_parts.len() != 2 {
-            return Box::new(err(error::ErrorUnauthorized("Invalid origin header.")));
+            return Box::new(err(error::ErrorUnauthorized("invalid origin header")));
         }
 
         Box::new(

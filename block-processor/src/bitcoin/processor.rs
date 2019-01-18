@@ -67,7 +67,7 @@ impl Handler<ProcessMempoolTransactions> for Processor {
                 let vout = outputs.get(&payment.address).unwrap();
 
                 let btc_paid = BigDecimal::from_str(&format!("{}", vout.value))
-                    .expect("Failed to parse transaction amount.");
+                    .expect("failed to parse transaction amount");
 
                 // Todo: Verify transaction fee.
 
@@ -142,7 +142,7 @@ impl Handler<ProcessBlock> for Processor {
                     "{}",
                     outputs.get(&payment.address).unwrap().value
                 ))
-                .expect("Failed to parse transaction amount.");
+                .expect("failed to parse transaction amount");
 
                 // Block height required = transaction's block number + required number of confirmations - 1.
                 let block_height_required = block.height.unwrap()

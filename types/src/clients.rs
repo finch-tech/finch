@@ -1,7 +1,12 @@
 use std::fmt;
 use std::io::Write;
 
-use diesel::{pg::Pg,serialize::{self, Output, ToSql},types::VarChar,deserialize::{self, FromSql}};
+use diesel::{
+    deserialize::{self, FromSql},
+    pg::Pg,
+    serialize::{self, Output, ToSql},
+    types::VarChar,
+};
 
 #[derive(FromSqlRow, AsExpression, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Hash)]
 #[serde(rename_all = "snake_case")]
@@ -38,7 +43,7 @@ impl FromSql<VarChar, Pg> for Client {
 
         match text.as_ref() {
             "web" => Ok(Client::Web),
-            v => Err(format!("Unknown value {} for client found", v).into()),
+            v => Err(format!("unknown value {} for client found", v).into()),
         }
     }
 }

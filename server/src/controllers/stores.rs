@@ -42,7 +42,7 @@ pub struct PatchParams {
     pub description: Option<String>,
     pub eth_payout_addresses: Option<Vec<H160>>,
     pub eth_confirmations_required: Option<i32>,
-    pub btc_payout_addresses: Option<Vec<BtcAddress>>, // TODO:: Use strict type for base58 address.
+    pub btc_payout_addresses: Option<Vec<BtcAddress>>,
     pub btc_confirmations_required: Option<i32>,
 }
 

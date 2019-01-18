@@ -15,7 +15,7 @@ pub fn init_pool(url: &str) -> RedisPool {
     let manager = RedisConnectionManager::new(url).unwrap();
     r2d2::Pool::builder()
         .build(manager)
-        .expect("Redis pool failed.")
+        .expect("Redis pool failed")
 }
 
 pub struct RedisExecutor(pub RedisPool);

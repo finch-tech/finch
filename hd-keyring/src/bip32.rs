@@ -96,7 +96,7 @@ impl FromStr for DerivationPath {
         for (i, c) in entries.iter().enumerate() {
             if i == 0 {
                 lazy_static! {
-                    static ref RE: Regex = Regex::new(r"^[mM]{1}$").expect("Invalid regex pattern");
+                    static ref RE: Regex = Regex::new(r"^[mM]{1}$").expect("invalid regex pattern");
                 }
                 if RE.is_match(c) == false {
                     return Err(Error::InvalidDerivationPath);

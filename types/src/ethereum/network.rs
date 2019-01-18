@@ -60,7 +60,7 @@ impl FromStr for Network {
         match s.as_ref() {
             "main" => Ok(Network::Main),
             "ropsten" => Ok(Network::Ropsten),
-            _ => Err(String::from("Invalid value for ethereum network.")),
+            _ => Err(String::from("invalid value for ethereum network")),
         }
     }
 }

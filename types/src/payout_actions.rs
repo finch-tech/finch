@@ -48,7 +48,7 @@ impl FromSql<Text, Pg> for PayoutAction {
         match text.as_ref() {
             "payout" => Ok(PayoutAction::Payout),
             "refund" => Ok(PayoutAction::Refund),
-            v => Err(format!("Unknown value {} for PayoutAction found", v).into()),
+            v => Err(format!("unknown value {} for PayoutAction found", v).into()),
         }
     }
 }

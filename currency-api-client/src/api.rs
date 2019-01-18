@@ -106,7 +106,7 @@ impl FromSql<Text, Pg> for Api {
 
         match text.as_ref() {
             "coin_api" => Ok(Api::CoinApi),
-            v => Err(format!("Unknown value {} for currency api found", v).into()),
+            v => Err(format!("unknown value {} for currency api found", v).into()),
         }
     }
 }
@@ -117,7 +117,7 @@ impl FromStr for Api {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "coin_api" => Ok(Api::CoinApi),
-            v => Err(format!("Unknown value {} for currency api found", v).into()),
+            v => Err(format!("unknown value {} for currency api found", v).into()),
         }
     }
 }

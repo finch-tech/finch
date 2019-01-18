@@ -71,9 +71,9 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
             mailer: mailer.clone(),
             config: config.server.clone(),
             jwt_public: fs::read(config.server.public_key_path.clone())
-                .expect("Failed to open the public key file."),
+                .expect("failed to open the public key file"),
             jwt_private: fs::read(config.server.private_key_path.clone())
-                .expect("Failed to open the private key file."),
+                .expect("failed to open the private key file"),
             btc_network: {
                 if let Some(btc_config) = config.bitcoin.clone() {
                     Some(btc_config.network)
@@ -180,6 +180,6 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
         })
     })
     .bind(format!("{}:{}", host, port))
-    .expect(&format!("Can not bind {}:{}", host, port))
+    .expect(&format!("can not bind {}:{}", host, port))
     .start();
 }

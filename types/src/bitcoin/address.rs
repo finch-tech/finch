@@ -49,17 +49,17 @@ impl FromStr for Address {
         let raw = s.from_base58().map_err(|e| format!("{:?}", e))?;
 
         if raw.len() != 25 {
-            return Err(String::from("Invalid bitcoin address length."));
+            return Err(String::from("invalid bitcoin address length"));
         }
 
         if raw[21..25] != H256::from_data(&raw[0..21])[0..4] {
-            return Err(String::from("Invalid bitcoin address checksum."));
+            return Err(String::from("invalid bitcoin address checksum"));
         }
 
         // Only support P2PKH for now.
         match s.chars().next().unwrap() {
             '1' | 'm' | 'n' => (),
-            _ => return Err(String::from("Address type not supported.")),
+            _ => return Err(String::from("address type not supported")),
         };
 
         Ok(Address(s.to_owned()))
@@ -84,7 +84,7 @@ impl<'de> serde::Deserialize<'de> for Address {
             type Value = Address;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-                formatter.write_str("Base58 bitcoin address.")
+                formatter.write_str("base58 bitcoin address")
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>

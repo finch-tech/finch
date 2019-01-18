@@ -7,7 +7,7 @@ use rpc_client::errors::Error as RpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
-    #[fail(display = "Exceeded retry limit: {}", _0)]
+    #[fail(display = "exceeded retry limit: {}", _0)]
     RetryLimitError(usize),
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),

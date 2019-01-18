@@ -48,7 +48,7 @@ impl ToSql<Text, Pg> for PaymentStatus {
 impl FromSql<Text, Pg> for PaymentStatus {
     fn from_sql(bytes: Option<&[u8]>) -> deserialize::Result<Self> {
         let text: String = FromSql::<Text, Pg>::from_sql(bytes)
-            .map_err(|_| String::from("Failed to convert to text."))?;
+            .map_err(|_| String::from("failed to convert to text"))?;
 
         match text.as_ref() {
             "pending" => Ok(PaymentStatus::Pending),
@@ -57,7 +57,7 @@ impl FromSql<Text, Pg> for PaymentStatus {
             "completed" => Ok(PaymentStatus::Completed),
             "insufficient_amount" => Ok(PaymentStatus::InsufficientAmount),
             "expired" => Ok(PaymentStatus::Expired),
-            v => Err(format!("Unknown value {} for PaymentStatus found", v).into()),
+            v => Err(format!("unknown value {} for PaymentStatus found", v).into()),
         }
     }
 }
