@@ -149,11 +149,6 @@ impl Handler<ProcessPendingTransactions> for Processor {
                         if ether_paid < charge {
                             payment_payload.status = Some(PaymentStatus::InsufficientAmount);
                         }
-
-                        // Expired
-                        if payment.expires_at < Utc::now() {
-                            payment_payload.status = Some(PaymentStatus::Expired);
-                        }
                     }
                     _ => (),
                 };

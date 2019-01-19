@@ -123,11 +123,6 @@ impl Payout {
                     payout_payload.action = Some(PayoutAction::Refund);
                 }
 
-                // Expired
-                if payment.expires_at < Utc::now() {
-                    payment_payload.status = Some(PaymentStatus::Expired);
-                    payout_payload.action = Some(PayoutAction::Refund);
-                }
             }
             _ => payout_payload.action = Some(PayoutAction::Refund),
         };
@@ -178,11 +173,6 @@ impl Payout {
                     payout_payload.action = Some(PayoutAction::Refund);
                 }
 
-                // Expired
-                if payment.expires_at < Utc::now() {
-                    payment_payload.status = Some(PaymentStatus::Expired);
-                    payout_payload.action = Some(PayoutAction::Refund);
-                }
             }
             _ => payout_payload.action = Some(PayoutAction::Refund),
         };
