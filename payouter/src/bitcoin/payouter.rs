@@ -108,7 +108,7 @@ impl Payouter {
                                     }
                                 }
                             }
-                            _ => panic!("unexpected script type"),
+                            _ => (),
                         };
                     }
                     let utxo = transaction.vout[utxo_n as usize].clone();
