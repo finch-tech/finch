@@ -19,5 +19,6 @@ CREATE TABLE payments
     confirmations_required INTEGER NOT NULL,
     block_height_required NUMERIC,
     btc_network VARCHAR,
-    eth_network VARCHAR
+    eth_network VARCHAR,
+    identifier VARCHAR(100)
 )

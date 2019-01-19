@@ -40,6 +40,7 @@ pub struct PaymentPayload {
     pub block_height_required: Option<U128>,
     pub btc_network: Option<BtcNetwork>,
     pub eth_network: Option<EthNetwork>,
+    pub identifier: Option<String>,
 }
 
 impl PaymentPayload {
@@ -63,6 +64,7 @@ impl PaymentPayload {
             block_height_required: None,
             btc_network: None,
             eth_network: None,
+            identifier: None,
         }
     }
 
@@ -100,6 +102,7 @@ impl From<Payment> for PaymentPayload {
             block_height_required: payment.block_height_required,
             btc_network: payment.btc_network,
             eth_network: payment.eth_network,
+            identifier: payment.identifier,
         }
     }
 }
@@ -126,6 +129,7 @@ pub struct Payment {
     pub block_height_required: Option<U128>,
     pub btc_network: Option<BtcNetwork>,
     pub eth_network: Option<EthNetwork>,
+    pub identifier: Option<String>,
 }
 
 impl Payment {
@@ -197,6 +201,7 @@ impl Payment {
             "charge": self.charge,
             "confirmations_required": self.confirmations_required,
             "block_height_required": self.block_height_required,
+            "identifier": self.identifier,
         })
     }
 }

@@ -68,6 +68,7 @@ table! {
         block_height_required -> Nullable<Numeric>,
         btc_network -> Nullable<Varchar>,
         eth_network -> Nullable<Varchar>,
+        identifier -> Nullable<Varchar>,
     }
 }
 

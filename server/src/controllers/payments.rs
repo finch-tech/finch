@@ -23,6 +23,7 @@ pub struct CreateParams {
     pub crypto: Crypto,
     pub fiat: Fiat,
     pub price: BigDecimal,
+    pub identifier: Option<String>,
 }
 
 pub fn create(
@@ -48,6 +49,14 @@ pub fn create(
             payload.price = Some(params.price);
             payload.crypto = Some(params.crypto);
 
+            if let Some(ref identifier) = params.identifier {
+                if identifier.len() > 100 {
+                    return future::Either::A(err(Error::BadRequest));
+                }
+
+                payload.identifier = params.identifier.to_owned();
+            }
+
             match params.crypto {
                 Crypto::Btc => {
                     payload.confirmations_required = store.btc_confirmations_required;
@@ -59,31 +68,33 @@ pub fn create(
                 }
             }
 
-            services::payments::create(
-                payload,
-                &store,
-                &state.postgres,
-                state.currency_api_client.clone(),
-                state.btc_network,
-            )
-            .and_then(move |payment| {
-                JWTPayload::new(None, Some(auth_client), payment.expires_at)
-                    .encode(&state.jwt_private)
-                    .map_err(|e| Error::from(e))
-                    .into_future()
-                    .then(move |res| {
-                        res.and_then(|auth_token| {
-                            Ok(Json(json!({
-                                "payment": payment.export(),
-                                "store": {
-                                    "name": store.name,
-                                    "description": store.description
-                                },
-                                "token": auth_token,
-                            })))
+            future::Either::B(
+                services::payments::create(
+                    payload,
+                    &store,
+                    &state.postgres,
+                    state.currency_api_client.clone(),
+                    state.btc_network,
+                )
+                .and_then(move |payment| {
+                    JWTPayload::new(None, Some(auth_client), payment.expires_at)
+                        .encode(&state.jwt_private)
+                        .map_err(|e| Error::from(e))
+                        .into_future()
+                        .then(move |res| {
+                            res.and_then(|auth_token| {
+                                Ok(Json(json!({
+                                    "payment": payment.export(),
+                                    "store": {
+                                        "name": store.name,
+                                        "description": store.description
+                                    },
+                                    "token": auth_token,
+                                })))
+                            })
                         })
-                    })
-            })
+                }),
+            )
         })
 }
 

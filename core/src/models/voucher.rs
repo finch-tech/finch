@@ -26,6 +26,7 @@ pub struct Voucher {
     pub btc_network: Option<BtcNetwork>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub eth_network: Option<EthNetwork>,
+    pub identifier: Option<String>,
     pub exp: u64,
 }
 
@@ -42,6 +43,7 @@ impl Voucher {
             store_id: payment.store_id,
             btc_network: payment.btc_network,
             eth_network: payment.eth_network,
+            identifier: payment.identifier,
             exp: exp.timestamp() as u64,
         }
     }
