@@ -112,13 +112,21 @@ impl From<Payment> for PaymentPayload {
 pub struct Payment {
     pub id: Uuid,
     pub status: PaymentStatus,
+    #[serde(skip_serializing)]
     pub store_id: Uuid,
+    #[serde(skip_serializing)]
     pub index: i32,
+    #[serde(skip_serializing)]
     pub created_by: Uuid,
+    #[serde(skip_serializing)]
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing)]
     pub expires_at: DateTime<Utc>,
+    #[serde(skip_serializing)]
     pub paid_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing)]
     pub amount_paid: Option<BigDecimal>,
+    #[serde(skip_serializing)]
     pub transaction_hash: Option<H256>,
     pub fiat: Fiat,
     pub price: BigDecimal,
@@ -126,8 +134,11 @@ pub struct Payment {
     pub address: String,
     pub charge: BigDecimal,
     pub confirmations_required: i32,
+    #[serde(skip_serializing)]
     pub block_height_required: Option<U128>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub btc_network: Option<BtcNetwork>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub eth_network: Option<EthNetwork>,
     pub identifier: Option<String>,
 }
@@ -186,22 +197,6 @@ impl Payment {
     }
 
     pub fn export(&self) -> Value {
-        json!({
-            "id": self.id,
-            "status": self.status,
-            "store_id": self.store_id,
-            "expires_at": self.expires_at.timestamp(),
-            "paid_at": self.paid_at,
-            "amount_paid": self.amount_paid,
-            "transaction_hash": self.transaction_hash,
-            "fiat": self.fiat,
-            "price": self.price,
-            "crypto": self.crypto,
-            "address": self.address,
-            "charge": self.charge,
-            "confirmations_required": self.confirmations_required,
-            "block_height_required": self.block_height_required,
-            "identifier": self.identifier,
-        })
+        serde_json::to_value(self).unwrap()
     }
 }

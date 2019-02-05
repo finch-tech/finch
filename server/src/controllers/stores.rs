@@ -126,10 +126,8 @@ pub fn list(
 
     services::stores::find_by_owner(user.id, limit, offset, &state.postgres).then(move |res| {
         res.and_then(|stores| {
-            let mut exported = Vec::new();
-            stores
-                .into_iter()
-                .for_each(|store| exported.push(store.export()));
+            let exported: Vec<Value> = stores.into_iter().map(|store| store.export()).collect();
+
             Ok(Json(json!({
                 "stores": exported,
                 "limit": limit,
