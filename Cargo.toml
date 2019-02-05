@@ -12,7 +12,7 @@ toml = "0.4"
 
 block-processor = { path = "./block-processor" }
 config = { path = "./config" }
-rpc_client = { path = "./rpc_client" }
+rpc-client = { path = "./rpc-client" }
 payouter = { path = "./payouter" }
 types = { path = "./types" }
 core = { path = "./core" }
@@ -23,4 +23,4 @@ path = "finch/main.rs"
 name = "finch"
 
 [workspace]
-members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "rpc_client"]
+members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "rpc-client"]
