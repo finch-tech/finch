@@ -69,6 +69,8 @@ impl error::ResponseError for Error {
 
             Error::InvalidRequestAccount => HttpResponse::new(http::StatusCode::FORBIDDEN),
 
+            Error::PaymentNotConfirmed => HttpResponse::new(http::StatusCode::NOT_FOUND),
+
             Error::ModelError(ref e) => match *e {
                 ModelError::DbError(ref e) => match *e {
                     DbError::DieselError(ref e) => match *e {
