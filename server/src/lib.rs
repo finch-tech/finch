@@ -94,89 +94,79 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
             ),
         })
         .middleware(middleware::Logger::default())
-        .resource("/", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET).with(controllers::root::index);
-        })
-        .resource("/registration", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::auth::registration);
-        })
-        .resource("/activation", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::auth::activation);
-        })
-        .resource("/login", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::auth::authentication);
-        })
-        .resource("/reset_password", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::auth::reset_password);
-        })
-        .resource("/change_password", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::auth::change_password);
-        })
-        .resource("/profile", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::auth::profile);
-        })
-        .resource("/users/{id}", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::DELETE)
-                .with_async(controllers::auth::delete);
-        })
-        .resource("/client_tokens", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::client_tokens::list);
-            r.method(http::Method::POST)
-                .with_async(controllers::client_tokens::create);
-        })
-        .resource("/client_tokens/{id}", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::client_tokens::get);
-            r.method(http::Method::DELETE)
-                .with_async(controllers::client_tokens::delete);
-        })
-        .resource("/stores", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::stores::list);
-            r.method(http::Method::POST)
-                .with_async(controllers::stores::create);
-        })
-        .resource("/stores/{id}", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::stores::get);
-            r.method(http::Method::PATCH)
-                .with_async(controllers::stores::patch);
-            r.method(http::Method::DELETE)
-                .with_async(controllers::stores::delete);
-        })
-        .resource("/payments", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::payments::create);
-        })
-        .resource("/payments/{id}/status", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::GET)
-                .with_async(controllers::payments::get_status)
-        })
-        .resource("/vouchers", |r| {
-            middleware::cors::Cors::build().finish().register(r);
-            r.method(http::Method::POST)
-                .with_async(controllers::vouchers::create);
+        .configure(|app| {
+            middleware::cors::Cors::for_app(app)
+                .max_age(3600)
+                .resource("/", |r| {
+                    r.method(http::Method::GET).with(controllers::root::index);
+                })
+                .resource("/registration", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::registration);
+                })
+                .resource("/activation", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::activation);
+                })
+                .resource("/login", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::authentication);
+                })
+                .resource("/reset_password", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::reset_password);
+                })
+                .resource("/change_password", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::auth::change_password);
+                })
+                .resource("/profile", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::auth::profile);
+                })
+                .resource("/users/{id}", |r| {
+                    r.method(http::Method::DELETE)
+                        .with_async(controllers::auth::delete);
+                })
+                .resource("/client_tokens", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::client_tokens::list);
+                    r.method(http::Method::POST)
+                        .with_async(controllers::client_tokens::create);
+                })
+                .resource("/client_tokens/{id}", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::client_tokens::get);
+                    r.method(http::Method::DELETE)
+                        .with_async(controllers::client_tokens::delete);
+                })
+                .resource("/stores", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::stores::list);
+                    r.method(http::Method::POST)
+                        .with_async(controllers::stores::create);
+                })
+                .resource("/stores/{id}", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::stores::get);
+                    r.method(http::Method::PATCH)
+                        .with_async(controllers::stores::patch);
+                    r.method(http::Method::DELETE)
+                        .with_async(controllers::stores::delete);
+                })
+                .resource("/payments", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::payments::create);
+                })
+                .resource("/payments/{id}/status", |r| {
+                    r.method(http::Method::GET)
+                        .with_async(controllers::payments::get_status)
+                })
+                .resource("/vouchers", |r| {
+                    r.method(http::Method::POST)
+                        .with_async(controllers::vouchers::create);
+                })
+                .register()
         })
     })
     .bind(format!("{}:{}", host, port))
