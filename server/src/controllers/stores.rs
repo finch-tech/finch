@@ -31,6 +31,8 @@ pub fn create(
     payload.name = Some(params.name);
     payload.description = Some(params.description);
     payload.owner_id = Some(user.id);
+    payload.eth_confirmations_required = Some(Some(1));
+    payload.btc_confirmations_required = Some(Some(1));
 
     services::stores::create(payload, state.btc_network, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
