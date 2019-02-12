@@ -9,6 +9,7 @@ actix = "0.7.0"
 clap = {version = "2.32", features = ["yaml"]}
 env_logger = "0.5.10"
 toml = "0.4"
+openssl = "0.10.6"
 
 block-processor = { path = "./block-processor" }
 config = { path = "./config" }

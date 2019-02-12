@@ -2,6 +2,7 @@ extern crate actix;
 #[macro_use]
 extern crate clap;
 extern crate env_logger;
+extern crate openssl;
 
 extern crate rpc_client;
 extern crate toml;
@@ -15,7 +16,8 @@ extern crate types;
 
 use actix::prelude::*;
 use clap::App;
-use std::{env, fs::File, io::prelude::*};
+use openssl::rsa::Rsa;
+use std::{env, fs::File, io::prelude::*, path::Path};
 
 use config::Config;
 use core::db::postgres;
@@ -44,6 +46,30 @@ fn main() {
         .unwrap();
 
         let config: Config = toml::from_str(&settings).unwrap();
+
+        if !Path::new(&config.server.private_key_path).exists()
+            || !Path::new(&config.server.private_key_path).exists()
+        {
+            let rsa = Rsa::generate(2048).expect("failed to generate a key pair");
+            let private_key = rsa
+                .private_key_to_der()
+                .expect("failed to generate private key");
+            let public_key = rsa
+                .public_key_to_der_pkcs1()
+                .expect("failed to generate public key");
+
+            let mut priv_key_file = File::create(&config.server.private_key_path)
+                .expect("failed to create public key file");
+            priv_key_file
+                .write(&private_key)
+                .expect("failed to write to public key file");
+
+            let mut pub_key_file = File::create(&config.server.public_key_path)
+                .expect("failed to create public key file");
+            pub_key_file
+                .write(&public_key)
+                .expect("failed to write to public key file");
+        }
 
         let currencies = {
             if matches.is_present("currencies") {
