@@ -723,6 +723,7 @@ dependencies = [
  "config 0.1.0",
  "core 0.1.0",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl 0.10.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "payouter 0.1.0",
  "rpc-client 0.1.0",
  "server 0.1.0",
