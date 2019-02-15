@@ -78,7 +78,7 @@ impl Handler<SendMail> for Mailer {
     ) -> Self::Result {
         let email = EmailBuilder::new()
             .to(&to[..])
-            .from((&from[..], ""))
+            .from((&from[..], "Finch"))
             .subject(&subject[..])
             .alternative(&html[..], &text[..])
             .build()
