@@ -289,7 +289,7 @@ impl RpcClient {
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
-            resp.body().from_err().and_then(move |body| {
+            resp.body().limit(4194304).from_err().and_then(move |body| {
                 let body: Value = match serde_json::from_slice(&body) {
                     Ok(body) => body,
                     Err(e) => return err(Error::from(e)),
