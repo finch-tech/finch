@@ -20,7 +20,7 @@ pub fn run(
         postgres: pg,
     });
 
-    let poller = Arbiter::start(move |_| {
+    let poller = Supervisor::start(move |_| {
         Poller::new(block_processor_address, postgres, rpc_client, network)
     });
 

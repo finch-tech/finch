@@ -110,7 +110,7 @@ impl Handler<ProcessBlock> for Processor {
     type Result = Box<Future<Item = (), Error = Error>>;
 
     fn handle(&mut self, ProcessBlock(block): ProcessBlock, _: &mut Self::Context) -> Self::Result {
-        info!("Processing block: {}", block.hash);
+        info!("Processing block: {}", block.height.unwrap());
         let postgres = self.postgres.clone();
         let network = self.network;
 

@@ -21,7 +21,7 @@ pub fn run(
     });
 
     let poller =
-        Arbiter::start(move |_| Poller::new(block_processor, postgres, rpc_client, network));
+        Supervisor::start(move |_| Poller::new(block_processor, postgres, rpc_client, network));
 
     poller.do_send(StartPolling { skip_missed_blocks });
 }

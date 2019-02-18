@@ -44,6 +44,29 @@ impl Actor for Poller {
     type Context = Context<Self>;
 }
 
+impl Supervised for Poller {
+    fn restarting(&mut self, ctx: &mut Self::Context) {
+        match ctx.address().try_send(StartPolling {
+            skip_missed_blocks: false,
+        }) {
+            Ok(_) => info!("Restarting"),
+            Err(_) => error!("Failed to start polling on restart"),
+        }
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Stop;
+
+impl Handler<Stop> for Poller {
+    type Result = ();
+
+    fn handle(&mut self, _: Stop, ctx: &mut Self::Context) -> Self::Result {
+        ctx.stop();
+    }
+}
+
 #[derive(Message)]
 #[rtype(result = "Result<(), Error>")]
 pub struct StartPolling {
@@ -59,6 +82,7 @@ impl Handler<StartPolling> for Poller {
         ctx: &mut Self::Context,
     ) -> Self::Result {
         let address = ctx.address();
+        let _address = ctx.address();
 
         let process = address
             .send(Bootstrap { skip_missed_blocks })
@@ -83,10 +107,17 @@ impl Handler<StartPolling> for Poller {
 
                 poller_process.join(pending_blocks_poller_process)
             })
-            .map_err(|e| match e {
+            .map_err(move |e| match e {
                 _ => {
                     error!("{:?}", e);
-                    e
+
+                    match _address.try_send(Stop) {
+                        Ok(_) => e,
+                        Err(_) => {
+                            error!("Failed to stop actor on error");
+                            e
+                        }
+                    }
                 }
             })
             .map(|_| ());
