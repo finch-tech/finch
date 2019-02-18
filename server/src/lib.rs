@@ -62,6 +62,11 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
         ))
     });
 
+    let currency_api = config.server.currency_api.clone();
+    let currency_api_key = config.server.currency_api_key.clone();
+    let currency_api_client =
+        Arbiter::start(move |_| CurrencyApiClient::new(&currency_api, &currency_api_key));
+
     let host = config.server.host.clone();
     let port = config.server.port.clone();
 
@@ -88,10 +93,7 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
                     None
                 }
             },
-            currency_api_client: CurrencyApiClient::new(
-                &config.server.currency_api,
-                &config.server.currency_api_key,
-            ),
+            currency_api_client: currency_api_client.clone(),
         })
         .middleware(middleware::Logger::default())
         .configure(|app| {

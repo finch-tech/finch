@@ -6,7 +6,7 @@ use core::{
     payment::{Payment, PaymentPayload},
     store::Store,
 };
-use currency_api_client::Client as CurrencyApiClient;
+use currency_api_client::{CurrencyApiClientAddr, GetRate};
 use hd_keyring::HdKeyring;
 use services::Error;
 use types::{bitcoin::Network as BtcNetwork, currency::Crypto, PaymentStatus};
@@ -18,7 +18,7 @@ pub fn create(
     mut payload: PaymentPayload,
     store: &Store,
     postgres: &PgExecutorAddr,
-    currency_api_client: CurrencyApiClient,
+    currency_api_client: CurrencyApiClientAddr,
     btc_network: Option<BtcNetwork>,
 ) -> impl Future<Item = Payment, Error = Error> {
     let postgres = postgres.clone();
@@ -52,8 +52,12 @@ pub fn create(
     .and_then(move |keyring| keyring.get_wallet_by_index(index).into_future().from_err())
     .and_then(move |wallet| {
         currency_api_client
-            .get_rate(&payload.fiat.unwrap(), &payload.crypto.unwrap())
+            .send(GetRate {
+                from: payload.fiat.unwrap(),
+                to: payload.crypto.unwrap(),
+            })
             .from_err()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |rate| {
                 match payload.crypto.unwrap() {
                     Crypto::Btc => {

@@ -1,5 +1,6 @@
 #![allow(proc_macro_derive_resolution_fallback)]
 
+extern crate actix;
 extern crate actix_web;
 extern crate bigdecimal;
 #[macro_use]
@@ -20,5 +21,5 @@ mod client;
 mod errors;
 
 pub use self::api::Api;
-pub use self::client::Client;
+pub use self::client::{Client, CurrencyApiClientAddr, GetRate};
 pub use self::errors::Error;
