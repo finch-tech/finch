@@ -12,7 +12,9 @@ use core::{
 };
 use errors::Error;
 use hd_keyring::{HdKeyring, Wallet};
-use rpc_client::ethereum::{RpcClient, UnsignedTransaction};
+use rpc_client::ethereum::{
+    GetGasPrice, GetTransactionCount, RpcClientAddr, SendRawTransaction, UnsignedTransaction,
+};
 use types::{
     bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PaymentStatus, PayoutAction,
     PayoutStatus, H160, H256, U128, U256,
@@ -22,12 +24,12 @@ pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub rpc_client: RpcClient,
+    pub rpc_client: RpcClientAddr,
     pub network: EthNetwork,
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClient, network: EthNetwork) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClientAddr, network: EthNetwork) -> Self {
         Payouter {
             postgres: pg_addr,
             rpc_client,
@@ -44,7 +46,10 @@ impl Payouter {
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let gas_price = rpc_client.get_gas_price().from_err();
+        let gas_price = rpc_client
+            .send(GetGasPrice)
+            .from_err()
+            .and_then(move |res| res.map_err(|e| Error::from(e)));
 
         store
             .join3(payment, gas_price)
@@ -60,8 +65,11 @@ impl Payouter {
                     Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                         .from_err();
                 let nonce = rpc_client
-                    .get_transaction_count(H160::from_str(&payment.clone().address[2..]).unwrap())
-                    .from_err();
+                    .send(GetTransactionCount(
+                        H160::from_str(&payment.clone().address[2..]).unwrap(),
+                    ))
+                    .from_err()
+                    .and_then(move |res| res.map_err(|e| Error::from(e)));
 
                 transaction
                     .join(nonce)
@@ -130,8 +138,9 @@ impl Payouter {
                         .from_err()
                         .and_then(move |signed_transaction| {
                             rpc_client
-                                .send_raw_transaction(signed_transaction)
+                                .send(SendRawTransaction(signed_transaction))
                                 .from_err()
+                                .and_then(move |res| res.map_err(|e| Error::from(e)))
                         })
                 },
             )
@@ -160,8 +169,9 @@ impl Payouter {
                     .from_err()
                     .and_then(move |signed_transaction| {
                         rpc_client
-                            .send_raw_transaction(signed_transaction)
+                            .send(SendRawTransaction(signed_transaction))
                             .from_err()
+                            .and_then(move |res| res.map_err(|e| Error::from(e)))
                     })
             })
     }

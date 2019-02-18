@@ -12,7 +12,10 @@ use ethereum::{
     errors::Error,
     processor::{ProcessBlock, ProcessPendingTransactions, ProcessorAddr},
 };
-use rpc_client::{errors::Error as RpcClientError, ethereum::RpcClient};
+use rpc_client::{
+    errors::Error as RpcClientError,
+    ethereum::{GetBlockByNumber, GetBlockNumber, GetPendingBlock, RpcClientAddr},
+};
 use types::{ethereum::Network, U128};
 
 const RETRY_LIMIT: usize = 10;
@@ -20,7 +23,7 @@ const RETRY_LIMIT: usize = 10;
 pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
-    rpc_client: RpcClient,
+    rpc_client: RpcClientAddr,
     network: Network,
 }
 
@@ -28,7 +31,7 @@ impl Poller {
     pub fn new(
         processor: ProcessorAddr,
         postgres: PgExecutorAddr,
-        rpc_client: RpcClient,
+        rpc_client: RpcClientAddr,
         network: Network,
     ) -> Self {
         Poller {
@@ -147,8 +150,9 @@ impl Handler<Bootstrap> for Poller {
         let network = self.network;
 
         let bootstrap_process = rpc_client
-            .get_block_number()
+            .send(GetBlockNumber)
             .from_err::<Error>()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block_number| {
                 BlockchainStatus::find(network, &postgres)
                     .from_err()
@@ -201,8 +205,9 @@ impl Handler<Bootstrap> for Poller {
                         let processor = processor.clone();
 
                         rpc_client
-                            .get_block_by_number(block_number)
+                            .send(GetBlockByNumber(block_number))
                             .from_err()
+                            .and_then(move |res| res.map_err(|e| Error::from(e)))
                             .and_then(move |block| {
                                 processor
                                     .send(ProcessBlock(block))
@@ -250,8 +255,9 @@ impl Handler<PollPendingBlocks> for Poller {
         }
 
         let polling = rpc_client
-            .get_pending_block()
+            .send(GetPendingBlock)
             .from_err::<Error>()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |block| {
                 let transactions = HashSet::from_iter(block.transactions.iter().cloned());
 
@@ -321,7 +327,9 @@ impl Handler<Poll> for Poller {
         }
 
         let polling = rpc_client
-            .get_block_by_number(block_number)
+            .send(GetBlockByNumber(block_number))
+            .from_err::<Error>()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .from_err::<Error>()
             .and_then(move |block| {
                 processor

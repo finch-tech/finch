@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use actix::prelude::*;
 use actix_web::{client, HttpMessage};
 use futures::future::{err, ok, Future};
 use serde_json::{self, Value};
@@ -9,9 +10,15 @@ use errors::Error;
 use ethereum::SignedTransaction;
 use types::{H160, H256, U128, U256};
 
+pub type RpcClientAddr = Addr<RpcClient>;
+
 #[derive(Clone)]
 pub struct RpcClient {
     url: String,
+}
+
+impl Actor for RpcClient {
+    type Context = Context<Self>;
 }
 
 impl RpcClient {
@@ -244,5 +251,101 @@ impl RpcClient {
                 }
             })
         }))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<U256, Error>")]
+pub struct GetBalance(pub H160);
+
+impl Handler<GetBalance> for RpcClient {
+    type Result = Box<Future<Item = U256, Error = Error>>;
+
+    fn handle(&mut self, GetBalance(account): GetBalance, _: &mut Self::Context) -> Self::Result {
+        self.get_balance(account)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<U128, Error>")]
+pub struct GetBlockNumber;
+
+impl Handler<GetBlockNumber> for RpcClient {
+    type Result = Box<Future<Item = U128, Error = Error>>;
+
+    fn handle(&mut self, _: GetBlockNumber, _: &mut Self::Context) -> Self::Result {
+        self.get_block_number()
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Block, Error>")]
+pub struct GetPendingBlock;
+
+impl Handler<GetPendingBlock> for RpcClient {
+    type Result = Box<Future<Item = Block, Error = Error>>;
+
+    fn handle(&mut self, _: GetPendingBlock, _: &mut Self::Context) -> Self::Result {
+        self.get_pending_block()
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Block, Error>")]
+pub struct GetBlockByNumber(pub U128);
+
+impl Handler<GetBlockByNumber> for RpcClient {
+    type Result = Box<Future<Item = Block, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        GetBlockByNumber(block_number): GetBlockByNumber,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.get_block_by_number(block_number)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<U256, Error>")]
+pub struct GetGasPrice;
+
+impl Handler<GetGasPrice> for RpcClient {
+    type Result = Box<Future<Item = U256, Error = Error>>;
+
+    fn handle(&mut self, _: GetGasPrice, _: &mut Self::Context) -> Self::Result {
+        self.get_gas_price()
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<U128, Error>")]
+pub struct GetTransactionCount(pub H160);
+
+impl Handler<GetTransactionCount> for RpcClient {
+    type Result = Box<Future<Item = U128, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        GetTransactionCount(account): GetTransactionCount,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.get_transaction_count(account)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<H256, Error>")]
+pub struct SendRawTransaction(pub SignedTransaction);
+
+impl Handler<SendRawTransaction> for RpcClient {
+    type Result = Box<Future<Item = H256, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        SendRawTransaction(signed_transaction): SendRawTransaction,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.send_raw_transaction(signed_transaction)
     }
 }

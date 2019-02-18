@@ -2,7 +2,9 @@ use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
-use rpc_client::bitcoin::{RpcClient, UnsignedTransaction};
+use rpc_client::bitcoin::{
+    EstimateSmartFee, RpcClientAddr, SendRawTransaction, UnsignedTransaction,
+};
 
 use core::{
     bitcoin::{ScriptType, Transaction},
@@ -18,12 +20,12 @@ pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub rpc_client: RpcClient,
+    pub rpc_client: RpcClientAddr,
     pub network: BtcNetwork,
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClient, network: BtcNetwork) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClientAddr, network: BtcNetwork) -> Self {
         Payouter {
             postgres: pg_addr,
             rpc_client,
@@ -41,7 +43,11 @@ impl Payouter {
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let transaction_fee = rpc_client.estimate_smart_fee(1).from_err();
+        let transaction_fee = rpc_client
+            .send(EstimateSmartFee(1))
+            .from_err()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
+            .from_err();
 
         store
             .join3(payment, transaction_fee)
@@ -127,7 +133,10 @@ impl Payouter {
                     tx.sign(wallet.secret_key, wallet.public_key);
                     let raw_transaction = tx.into_raw_transaction();
 
-                    rpc_client.send_raw_transaction(raw_transaction).from_err()
+                    rpc_client
+                        .send(SendRawTransaction(raw_transaction))
+                        .from_err()
+                        .and_then(move |res| res.map_err(|e| Error::from(e)))
                 },
             )
     }

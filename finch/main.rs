@@ -93,20 +93,23 @@ fn main() {
 
                     let btc_config = config.bitcoin.clone().expect("no bitcoin configuration");
 
-                    let btc_conf = btc_config.clone();
-                    let rpc_client = BtcRpcClient::new(
-                        &btc_conf.rpc_url,
-                        &btc_conf.rpc_user,
-                        &btc_conf.rpc_pass,
-                    );
+                    let network = btc_config.network;
+
+                    let rpc_client = Arbiter::start(move |_| {
+                        BtcRpcClient::new(
+                            &btc_config.rpc_url,
+                            &btc_config.rpc_user,
+                            &btc_config.rpc_pass,
+                        )
+                    });
 
                     block_processor::run(
                         postgres.clone(),
                         rpc_client.clone(),
-                        btc_config.network,
+                        network,
                         skip_missed_blocks,
                     );
-                    payouter::run(postgres.clone(), rpc_client.clone(), btc_config.network);
+                    payouter::run(postgres.clone(), rpc_client.clone(), network);
                 }
                 Crypto::Eth => {
                     use block_processor::ethereum::service as block_processor;
@@ -114,15 +117,16 @@ fn main() {
 
                     let eth_config = config.clone().ethereum.expect("no ethereum configuration");
 
-                    let rpc_client = EthRpcClient::new(eth_config.rpc_url);
+                    let network = eth_config.network;
+                    let rpc_client = Arbiter::start(move |_| EthRpcClient::new(eth_config.rpc_url));
 
                     block_processor::run(
                         postgres.clone(),
                         rpc_client.clone(),
-                        eth_config.network,
+                        network,
                         skip_missed_blocks,
                     );
-                    payouter::run(postgres.clone(), rpc_client.clone(), eth_config.network);
+                    payouter::run(postgres.clone(), rpc_client.clone(), network);
                 }
             }
         }

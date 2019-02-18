@@ -5,12 +5,12 @@ use ethereum::{
     poller::{Poller, StartPolling},
     processor::Processor,
 };
-use rpc_client::ethereum::RpcClient;
+use rpc_client::ethereum::RpcClientAddr;
 use types::ethereum::Network;
 
 pub fn run(
     postgres: postgres::PgExecutorAddr,
-    rpc_client: RpcClient,
+    rpc_client: RpcClientAddr,
     network: Network,
     skip_missed_blocks: bool,
 ) {

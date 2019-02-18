@@ -1,3 +1,4 @@
+use actix::prelude::*;
 use actix_web::{client, HttpMessage};
 use base64::encode;
 use futures::{
@@ -11,10 +12,16 @@ use core::bitcoin::{Block, Transaction};
 use errors::Error;
 use types::{H256, U128};
 
+pub type RpcClientAddr = Addr<RpcClient>;
+
 #[derive(Clone)]
 pub struct RpcClient {
     url: String,
     basic_auth: String,
+}
+
+impl Actor for RpcClient {
+    type Context = Context<Self>;
 }
 
 impl RpcClient {
@@ -168,40 +175,6 @@ impl RpcClient {
         }))
     }
 
-    pub fn get_block_by_number(
-        &self,
-        block_number: U128,
-    ) -> Box<Future<Item = Block, Error = Error>> {
-        let rpc_client = self.clone();
-
-        Box::new(
-            self.get_block_hash(block_number)
-                .from_err::<Error>()
-                .and_then(move |hash| {
-                    rpc_client
-                        .get_block(hash)
-                        .from_err::<Error>()
-                        .and_then(move |block| {
-                            ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
-                        .flatten_stream()
-                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
-                        .fold(
-                            Vec::new(),
-                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
-                                vec.push(tx);
-                                Box::new(ok(vec))
-                            },
-                        )
-                        .and_then(move |transactions| {
-                            let mut block = block;
-                            block.transactions = Some(transactions);
-                            ok(block)
-                        })
-                        })
-                }),
-        )
-    }
-
     pub fn send_raw_transaction(
         &self,
         raw_transaction: Vec<u8>,
@@ -305,5 +278,148 @@ impl RpcClient {
                 }
             })
         }))
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<U128, Error>")]
+pub struct GetBlockCount;
+
+impl Handler<GetBlockCount> for RpcClient {
+    type Result = Box<Future<Item = U128, Error = Error>>;
+
+    fn handle(&mut self, _: GetBlockCount, _: &mut Self::Context) -> Self::Result {
+        self.get_block_count()
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Block, Error>")]
+pub struct GetBlock(pub H256);
+
+impl Handler<GetBlock> for RpcClient {
+    type Result = Box<Future<Item = Block, Error = Error>>;
+
+    fn handle(&mut self, GetBlock(block_hash): GetBlock, _: &mut Self::Context) -> Self::Result {
+        self.get_block(block_hash)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<H256, Error>")]
+pub struct GetBlockHash(pub U128);
+
+impl Handler<GetBlockHash> for RpcClient {
+    type Result = Box<Future<Item = H256, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        GetBlockHash(block_number): GetBlockHash,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.get_block_hash(block_number)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Transaction, Error>")]
+pub struct GetRawTransaction(pub H256);
+
+impl Handler<GetRawTransaction> for RpcClient {
+    type Result = Box<Future<Item = Transaction, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        GetRawTransaction(hash): GetRawTransaction,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.get_raw_transaction(hash)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Block, Error>")]
+pub struct GetBlockByNumber(pub U128);
+
+impl Handler<GetBlockByNumber> for RpcClient {
+    type Result = Box<Future<Item = Block, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        GetBlockByNumber(block_number): GetBlockByNumber,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        let rpc_client = self.clone();
+
+        Box::new(
+            self.get_block_hash(block_number)
+                .from_err::<Error>()
+                .and_then(move |hash| {
+                    rpc_client
+                        .get_block(hash)
+                        .from_err::<Error>()
+                        .and_then(move |block| {
+                            ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
+                        .flatten_stream()
+                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
+                        .fold(
+                            Vec::new(),
+                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
+                                vec.push(tx);
+                                Box::new(ok(vec))
+                            },
+                        )
+                        .and_then(move |transactions| {
+                            let mut block = block;
+                            block.transactions = Some(transactions);
+                            ok(block)
+                        })
+                        })
+                }),
+        )
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<H256, Error>")]
+pub struct SendRawTransaction(pub Vec<u8>);
+
+impl Handler<SendRawTransaction> for RpcClient {
+    type Result = Box<Future<Item = H256, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        SendRawTransaction(raw_transaction): SendRawTransaction,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.send_raw_transaction(raw_transaction)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<f64, Error>")]
+pub struct EstimateSmartFee(pub usize);
+
+impl Handler<EstimateSmartFee> for RpcClient {
+    type Result = Box<Future<Item = f64, Error = Error>>;
+
+    fn handle(
+        &mut self,
+        EstimateSmartFee(block_n): EstimateSmartFee,
+        _: &mut Self::Context,
+    ) -> Self::Result {
+        self.estimate_smart_fee(block_n)
+    }
+}
+
+#[derive(Message)]
+#[rtype(result = "Result<Vec<H256>, Error>")]
+pub struct GetRawMempool;
+
+impl Handler<GetRawMempool> for RpcClient {
+    type Result = Box<Future<Item = Vec<H256>, Error = Error>>;
+
+    fn handle(&mut self, _: GetRawMempool, _: &mut Self::Context) -> Self::Result {
+        self.get_raw_mempool()
     }
 }

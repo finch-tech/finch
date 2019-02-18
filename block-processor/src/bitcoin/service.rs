@@ -5,12 +5,12 @@ use bitcoin::{
     processor::Processor,
 };
 use core::db::postgres;
-use rpc_client::bitcoin::RpcClient;
+use rpc_client::bitcoin::RpcClientAddr;
 use types::bitcoin::Network;
 
 pub fn run(
     postgres: postgres::PgExecutorAddr,
-    rpc_client: RpcClient,
+    rpc_client: RpcClientAddr,
     network: Network,
     skip_missed_blocks: bool,
 ) {

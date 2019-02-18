@@ -12,14 +12,11 @@ use core::{db::Error as DbError, ModelError};
 use currency_api_client::Error as CurrencyApiClientError;
 use hd_keyring::Error as KeyringError;
 use mailer::Error as MailerError;
-use rpc_client::errors::Error as RpcClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
-    #[fail(display = "{}", _0)]
-    RpcClientError(#[cause] RpcClientError),
     #[fail(display = "{}", _0)]
     CurrencyApiClientError(#[cause] CurrencyApiClientError),
     #[fail(display = "{}", _0)]
@@ -96,12 +93,6 @@ impl error::ResponseError for Error {
 impl From<ModelError> for Error {
     fn from(e: ModelError) -> Error {
         Error::ModelError(e)
-    }
-}
-
-impl From<RpcClientError> for Error {
-    fn from(e: RpcClientError) -> Error {
-        Error::RpcClientError(e)
     }
 }
 

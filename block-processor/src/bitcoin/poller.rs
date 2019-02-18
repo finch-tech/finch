@@ -12,7 +12,10 @@ use core::{
     bitcoin::{BlockchainStatus, BlockchainStatusPayload, Transaction},
     db::postgres::PgExecutorAddr,
 };
-use rpc_client::{bitcoin::RpcClient, errors::Error as RpcClientError};
+use rpc_client::{
+    bitcoin::{GetBlockByNumber, GetBlockCount, GetRawMempool, GetRawTransaction, RpcClientAddr},
+    errors::Error as RpcClientError,
+};
 use types::{bitcoin::Network, H256, U128};
 
 const RETRY_LIMIT: usize = 10;
@@ -20,7 +23,7 @@ const RETRY_LIMIT: usize = 10;
 pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
-    rpc_client: RpcClient,
+    rpc_client: RpcClientAddr,
     network: Network,
 }
 
@@ -28,7 +31,7 @@ impl Poller {
     pub fn new(
         processor: ProcessorAddr,
         postgres: PgExecutorAddr,
-        rpc_client: RpcClient,
+        rpc_client: RpcClientAddr,
         network: Network,
     ) -> Self {
         Poller {
@@ -148,8 +151,9 @@ impl Handler<Bootstrap> for Poller {
         let network = self.network;
 
         let bootstrap_process = rpc_client
-            .get_block_count()
+            .send(GetBlockCount)
             .from_err::<Error>()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block_number| {
                 BlockchainStatus::find(network, &postgres)
                     .from_err()
@@ -206,8 +210,9 @@ impl Handler<Bootstrap> for Poller {
                         let rpc_client = rpc_client.clone();
 
                         rpc_client
-                            .get_block_by_number(block_number)
+                            .send(GetBlockByNumber(block_number))
                             .from_err()
+                            .and_then(move |res| res.map_err(|e| Error::from(e)))
                             .and_then(move |block| {
                                 processor
                                     .send(ProcessBlock(block))
@@ -255,8 +260,9 @@ impl Handler<PollMempool> for Poller {
         }
 
         let polling = rpc_client
-            .get_raw_mempool()
+            .send(GetRawMempool)
             .from_err::<Error>()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |transactions| {
                 let rpc_client = rpc_client.clone();
 
@@ -271,7 +277,12 @@ impl Handler<PollMempool> for Poller {
                         .map(|h| *h.clone())
                         .collect::<Vec<H256>>(),
                 )
-                .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
+                .and_then(move |hash| {
+                    rpc_client
+                        .send(GetRawTransaction(hash))
+                        .from_err()
+                        .and_then(move |res| res.map_err(|e| Error::from(e)))
+                })
                 .fold(
                     Vec::new(),
                     |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
@@ -343,8 +354,9 @@ impl Handler<Poll> for Poller {
         }
 
         let polling = rpc_client
-            .get_block_by_number(block_number)
+            .send(GetBlockByNumber(block_number))
             .from_err()
+            .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |block| {
                 processor
                     .send(ProcessBlock(block))
