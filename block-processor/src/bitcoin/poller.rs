@@ -1,22 +1,22 @@
-use std::{collections::HashSet, iter::FromIterator, time::Duration};
+use std::time::Duration;
 
 use actix::prelude::*;
 use futures::{future, stream, Future, Stream};
 use futures_timer::Delay;
 
 use bitcoin::{
-    processor::{ProcessBlock, ProcessMempoolTransactions, ProcessorAddr},
+    processor::{ProcessBlock, ProcessorAddr},
     Error,
 };
 use core::{
-    bitcoin::{BlockchainStatus, BlockchainStatusPayload, Transaction},
+    bitcoin::{BlockchainStatus, BlockchainStatusPayload},
     db::postgres::PgExecutorAddr,
 };
 use rpc_client::{
-    bitcoin::{GetBlockByNumber, GetBlockCount, GetRawMempool, GetRawTransaction, RpcClientAddr},
+    bitcoin::{GetBlockByNumber, GetBlockCount, RpcClientAddr},
     errors::Error as RpcClientError,
 };
-use types::{bitcoin::Network, H256, U128};
+use types::{bitcoin::Network, U128};
 
 const RETRY_LIMIT: usize = 10;
 
@@ -93,36 +93,17 @@ impl Handler<StartPolling> for Poller {
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block| {
-                let poller_process = address
+                address
                     .send(Poll {
                         block_number: current_block + U128::from(1),
                         retry_count: 0,
                     })
                     .from_err()
-                    .and_then(|res| res.map_err(|e| Error::from(e)));
-
-                let mempool_poller_process = address
-                    .send(PollMempool {
-                        previous: HashSet::new(),
-                        retry_count: 0,
-                    })
-                    .from_err()
-                    .and_then(|res| res.map_err(|e| Error::from(e)));
-
-                poller_process.join(mempool_poller_process)
+                    .and_then(|res| res.map_err(|e| Error::from(e)))
             })
-            .map_err(move |e| match e {
-                _ => {
-                    error!("{:?}", e);
-
-                    match _address.try_send(Stop) {
-                        Ok(_) => e,
-                        Err(_) => {
-                            error!("Failed to stop actor on error");
-                            e
-                        }
-                    }
-                }
+            .or_else(move |e| {
+                error!("{:?}", e);
+                _address.send(Stop).from_err()
             })
             .map(|_| ());
 
@@ -230,100 +211,6 @@ impl Handler<Bootstrap> for Poller {
             });
 
         Box::new(bootstrap_process)
-    }
-}
-
-#[derive(Message)]
-#[rtype(result = "Result<(), Error>")]
-pub struct PollMempool {
-    pub previous: HashSet<H256>,
-    pub retry_count: usize,
-}
-
-impl Handler<PollMempool> for Poller {
-    type Result = Box<Future<Item = (), Error = Error>>;
-
-    fn handle(
-        &mut self,
-        PollMempool {
-            previous,
-            retry_count,
-        }: PollMempool,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
-        let address = ctx.address().clone();
-        let processor = self.processor.clone();
-        let rpc_client = self.rpc_client.clone();
-
-        if retry_count == RETRY_LIMIT {
-            return Box::new(future::err(Error::RetryLimitError(retry_count)));
-        }
-
-        let polling = rpc_client
-            .send(GetRawMempool)
-            .from_err::<Error>()
-            .and_then(move |res| res.map_err(|e| Error::from(e)))
-            .and_then(move |transactions| {
-                let rpc_client = rpc_client.clone();
-
-                let mempool = HashSet::from_iter(transactions.iter().cloned());
-
-                stream::iter_ok(
-                    mempool
-                        .clone()
-                        .difference(&previous)
-                        .collect::<Vec<&H256>>()
-                        .iter()
-                        .map(|h| *h.clone())
-                        .collect::<Vec<H256>>(),
-                )
-                .and_then(move |hash| {
-                    rpc_client
-                        .send(GetRawTransaction(hash))
-                        .from_err()
-                        .and_then(move |res| res.map_err(|e| Error::from(e)))
-                })
-                .fold(
-                    Vec::new(),
-                    |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
-                        vec.push(tx);
-                        Box::new(future::ok(vec))
-                    },
-                )
-                .and_then(move |transactions| {
-                    let mempool = mempool.clone();
-                    let _mempool = mempool.clone();
-
-                    processor
-                        .send(ProcessMempoolTransactions(transactions))
-                        .from_err()
-                        .and_then(|res| res.map_err(|e| Error::from(e)))
-                        .map(|_| (mempool, 0))
-                        .or_else(move |e| match e {
-                            Error::RpcClientError(e) => match e {
-                                RpcClientError::EmptyResponseError => future::ok((_mempool, 0)),
-                                _ => future::ok((_mempool, retry_count + 1)),
-                            },
-                            _ => future::err(e),
-                        })
-                })
-            })
-            .and_then(move |(mempool, retry_count)| {
-                Delay::new(Duration::from_secs(3))
-                    .from_err::<Error>()
-                    .and_then(move |_| {
-                        address
-                            .send(PollMempool {
-                                previous: mempool,
-                                retry_count,
-                            })
-                            .from_err::<Error>()
-                            .and_then(|res| res.map_err(|e| Error::from(e)))
-                    })
-            })
-            .map(|_| ());
-
-        Box::new(polling)
     }
 }
 

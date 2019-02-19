@@ -31,106 +31,111 @@ fn main() {
     );
     env_logger::init();
 
-    System::run(move || {
-        let yaml = load_yaml!("cli.yml");
-        let matches = App::from_yaml(yaml).get_matches();
+    let yaml = load_yaml!("cli.yml");
+    let matches = App::from_yaml(yaml).get_matches();
 
-        let mut settings = String::new();
+    let mut settings = String::new();
 
-        File::open(
-            matches
-                .value_of("settings")
-                .unwrap_or(format!("{}/.finch.toml", env!("HOME")).as_str()),
-        )
-        .and_then(|mut f| f.read_to_string(&mut settings))
-        .unwrap();
+    File::open(
+        matches
+            .value_of("settings")
+            .unwrap_or(format!("{}/.finch.toml", env!("HOME")).as_str()),
+    )
+    .and_then(|mut f| f.read_to_string(&mut settings))
+    .unwrap();
 
-        let config: Config = toml::from_str(&settings).unwrap();
+    let config: Config = toml::from_str(&settings).unwrap();
 
-        if !Path::new(&config.server.private_key_path).exists()
-            || !Path::new(&config.server.private_key_path).exists()
-        {
-            let rsa = Rsa::generate(2048).expect("failed to generate a key pair");
-            let private_key = rsa
-                .private_key_to_der()
-                .expect("failed to generate private key");
-            let public_key = rsa
-                .public_key_to_der_pkcs1()
-                .expect("failed to generate public key");
+    if !Path::new(&config.server.private_key_path).exists()
+        || !Path::new(&config.server.private_key_path).exists()
+    {
+        let rsa = Rsa::generate(2048).expect("failed to generate a key pair");
+        let private_key = rsa
+            .private_key_to_der()
+            .expect("failed to generate private key");
+        let public_key = rsa
+            .public_key_to_der_pkcs1()
+            .expect("failed to generate public key");
 
-            let mut priv_key_file = File::create(&config.server.private_key_path)
-                .expect("failed to create public key file");
-            priv_key_file
-                .write(&private_key)
-                .expect("failed to write to public key file");
+        let mut priv_key_file = File::create(&config.server.private_key_path)
+            .expect("failed to create public key file");
+        priv_key_file
+            .write(&private_key)
+            .expect("failed to write to public key file");
 
-            let mut pub_key_file = File::create(&config.server.public_key_path)
-                .expect("failed to create public key file");
-            pub_key_file
-                .write(&public_key)
-                .expect("failed to write to public key file");
+        let mut pub_key_file =
+            File::create(&config.server.public_key_path).expect("failed to create public key file");
+        pub_key_file
+            .write(&public_key)
+            .expect("failed to write to public key file");
+    }
+
+    let currencies = {
+        if matches.is_present("currencies") {
+            values_t!(matches, "currencies", Crypto).unwrap()
+        } else {
+            vec![Crypto::Btc, Crypto::Eth]
         }
+    };
 
-        let currencies = {
-            if matches.is_present("currencies") {
-                values_t!(matches, "currencies", Crypto).unwrap()
-            } else {
-                vec![Crypto::Btc, Crypto::Eth]
+    let system = System::new("finch");
+
+    let postgres_url = config.postgres.clone();
+    let pg_pool = postgres::init_pool(&postgres_url);
+    let postgres = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
+
+    let skip_missed_blocks = matches.is_present("skip_missed_blocks");
+
+    let mut _btc_block_processor;
+    let mut _eth_block_processor;
+
+    for c in currencies {
+        match c {
+            Crypto::Btc => {
+                use block_processor::bitcoin::service as block_processor;
+                use payouter::bitcoin::service as payouter;
+
+                let btc_config = config.bitcoin.clone().expect("no bitcoin configuration");
+
+                let network = btc_config.network;
+
+                let rpc_client = Arbiter::start(move |_| {
+                    BtcRpcClient::new(
+                        &btc_config.rpc_url,
+                        &btc_config.rpc_user,
+                        &btc_config.rpc_pass,
+                    )
+                });
+
+                _btc_block_processor = block_processor::run(
+                    postgres.clone(),
+                    rpc_client.clone(),
+                    network,
+                    skip_missed_blocks,
+                );
+                payouter::run(postgres.clone(), rpc_client.clone(), network);
             }
-        };
+            Crypto::Eth => {
+                use block_processor::ethereum::service as block_processor;
+                use payouter::ethereum::service as payouter;
 
-        let postgres_url = config.postgres.clone();
-        let pg_pool = postgres::init_pool(&postgres_url);
-        let postgres = SyncArbiter::start(4, move || postgres::PgExecutor(pg_pool.clone()));
+                let eth_config = config.clone().ethereum.expect("no ethereum configuration");
 
-        let skip_missed_blocks = matches.is_present("skip_missed_blocks");
+                let network = eth_config.network;
+                let rpc_client = Arbiter::start(move |_| EthRpcClient::new(eth_config.rpc_url));
 
-        for c in currencies {
-            match c {
-                Crypto::Btc => {
-                    use block_processor::bitcoin::service as block_processor;
-                    use payouter::bitcoin::service as payouter;
-
-                    let btc_config = config.bitcoin.clone().expect("no bitcoin configuration");
-
-                    let network = btc_config.network;
-
-                    let rpc_client = Arbiter::start(move |_| {
-                        BtcRpcClient::new(
-                            &btc_config.rpc_url,
-                            &btc_config.rpc_user,
-                            &btc_config.rpc_pass,
-                        )
-                    });
-
-                    block_processor::run(
-                        postgres.clone(),
-                        rpc_client.clone(),
-                        network,
-                        skip_missed_blocks,
-                    );
-                    payouter::run(postgres.clone(), rpc_client.clone(), network);
-                }
-                Crypto::Eth => {
-                    use block_processor::ethereum::service as block_processor;
-                    use payouter::ethereum::service as payouter;
-
-                    let eth_config = config.clone().ethereum.expect("no ethereum configuration");
-
-                    let network = eth_config.network;
-                    let rpc_client = Arbiter::start(move |_| EthRpcClient::new(eth_config.rpc_url));
-
-                    block_processor::run(
-                        postgres.clone(),
-                        rpc_client.clone(),
-                        network,
-                        skip_missed_blocks,
-                    );
-                    payouter::run(postgres.clone(), rpc_client.clone(), network);
-                }
+                _eth_block_processor = block_processor::run(
+                    postgres.clone(),
+                    rpc_client.clone(),
+                    network,
+                    skip_missed_blocks,
+                );
+                payouter::run(postgres.clone(), rpc_client.clone(), network);
             }
         }
+    }
 
-        server::run(postgres, config);
-    });
+    server::run(postgres, config);
+
+    system.run();
 }

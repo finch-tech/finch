@@ -1,4 +1,4 @@
-use std::{collections::HashSet, iter::FromIterator, time::Duration};
+use std::time::Duration;
 
 use actix::prelude::*;
 use futures::{future, stream, Future, Stream};
@@ -6,15 +6,15 @@ use futures_timer::Delay;
 
 use core::{
     db::postgres::PgExecutorAddr,
-    ethereum::{BlockchainStatus, BlockchainStatusPayload, Transaction},
+    ethereum::{BlockchainStatus, BlockchainStatusPayload},
 };
 use ethereum::{
     errors::Error,
-    processor::{ProcessBlock, ProcessPendingTransactions, ProcessorAddr},
+    processor::{ProcessBlock, ProcessorAddr},
 };
 use rpc_client::{
     errors::Error as RpcClientError,
-    ethereum::{GetBlockByNumber, GetBlockNumber, GetPendingBlock, RpcClientAddr},
+    ethereum::{GetBlockByNumber, GetBlockNumber, RpcClientAddr},
 };
 use types::{ethereum::Network, U128};
 
@@ -92,36 +92,17 @@ impl Handler<StartPolling> for Poller {
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
             .and_then(move |current_block| {
-                let poller_process = address
+                address
                     .send(Poll {
                         block_number: current_block + U128::from(1),
                         retry_count: 0,
                     })
                     .from_err()
-                    .and_then(|res| res.map_err(|e| Error::from(e)));
-
-                let pending_blocks_poller_process = address
-                    .send(PollPendingBlocks {
-                        previous: HashSet::new(),
-                        retry_count: 0,
-                    })
-                    .from_err()
-                    .and_then(|res| res.map_err(|e| Error::from(e)));
-
-                poller_process.join(pending_blocks_poller_process)
+                    .and_then(|res| res.map_err(|e| Error::from(e)))
             })
-            .map_err(move |e| match e {
-                _ => {
-                    error!("{:?}", e);
-
-                    match _address.try_send(Stop) {
-                        Ok(_) => e,
-                        Err(_) => {
-                            error!("Failed to stop actor on error");
-                            e
-                        }
-                    }
-                }
+            .or_else(move |e| {
+                error!("{:?}", e);
+                _address.send(Stop).from_err()
             })
             .map(|_| ());
 
@@ -225,78 +206,6 @@ impl Handler<Bootstrap> for Poller {
             });
 
         Box::new(bootstrap_process)
-    }
-}
-
-#[derive(Message)]
-#[rtype(result = "Result<(), Error>")]
-pub struct PollPendingBlocks {
-    pub previous: HashSet<Transaction>,
-    pub retry_count: usize,
-}
-
-impl Handler<PollPendingBlocks> for Poller {
-    type Result = Box<Future<Item = (), Error = Error>>;
-
-    fn handle(
-        &mut self,
-        PollPendingBlocks {
-            previous,
-            retry_count,
-        }: PollPendingBlocks,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
-        let address = ctx.address();
-        let processor = self.processor.clone();
-        let rpc_client = self.rpc_client.clone();
-
-        if retry_count == RETRY_LIMIT {
-            return Box::new(future::err(Error::RetryLimitError(retry_count)));
-        }
-
-        let polling = rpc_client
-            .send(GetPendingBlock)
-            .from_err::<Error>()
-            .and_then(move |res| res.map_err(|e| Error::from(e)))
-            .and_then(move |block| {
-                let transactions = HashSet::from_iter(block.transactions.iter().cloned());
-
-                let diff = transactions
-                    .clone()
-                    .iter()
-                    .filter(|ref t| !previous.contains(t))
-                    .map(|t| t.to_owned())
-                    .collect::<Vec<Transaction>>();
-
-                processor
-                    .send(ProcessPendingTransactions(diff))
-                    .from_err::<Error>()
-                    .and_then(|res| res.map_err(|e| Error::from(e)))
-                    .map(move |_| 0)
-                    .or_else(move |e| match e {
-                        Error::RpcClientError(e) => match e {
-                            RpcClientError::EmptyResponseError => future::ok(0),
-                            _ => future::ok(retry_count + 1),
-                        },
-                        _ => future::err(e),
-                    })
-                    .and_then(move |retry_count| {
-                        Delay::new(Duration::from_secs(3))
-                            .from_err::<Error>()
-                            .and_then(move |_| {
-                                address
-                                    .send(PollPendingBlocks {
-                                        previous: transactions,
-                                        retry_count,
-                                    })
-                                    .from_err::<Error>()
-                                    .and_then(|res| res.map_err(|e| Error::from(e)))
-                            })
-                    })
-                    .map(|_| ())
-            });
-
-        Box::new(polling)
     }
 }
 
