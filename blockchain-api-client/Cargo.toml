@@ -1,5 +1,5 @@
 [package]
-name = "rpc-client"
+name = "blockchain-api-client"
 version = "0.1.0"
 authors = ["Artefact Inc. <admin@artefact.co.jp>"]
 

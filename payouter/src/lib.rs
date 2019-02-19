@@ -16,7 +16,7 @@ extern crate tokio;
 extern crate config;
 extern crate core;
 extern crate hd_keyring;
-extern crate rpc_client;
+extern crate blockchain_api_client;
 extern crate types;
 
 pub mod bitcoin;

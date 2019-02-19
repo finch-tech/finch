@@ -1,4 +1,4 @@
-use rpc_client::errors::Error as RpcClientError;
+use blockchain_api_client::errors::Error as BlockchainApiClientError;
 
 use actix::MailboxError;
 use core::ModelError;
@@ -15,7 +15,7 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     ModelError(#[cause] ModelError),
     #[fail(display = "{}", _0)]
-    RpcClientError(#[cause] RpcClientError),
+    BlockchainApiClientError(#[cause] BlockchainApiClientError),
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
     #[fail(display = "no payout address")]
@@ -36,9 +36,9 @@ impl From<ModelError> for Error {
     }
 }
 
-impl From<RpcClientError> for Error {
-    fn from(e: RpcClientError) -> Error {
-        Error::RpcClientError(e)
+impl From<BlockchainApiClientError> for Error {
+    fn from(e: BlockchainApiClientError) -> Error {
+        Error::BlockchainApiClientError(e)
     }
 }
 

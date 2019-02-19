@@ -5,13 +5,13 @@ use bitcoin::{
     poller::{Poller, StartPolling},
     processor::Processor,
 };
+use blockchain_api_client::bitcoin::BlockchainApiClientAddr;
 use core::db::postgres;
-use rpc_client::bitcoin::RpcClientAddr;
 use types::bitcoin::Network;
 
 pub fn run(
     postgres: postgres::PgExecutorAddr,
-    rpc_client: RpcClientAddr,
+    blockchain_api_client: BlockchainApiClientAddr,
     network: Network,
     skip_missed_blocks: bool,
 ) -> (Addr<Processor>, Addr<Poller>, Addr<PendingBlocksPoller>) {
@@ -23,14 +23,16 @@ pub fn run(
 
     let _block_processor = block_processor.clone();
     let _postgres = postgres.clone();
-    let _rpc_client = rpc_client.clone();
-    let poller =
-        Supervisor::start(move |_| Poller::new(_block_processor, _postgres, _rpc_client, network));
+    let _blockchain_api_client = blockchain_api_client.clone();
+    let poller = Supervisor::start(move |_| {
+        Poller::new(_block_processor, _postgres, _blockchain_api_client, network)
+    });
     poller.do_send(StartPolling { skip_missed_blocks });
 
     let _block_processor = block_processor.clone();
-    let pb_poller =
-        Supervisor::start(move |_| PendingBlocksPoller::new(_block_processor, rpc_client));
+    let pb_poller = Supervisor::start(move |_| {
+        PendingBlocksPoller::new(_block_processor, blockchain_api_client)
+    });
     pb_poller.do_send(StartPollingPendings);
 
     (block_processor, poller, pb_poller)

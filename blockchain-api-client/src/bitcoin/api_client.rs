@@ -1,9 +1,11 @@
+use std::time::Duration;
+
 use actix::prelude::*;
 use actix_web::{client, HttpMessage};
 use base64::encode;
 use futures::{
     future::{err, ok},
-    stream, Future, Stream,
+    Future,
 };
 use rustc_hex::ToHex;
 use serde_json::{self, Value};
@@ -12,21 +14,21 @@ use core::bitcoin::{Block, Transaction};
 use errors::Error;
 use types::{H256, U128};
 
-pub type RpcClientAddr = Addr<RpcClient>;
+pub type BlockchainApiClientAddr = Addr<BlockchainApiClient>;
 
 #[derive(Clone)]
-pub struct RpcClient {
+pub struct BlockchainApiClient {
     url: String,
     basic_auth: String,
 }
 
-impl Actor for RpcClient {
+impl Actor for BlockchainApiClient {
     type Context = Context<Self>;
 }
 
-impl RpcClient {
+impl BlockchainApiClient {
     pub fn new(url: &str, user: &str, password: &str) -> Self {
-        RpcClient {
+        BlockchainApiClient {
             url: url.to_owned(),
             basic_auth: format!(
                 "Basic {}",
@@ -68,34 +70,35 @@ impl RpcClient {
     }
 
     pub fn get_block(&self, block_hash: H256) -> Box<Future<Item = Block, Error = Error>> {
-        let req = match client::ClientRequest::post(&self.url)
-            .header("Authorization", format!("{}", self.basic_auth))
-            .content_type("application/json")
-            .json(json!({
-                "jsonrpc": "1.0",
-                "method": "getblock",
-                "params": [format!("{}", block_hash)],
-                "id": "1"
-            })) {
+        let req = match client::ClientRequest::get(format!(
+            "{}/rest/block/{}.json",
+            &self.url, block_hash
+        ))
+        .header("Authorization", format!("{}", self.basic_auth))
+        .timeout(Duration::from_secs(60))
+        .finish()
+        {
             Ok(req) => req,
             Err(e) => return Box::new(err(Error::CustomError(format!("{}", e)))),
         };
 
         Box::new(req.send().from_err().and_then(move |resp| {
-            resp.body().limit(4194304).from_err().and_then(move |body| {
-                let body: Value = match serde_json::from_slice(&body) {
-                    Ok(body) => body,
-                    Err(e) => return err(Error::from(e)),
-                };
+            resp.body()
+                .limit(16777216)
+                .from_err()
+                .and_then(move |body| {
+                    let body: Value = match serde_json::from_slice(&body) {
+                        Ok(body) => body,
+                        Err(e) => {
+                            return err(Error::from(e));
+                        }
+                    };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
+                    match serde_json::from_str::<Block>(&format!("{}", body)) {
                         Ok(block) => ok(block),
                         Err(e) => err(Error::from(e)),
-                    },
-                    None => return err(Error::EmptyResponseError),
-                }
-            })
+                    }
+                })
         }))
     }
 
@@ -285,7 +288,7 @@ impl RpcClient {
 #[rtype(result = "Result<U128, Error>")]
 pub struct GetBlockCount;
 
-impl Handler<GetBlockCount> for RpcClient {
+impl Handler<GetBlockCount> for BlockchainApiClient {
     type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(&mut self, _: GetBlockCount, _: &mut Self::Context) -> Self::Result {
@@ -297,7 +300,7 @@ impl Handler<GetBlockCount> for RpcClient {
 #[rtype(result = "Result<Block, Error>")]
 pub struct GetBlock(pub H256);
 
-impl Handler<GetBlock> for RpcClient {
+impl Handler<GetBlock> for BlockchainApiClient {
     type Result = Box<Future<Item = Block, Error = Error>>;
 
     fn handle(&mut self, GetBlock(block_hash): GetBlock, _: &mut Self::Context) -> Self::Result {
@@ -309,7 +312,7 @@ impl Handler<GetBlock> for RpcClient {
 #[rtype(result = "Result<H256, Error>")]
 pub struct GetBlockHash(pub U128);
 
-impl Handler<GetBlockHash> for RpcClient {
+impl Handler<GetBlockHash> for BlockchainApiClient {
     type Result = Box<Future<Item = H256, Error = Error>>;
 
     fn handle(
@@ -325,7 +328,7 @@ impl Handler<GetBlockHash> for RpcClient {
 #[rtype(result = "Result<Transaction, Error>")]
 pub struct GetRawTransaction(pub H256);
 
-impl Handler<GetRawTransaction> for RpcClient {
+impl Handler<GetRawTransaction> for BlockchainApiClient {
     type Result = Box<Future<Item = Transaction, Error = Error>>;
 
     fn handle(
@@ -341,7 +344,7 @@ impl Handler<GetRawTransaction> for RpcClient {
 #[rtype(result = "Result<Block, Error>")]
 pub struct GetBlockByNumber(pub U128);
 
-impl Handler<GetBlockByNumber> for RpcClient {
+impl Handler<GetBlockByNumber> for BlockchainApiClient {
     type Result = Box<Future<Item = Block, Error = Error>>;
 
     fn handle(
@@ -349,33 +352,12 @@ impl Handler<GetBlockByNumber> for RpcClient {
         GetBlockByNumber(block_number): GetBlockByNumber,
         _: &mut Self::Context,
     ) -> Self::Result {
-        let rpc_client = self.clone();
+        let blockchain_api_client = self.clone();
 
         Box::new(
             self.get_block_hash(block_number)
                 .from_err::<Error>()
-                .and_then(move |hash| {
-                    rpc_client
-                        .get_block(hash)
-                        .from_err::<Error>()
-                        .and_then(move |block| {
-                            ok(stream::iter_ok(block.tx_hashes[1..].to_vec().clone()))
-                        .flatten_stream()
-                        .and_then(move |hash| rpc_client.get_raw_transaction(hash).from_err())
-                        .fold(
-                            Vec::new(),
-                            |mut vec, tx| -> Box<Future<Item = Vec<Transaction>, Error = Error>> {
-                                vec.push(tx);
-                                Box::new(ok(vec))
-                            },
-                        )
-                        .and_then(move |transactions| {
-                            let mut block = block;
-                            block.transactions = Some(transactions);
-                            ok(block)
-                        })
-                        })
-                }),
+                .and_then(move |hash| blockchain_api_client.get_block(hash).from_err::<Error>()),
         )
     }
 }
@@ -384,7 +366,7 @@ impl Handler<GetBlockByNumber> for RpcClient {
 #[rtype(result = "Result<H256, Error>")]
 pub struct SendRawTransaction(pub Vec<u8>);
 
-impl Handler<SendRawTransaction> for RpcClient {
+impl Handler<SendRawTransaction> for BlockchainApiClient {
     type Result = Box<Future<Item = H256, Error = Error>>;
 
     fn handle(
@@ -400,7 +382,7 @@ impl Handler<SendRawTransaction> for RpcClient {
 #[rtype(result = "Result<f64, Error>")]
 pub struct EstimateSmartFee(pub usize);
 
-impl Handler<EstimateSmartFee> for RpcClient {
+impl Handler<EstimateSmartFee> for BlockchainApiClient {
     type Result = Box<Future<Item = f64, Error = Error>>;
 
     fn handle(
@@ -416,7 +398,7 @@ impl Handler<EstimateSmartFee> for RpcClient {
 #[rtype(result = "Result<Vec<H256>, Error>")]
 pub struct GetRawMempool;
 
-impl Handler<GetRawMempool> for RpcClient {
+impl Handler<GetRawMempool> for BlockchainApiClient {
     type Result = Box<Future<Item = Vec<H256>, Error = Error>>;
 
     fn handle(&mut self, _: GetRawMempool, _: &mut Self::Context) -> Self::Result {

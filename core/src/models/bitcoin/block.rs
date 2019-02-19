@@ -8,7 +8,6 @@ pub struct Block {
     pub version: u32,
     pub merkleroot: H256,
     #[serde(rename = "tx")]
-    pub tx_hashes: Vec<H256>,
     pub transactions: Option<Vec<Transaction>>,
     pub time: u32,
     pub nonce: u32,

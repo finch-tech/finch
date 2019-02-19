@@ -13,7 +13,7 @@ openssl = "0.10.6"
 
 block-processor = { path = "./block-processor" }
 config = { path = "./config" }
-rpc-client = { path = "./rpc-client" }
+blockchain-api-client = { path = "./blockchain-api-client" }
 payouter = { path = "./payouter" }
 types = { path = "./types" }
 core = { path = "./core" }
@@ -24,4 +24,4 @@ path = "finch/main.rs"
 name = "finch"
 
 [workspace]
-members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "rpc-client"]
+members = ["server", "config", "core", "types", "hd-keyring", "block-processor", "currency-api-client", "payouter", "blockchain-api-client"]

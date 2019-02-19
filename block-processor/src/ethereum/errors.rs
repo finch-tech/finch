@@ -3,7 +3,7 @@ use std::io::Error as IoError;
 use actix::MailboxError;
 use core::ModelError;
 
-use rpc_client::errors::Error as RpcClientError;
+use blockchain_api_client::errors::Error as BlockchainApiClientError;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -14,7 +14,7 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     MailboxError(#[cause] MailboxError),
     #[fail(display = "{}", _0)]
-    RpcClientError(#[cause] RpcClientError),
+    BlockchainApiClientError(#[cause] BlockchainApiClientError),
     #[fail(display = "{}", _0)]
     IoError(#[cause] IoError),
 }
@@ -31,9 +31,9 @@ impl From<MailboxError> for Error {
     }
 }
 
-impl From<RpcClientError> for Error {
-    fn from(e: RpcClientError) -> Error {
-        Error::RpcClientError(e)
+impl From<BlockchainApiClientError> for Error {
+    fn from(e: BlockchainApiClientError) -> Error {
+        Error::BlockchainApiClientError(e)
     }
 }
 

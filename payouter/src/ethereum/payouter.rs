@@ -12,8 +12,8 @@ use core::{
 };
 use errors::Error;
 use hd_keyring::{HdKeyring, Wallet};
-use rpc_client::ethereum::{
-    GetGasPrice, GetTransactionCount, RpcClientAddr, SendRawTransaction, UnsignedTransaction,
+use blockchain_api_client::ethereum::{
+    GetGasPrice, GetTransactionCount, BlockchainApiClientAddr, SendRawTransaction, UnsignedTransaction,
 };
 use types::{
     bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PaymentStatus, PayoutAction,
@@ -24,15 +24,15 @@ pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub rpc_client: RpcClientAddr,
+    pub blockchain_api_client: BlockchainApiClientAddr,
     pub network: EthNetwork,
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClientAddr, network: EthNetwork) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, blockchain_api_client: BlockchainApiClientAddr, network: EthNetwork) -> Self {
         Payouter {
             postgres: pg_addr,
-            rpc_client,
+            blockchain_api_client,
             network,
         }
     }
@@ -42,11 +42,11 @@ impl Payouter {
         payout: Payout,
     ) -> impl Future<Item = (Wallet, Transaction, Store, U256, U128), Error = Error> {
         let postgres = self.postgres.clone();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let gas_price = rpc_client
+        let gas_price = blockchain_api_client
             .send(GetGasPrice)
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)));
@@ -64,7 +64,7 @@ impl Payouter {
                 let transaction =
                     Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                         .from_err();
-                let nonce = rpc_client
+                let nonce = blockchain_api_client
                     .send(GetTransactionCount(
                         H160::from_str(&payment.clone().address[2..]).unwrap(),
                     ))
@@ -108,7 +108,7 @@ impl Payouter {
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let chain_id = self.network.chain_id();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, store, gas_price, nonce)| {
@@ -137,7 +137,7 @@ impl Payouter {
                         .into_future()
                         .from_err()
                         .and_then(move |signed_transaction| {
-                            rpc_client
+                            blockchain_api_client
                                 .send(SendRawTransaction(signed_transaction))
                                 .from_err()
                                 .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -148,7 +148,7 @@ impl Payouter {
 
     pub fn refund(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
         let chain_id = self.network.chain_id();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, _, gas_price, nonce)| {
@@ -168,7 +168,7 @@ impl Payouter {
                     .into_future()
                     .from_err()
                     .and_then(move |signed_transaction| {
-                        rpc_client
+                        blockchain_api_client
                             .send(SendRawTransaction(signed_transaction))
                             .from_err()
                             .and_then(move |res| res.map_err(|e| Error::from(e)))

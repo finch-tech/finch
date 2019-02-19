@@ -4,7 +4,7 @@ extern crate clap;
 extern crate env_logger;
 extern crate openssl;
 
-extern crate rpc_client;
+extern crate blockchain_api_client;
 extern crate toml;
 
 extern crate block_processor;
@@ -19,9 +19,12 @@ use clap::App;
 use openssl::rsa::Rsa;
 use std::{env, fs::File, io::prelude::*, path::Path};
 
+use blockchain_api_client::{
+    bitcoin::BlockchainApiClient as BtcBlockchainApiClient,
+    ethereum::BlockchainApiClient as EthBlockchainApiClient,
+};
 use config::Config;
 use core::db::postgres;
-use rpc_client::{bitcoin::RpcClient as BtcRpcClient, ethereum::RpcClient as EthRpcClient};
 use types::currency::Crypto;
 
 fn main() {
@@ -99,8 +102,8 @@ fn main() {
 
                 let network = btc_config.network;
 
-                let rpc_client = Arbiter::start(move |_| {
-                    BtcRpcClient::new(
+                let blockchain_api_client = Arbiter::start(move |_| {
+                    BtcBlockchainApiClient::new(
                         &btc_config.rpc_url,
                         &btc_config.rpc_user,
                         &btc_config.rpc_pass,
@@ -109,11 +112,11 @@ fn main() {
 
                 _btc_block_processor = block_processor::run(
                     postgres.clone(),
-                    rpc_client.clone(),
+                    blockchain_api_client.clone(),
                     network,
                     skip_missed_blocks,
                 );
-                payouter::run(postgres.clone(), rpc_client.clone(), network);
+                payouter::run(postgres.clone(), blockchain_api_client.clone(), network);
             }
             Crypto::Eth => {
                 use block_processor::ethereum::service as block_processor;
@@ -122,15 +125,16 @@ fn main() {
                 let eth_config = config.clone().ethereum.expect("no ethereum configuration");
 
                 let network = eth_config.network;
-                let rpc_client = Arbiter::start(move |_| EthRpcClient::new(eth_config.rpc_url));
+                let blockchain_api_client =
+                    Arbiter::start(move |_| EthBlockchainApiClient::new(eth_config.rpc_url));
 
                 _eth_block_processor = block_processor::run(
                     postgres.clone(),
-                    rpc_client.clone(),
+                    blockchain_api_client.clone(),
                     network,
                     skip_missed_blocks,
                 );
-                payouter::run(postgres.clone(), rpc_client.clone(), network);
+                payouter::run(postgres.clone(), blockchain_api_client.clone(), network);
             }
         }
     }

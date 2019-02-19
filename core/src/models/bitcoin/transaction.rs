@@ -46,12 +46,13 @@ pub struct TransactionOutputScript {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct SignedTransactionInput {
-    pub txid: H256,
-    pub vout: u32,
+    pub txid: Option<H256>,
+    pub vout: Option<u32>,
     #[serde(rename = "scriptSig")]
-    pub script_sig: TransactionInputScript,
+    pub script_sig: Option<TransactionInputScript>,
     pub sequence: u32,
     pub txinwitness: Option<Vec<String>>,
+    pub coinbase: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -70,7 +71,7 @@ pub struct Transaction {
     pub size: usize,
     pub vsize: usize,
     pub version: i32,
-    pub locktime: i32,
+    pub locktime: u32,
     pub vin: Vec<SignedTransactionInput>,
     pub vout: Vec<SignedTransactionOutput>,
     pub blockhash: Option<H256>,

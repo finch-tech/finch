@@ -8,25 +8,25 @@ use bitcoin::{
     processor::{ProcessMempoolTransactions, ProcessorAddr},
     Error,
 };
-use core::bitcoin::Transaction;
-use rpc_client::{
-    bitcoin::{GetRawMempool, GetRawTransaction, RpcClientAddr},
-    errors::Error as RpcClientError,
+use blockchain_api_client::{
+    bitcoin::{BlockchainApiClientAddr, GetRawMempool, GetRawTransaction},
+    errors::Error as BlockchainApiClientError,
 };
+use core::bitcoin::Transaction;
 use types::H256;
 
 const RETRY_LIMIT: usize = 10;
 
 pub struct Poller {
     processor: ProcessorAddr,
-    rpc_client: RpcClientAddr,
+    blockchain_api_client: BlockchainApiClientAddr,
 }
 
 impl Poller {
-    pub fn new(processor: ProcessorAddr, rpc_client: RpcClientAddr) -> Self {
+    pub fn new(processor: ProcessorAddr, blockchain_api_client: BlockchainApiClientAddr) -> Self {
         Poller {
             processor,
-            rpc_client,
+            blockchain_api_client,
         }
     }
 }
@@ -104,18 +104,18 @@ impl Handler<Poll> for Poller {
     ) -> Self::Result {
         let address = ctx.address().clone();
         let processor = self.processor.clone();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         if retry_count == RETRY_LIMIT {
             return Box::new(future::err(Error::RetryLimitError(retry_count)));
         }
 
-        let polling = rpc_client
+        let polling = blockchain_api_client
             .send(GetRawMempool)
             .from_err::<Error>()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
             .and_then(move |transactions| {
-                let rpc_client = rpc_client.clone();
+                let blockchain_api_client = blockchain_api_client.clone();
 
                 let mempool = HashSet::from_iter(transactions.iter().cloned());
 
@@ -129,7 +129,7 @@ impl Handler<Poll> for Poller {
                         .collect::<Vec<H256>>(),
                 )
                 .and_then(move |hash| {
-                    rpc_client
+                    blockchain_api_client
                         .send(GetRawTransaction(hash))
                         .from_err()
                         .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -151,8 +151,10 @@ impl Handler<Poll> for Poller {
                         .and_then(|res| res.map_err(|e| Error::from(e)))
                         .map(|_| (mempool, 0))
                         .or_else(move |e| match e {
-                            Error::RpcClientError(e) => match e {
-                                RpcClientError::EmptyResponseError => future::ok((_mempool, 0)),
+                            Error::BlockchainApiClientError(e) => match e {
+                                BlockchainApiClientError::EmptyResponseError => {
+                                    future::ok((_mempool, 0))
+                                }
                                 _ => future::ok((_mempool, retry_count + 1)),
                             },
                             _ => future::err(e),

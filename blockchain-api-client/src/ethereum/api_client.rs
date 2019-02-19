@@ -10,20 +10,20 @@ use errors::Error;
 use ethereum::SignedTransaction;
 use types::{H160, H256, U128, U256};
 
-pub type RpcClientAddr = Addr<RpcClient>;
+pub type BlockchainApiClientAddr = Addr<BlockchainApiClient>;
 
 #[derive(Clone)]
-pub struct RpcClient {
+pub struct BlockchainApiClient {
     url: String,
 }
 
-impl Actor for RpcClient {
+impl Actor for BlockchainApiClient {
     type Context = Context<Self>;
 }
 
-impl RpcClient {
+impl BlockchainApiClient {
     pub fn new(url: String) -> Self {
-        RpcClient { url }
+        BlockchainApiClient { url }
     }
 
     pub fn get_balance(&self, account: H160) -> Box<Future<Item = U256, Error = Error>> {
@@ -258,7 +258,7 @@ impl RpcClient {
 #[rtype(result = "Result<U256, Error>")]
 pub struct GetBalance(pub H160);
 
-impl Handler<GetBalance> for RpcClient {
+impl Handler<GetBalance> for BlockchainApiClient {
     type Result = Box<Future<Item = U256, Error = Error>>;
 
     fn handle(&mut self, GetBalance(account): GetBalance, _: &mut Self::Context) -> Self::Result {
@@ -270,7 +270,7 @@ impl Handler<GetBalance> for RpcClient {
 #[rtype(result = "Result<U128, Error>")]
 pub struct GetBlockNumber;
 
-impl Handler<GetBlockNumber> for RpcClient {
+impl Handler<GetBlockNumber> for BlockchainApiClient {
     type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(&mut self, _: GetBlockNumber, _: &mut Self::Context) -> Self::Result {
@@ -282,7 +282,7 @@ impl Handler<GetBlockNumber> for RpcClient {
 #[rtype(result = "Result<Block, Error>")]
 pub struct GetPendingBlock;
 
-impl Handler<GetPendingBlock> for RpcClient {
+impl Handler<GetPendingBlock> for BlockchainApiClient {
     type Result = Box<Future<Item = Block, Error = Error>>;
 
     fn handle(&mut self, _: GetPendingBlock, _: &mut Self::Context) -> Self::Result {
@@ -294,7 +294,7 @@ impl Handler<GetPendingBlock> for RpcClient {
 #[rtype(result = "Result<Block, Error>")]
 pub struct GetBlockByNumber(pub U128);
 
-impl Handler<GetBlockByNumber> for RpcClient {
+impl Handler<GetBlockByNumber> for BlockchainApiClient {
     type Result = Box<Future<Item = Block, Error = Error>>;
 
     fn handle(
@@ -310,7 +310,7 @@ impl Handler<GetBlockByNumber> for RpcClient {
 #[rtype(result = "Result<U256, Error>")]
 pub struct GetGasPrice;
 
-impl Handler<GetGasPrice> for RpcClient {
+impl Handler<GetGasPrice> for BlockchainApiClient {
     type Result = Box<Future<Item = U256, Error = Error>>;
 
     fn handle(&mut self, _: GetGasPrice, _: &mut Self::Context) -> Self::Result {
@@ -322,7 +322,7 @@ impl Handler<GetGasPrice> for RpcClient {
 #[rtype(result = "Result<U128, Error>")]
 pub struct GetTransactionCount(pub H160);
 
-impl Handler<GetTransactionCount> for RpcClient {
+impl Handler<GetTransactionCount> for BlockchainApiClient {
     type Result = Box<Future<Item = U128, Error = Error>>;
 
     fn handle(
@@ -338,7 +338,7 @@ impl Handler<GetTransactionCount> for RpcClient {
 #[rtype(result = "Result<H256, Error>")]
 pub struct SendRawTransaction(pub SignedTransaction);
 
-impl Handler<SendRawTransaction> for RpcClient {
+impl Handler<SendRawTransaction> for BlockchainApiClient {
     type Result = Box<Future<Item = H256, Error = Error>>;
 
     fn handle(

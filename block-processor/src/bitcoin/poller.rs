@@ -8,13 +8,13 @@ use bitcoin::{
     processor::{ProcessBlock, ProcessorAddr},
     Error,
 };
+use blockchain_api_client::{
+    bitcoin::{BlockchainApiClientAddr, GetBlockByNumber, GetBlockCount},
+    errors::Error as BlockchainApiClientError,
+};
 use core::{
     bitcoin::{BlockchainStatus, BlockchainStatusPayload},
     db::postgres::PgExecutorAddr,
-};
-use rpc_client::{
-    bitcoin::{GetBlockByNumber, GetBlockCount, RpcClientAddr},
-    errors::Error as RpcClientError,
 };
 use types::{bitcoin::Network, U128};
 
@@ -23,7 +23,7 @@ const RETRY_LIMIT: usize = 10;
 pub struct Poller {
     processor: ProcessorAddr,
     postgres: PgExecutorAddr,
-    rpc_client: RpcClientAddr,
+    blockchain_api_client: BlockchainApiClientAddr,
     network: Network,
 }
 
@@ -31,13 +31,13 @@ impl Poller {
     pub fn new(
         processor: ProcessorAddr,
         postgres: PgExecutorAddr,
-        rpc_client: RpcClientAddr,
+        blockchain_api_client: BlockchainApiClientAddr,
         network: Network,
     ) -> Self {
         Poller {
             processor,
             postgres,
-            rpc_client,
+            blockchain_api_client,
             network,
         }
     }
@@ -127,11 +127,11 @@ impl Handler<Bootstrap> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
         let postgres = self.postgres.clone();
         let network = self.network;
 
-        let bootstrap_process = rpc_client
+        let bootstrap_process = blockchain_api_client
             .send(GetBlockCount)
             .from_err::<Error>()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -188,9 +188,9 @@ impl Handler<Bootstrap> for Poller {
                     })
                     .for_each(move |block_number| {
                         let processor = processor.clone();
-                        let rpc_client = rpc_client.clone();
+                        let blockchain_api_client = blockchain_api_client.clone();
 
-                        rpc_client
+                        blockchain_api_client
                             .send(GetBlockByNumber(block_number))
                             .from_err()
                             .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -234,13 +234,13 @@ impl Handler<Poll> for Poller {
     ) -> Self::Result {
         let address = ctx.address();
         let processor = self.processor.clone();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         if retry_count == RETRY_LIMIT {
             return Box::new(future::err(Error::RetryLimitError(retry_count)));
         }
 
-        let polling = rpc_client
+        let polling = blockchain_api_client
             .send(GetBlockByNumber(block_number))
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -252,8 +252,8 @@ impl Handler<Poll> for Poller {
                     .map(move |_| (block_number + U128::from(1), 0))
             })
             .or_else(move |e| match e {
-                Error::RpcClientError(e) => match e {
-                    RpcClientError::EmptyResponseError => future::ok((block_number, 0)),
+                Error::BlockchainApiClientError(e) => match e {
+                    BlockchainApiClientError::EmptyResponseError => future::ok((block_number, 0)),
                     _ => future::ok((block_number, retry_count + 1)),
                 },
                 _ => future::err(e),

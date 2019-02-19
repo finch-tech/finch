@@ -2,8 +2,8 @@ use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
 use errors::Error;
-use rpc_client::bitcoin::{
-    EstimateSmartFee, RpcClientAddr, SendRawTransaction, UnsignedTransaction,
+use blockchain_api_client::bitcoin::{
+    EstimateSmartFee, BlockchainApiClientAddr, SendRawTransaction, UnsignedTransaction,
 };
 
 use core::{
@@ -20,15 +20,15 @@ pub type PayouterAddr = Addr<Payouter>;
 
 pub struct Payouter {
     pub postgres: PgExecutorAddr,
-    pub rpc_client: RpcClientAddr,
+    pub blockchain_api_client: BlockchainApiClientAddr,
     pub network: BtcNetwork,
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, rpc_client: RpcClientAddr, network: BtcNetwork) -> Self {
+    pub fn new(pg_addr: PgExecutorAddr, blockchain_api_client: BlockchainApiClientAddr, network: BtcNetwork) -> Self {
         Payouter {
             postgres: pg_addr,
-            rpc_client,
+            blockchain_api_client,
             network,
         }
     }
@@ -38,12 +38,12 @@ impl Payouter {
         payout: Payout,
     ) -> impl Future<Item = (Wallet, Transaction, Store, f64), Error = Error> {
         let postgres = self.postgres.clone();
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
         let network = self.network.clone();
 
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
-        let transaction_fee = rpc_client
+        let transaction_fee = blockchain_api_client
             .send(EstimateSmartFee(1))
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
@@ -89,7 +89,7 @@ impl Payouter {
     }
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
-        let rpc_client = self.rpc_client.clone();
+        let blockchain_api_client = self.blockchain_api_client.clone();
 
         self.prepare_payout(payout)
             .and_then(move |(wallet, transaction, store, transaction_fee)| {
@@ -133,7 +133,7 @@ impl Payouter {
                     tx.sign(wallet.secret_key, wallet.public_key);
                     let raw_transaction = tx.into_raw_transaction();
 
-                    rpc_client
+                    blockchain_api_client
                         .send(SendRawTransaction(raw_transaction))
                         .from_err()
                         .and_then(move |res| res.map_err(|e| Error::from(e)))

@@ -15,8 +15,8 @@ extern crate serde;
 extern crate serde_json;
 extern crate tokio;
 
+extern crate blockchain_api_client;
 extern crate core;
-extern crate rpc_client;
 extern crate types;
 
 pub mod bitcoin;
