@@ -4,4 +4,4 @@ mod transaction;
 
 pub use self::block::Block;
 pub use self::blockchain_status::{BlockchainStatus, BlockchainStatusPayload};
-pub use self::transaction::{ScriptType, Transaction};
+pub use self::transaction::{ScriptType, SignedTransactionOutput, Transaction};
