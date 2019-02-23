@@ -3,6 +3,10 @@ use std::str::FromStr;
 use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
+use blockchain_api_client::ethereum::{
+    BlockchainApiClientAddr, GetGasPrice, GetTransactionCount, SendRawTransaction,
+    UnsignedTransaction,
+};
 use core::{
     db::postgres::PgExecutorAddr,
     ethereum::Transaction,
@@ -12,9 +16,6 @@ use core::{
 };
 use errors::Error;
 use hd_keyring::{HdKeyring, Wallet};
-use blockchain_api_client::ethereum::{
-    GetGasPrice, GetTransactionCount, BlockchainApiClientAddr, SendRawTransaction, UnsignedTransaction,
-};
 use types::{
     bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PaymentStatus, PayoutAction,
     PayoutStatus, H160, H256, U128, U256,
@@ -29,7 +30,11 @@ pub struct Payouter {
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, blockchain_api_client: BlockchainApiClientAddr, network: EthNetwork) -> Self {
+    pub fn new(
+        pg_addr: PgExecutorAddr,
+        blockchain_api_client: BlockchainApiClientAddr,
+        network: EthNetwork,
+    ) -> Self {
         Payouter {
             postgres: pg_addr,
             blockchain_api_client,
@@ -51,19 +56,18 @@ impl Payouter {
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)));
 
-        store
-            .join3(payment, gas_price)
-            .and_then(move |(store, payment, gas_price)| {
+        store.join3(payment, gas_price).and_then(
+            move |(store, payment, gas_price)| -> Box<
+                Future<Item = (Wallet, Transaction, Store, U256, U128), Error = Error>,
+            > {
                 if gas_price == U256::from(0) {
-                    return future::err(Error::InvalidGasPrice);
+                    return Box::new(future::err(Error::InvalidGasPrice));
                 }
 
-                future::ok((store, payment, gas_price))
-            })
-            .and_then(move |(store, payment, gas_price)| {
                 let transaction =
                     Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                         .from_err();
+
                 let nonce = blockchain_api_client
                     .send(GetTransactionCount(
                         H160::from_str(&payment.clone().address[2..]).unwrap(),
@@ -71,9 +75,15 @@ impl Payouter {
                     .from_err()
                     .and_then(move |res| res.map_err(|e| Error::from(e)));
 
-                transaction
-                    .join(nonce)
-                    .and_then(move |(transaction, nonce)| {
+                Box::new(transaction.join(nonce).and_then(
+                    move |(transaction, nonce)| -> Box<
+                        Future<Item = (Wallet, Transaction, Store, U256, U128), Error = Error>,
+                    > {
+                        if transaction.value <= (gas_price * U256::from(21_000)) {
+                            info!("Insufficient funds to pay out");
+                            return Box::new(future::err(Error::InsufficientFunds));
+                        }
+
                         let mut path = store.hd_path.clone();
                         let timestamp_nanos = payment.created_at.timestamp_nanos().to_string();
                         let second = &timestamp_nanos[..10];
@@ -84,26 +94,30 @@ impl Payouter {
                         path.push_str("/");
                         path.push_str(nano_second);
 
-                        HdKeyring::from_mnemonic(
-                            &path,
-                            &store.mnemonic.clone(),
-                            0,
-                            // Dummy
-                            BtcNetwork::TestNet,
+                        Box::new(
+                            HdKeyring::from_mnemonic(
+                                &path,
+                                &store.mnemonic.clone(),
+                                0,
+                                // Dummy
+                                BtcNetwork::TestNet,
+                            )
+                            .into_future()
+                            .from_err()
+                            .and_then(move |keyring| {
+                                keyring
+                                    .get_wallet_by_index(payment.index as u32)
+                                    .into_future()
+                                    .from_err()
+                                    .and_then(move |wallet| {
+                                        future::ok((wallet, transaction, store, gas_price, nonce))
+                                    })
+                            }),
                         )
-                        .into_future()
-                        .from_err()
-                        .and_then(move |keyring| {
-                            keyring
-                                .get_wallet_by_index(payment.index as u32)
-                                .into_future()
-                                .from_err()
-                                .and_then(move |wallet| {
-                                    future::ok((wallet, transaction, store, gas_price, nonce))
-                                })
-                        })
-                    })
-            })
+                    },
+                ))
+            },
+        )
     }
 
     pub fn payout(&self, payout: Payout) -> impl Future<Item = H256, Error = Error> {
@@ -163,16 +177,18 @@ impl Payouter {
                     data: b"".to_vec(),
                 };
 
-                raw_transaction
-                    .sign(wallet.secret_key, chain_id)
-                    .into_future()
-                    .from_err()
-                    .and_then(move |signed_transaction| {
-                        blockchain_api_client
-                            .send(SendRawTransaction(signed_transaction))
-                            .from_err()
-                            .and_then(move |res| res.map_err(|e| Error::from(e)))
-                    })
+                Box::new(
+                    raw_transaction
+                        .sign(wallet.secret_key, chain_id)
+                        .into_future()
+                        .from_err()
+                        .and_then(move |signed_transaction| {
+                            blockchain_api_client
+                                .send(SendRawTransaction(signed_transaction))
+                                .from_err()
+                                .and_then(move |res| res.map_err(|e| Error::from(e)))
+                        }),
+                )
             })
     }
 }
@@ -194,8 +210,9 @@ impl Handler<ProcessPayout> for Payouter {
         ctx: &mut Self::Context,
     ) -> Self::Result {
         let address = ctx.address();
+        let postgres = self.postgres.clone();
 
-        match payout.action {
+        let process: Self::Result = match payout.action {
             PayoutAction::Payout => Box::new(
                 address
                     .send(PayOut(payout))
@@ -208,7 +225,23 @@ impl Handler<ProcessPayout> for Payouter {
                     .from_err()
                     .and_then(|res| res.map_err(|e| Error::from(e))),
             ),
-        }
+        };
+
+        Box::new(process.or_else(move |e| -> Self::Result {
+            match e {
+                Error::InsufficientFunds => {
+                    let mut payload = PayoutPayload::from(payout);
+                    payload.status = Some(PayoutStatus::InsufficientFunds);
+
+                    return Box::new(
+                        Payout::update(payout.id, payload, &postgres)
+                            .from_err()
+                            .map(move |_| ()),
+                    );
+                }
+                _ => Box::new(future::err(e)),
+            }
+        }))
     }
 }
 

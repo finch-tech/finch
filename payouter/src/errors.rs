@@ -22,6 +22,8 @@ pub enum Error {
     NoPayoutAddress,
     #[fail(display = "invalid gas price")]
     InvalidGasPrice,
+    #[fail(display = "insufficient funds")]
+    InsufficientFunds,
 }
 
 impl From<KeyringError> for Error {

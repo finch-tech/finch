@@ -15,6 +15,7 @@ pub enum PayoutStatus {
     Pending,
     PaidOut,
     Refunded,
+    InsufficientFunds,
 }
 
 impl fmt::Display for PayoutStatus {
@@ -26,6 +27,7 @@ impl fmt::Display for PayoutStatus {
                 PayoutStatus::Pending => "pending",
                 PayoutStatus::PaidOut => "paid_out",
                 PayoutStatus::Refunded => "refunded",
+                PayoutStatus::InsufficientFunds => "insufficient_funds",
             }
         )
     }
@@ -37,6 +39,7 @@ impl ToSql<Text, Pg> for PayoutStatus {
             PayoutStatus::Pending => "pending",
             PayoutStatus::PaidOut => "paid_out",
             PayoutStatus::Refunded => "refunded",
+            PayoutStatus::InsufficientFunds => "insufficient_funds",
         };
 
         ToSql::<Text, Pg>::to_sql(&text, out)
@@ -52,6 +55,7 @@ impl FromSql<Text, Pg> for PayoutStatus {
             "pending" => Ok(PayoutStatus::Pending),
             "paid_out" => Ok(PayoutStatus::PaidOut),
             "refunded" => Ok(PayoutStatus::Refunded),
+            "insufficient_funds" => Ok(PayoutStatus::InsufficientFunds),
             v => Err(format!("unknown value {} for Currency found", v).into()),
         }
     }

@@ -1,10 +1,10 @@
 use actix::prelude::*;
 use futures::future::{self, Future, IntoFuture};
 
-use errors::Error;
 use blockchain_api_client::bitcoin::{
-    EstimateSmartFee, BlockchainApiClientAddr, SendRawTransaction, UnsignedTransaction,
+    BlockchainApiClientAddr, EstimateSmartFee, SendRawTransaction, UnsignedTransaction,
 };
+use errors::Error;
 
 use core::{
     bitcoin::{ScriptType, Transaction},
@@ -25,7 +25,11 @@ pub struct Payouter {
 }
 
 impl Payouter {
-    pub fn new(pg_addr: PgExecutorAddr, blockchain_api_client: BlockchainApiClientAddr, network: BtcNetwork) -> Self {
+    pub fn new(
+        pg_addr: PgExecutorAddr,
+        blockchain_api_client: BlockchainApiClientAddr,
+        network: BtcNetwork,
+    ) -> Self {
         Payouter {
             postgres: pg_addr,
             blockchain_api_client,
@@ -44,7 +48,7 @@ impl Payouter {
         let store = payout.store(&postgres).from_err();
         let payment = payout.payment(&postgres).from_err();
         let transaction_fee = blockchain_api_client
-            .send(EstimateSmartFee(1))
+            .send(EstimateSmartFee(10))
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
             .from_err();
@@ -92,16 +96,14 @@ impl Payouter {
         let blockchain_api_client = self.blockchain_api_client.clone();
 
         self.prepare_payout(payout)
-            .and_then(move |(wallet, transaction, store, transaction_fee)| {
-                match store.btc_payout_addresses {
-                    Some(payout_addresses) => {
-                        future::ok((wallet, transaction, transaction_fee, payout_addresses))
-                    }
-                    None => future::err(Error::NoPayoutAddress),
-                }
-            })
             .and_then(
-                move |(wallet, transaction, transaction_fee, payout_addresses)| {
+                move |(wallet, transaction, store, transaction_fee)| -> Box<Future<Item=H256, Error = Error>> {
+                    let payout_address = if let Some(payout_addresses) = store.btc_payout_addresses {
+                        payout_addresses[0].to_owned()
+                    } else {
+                        return Box::new(future::err(Error::NoPayoutAddress));
+                    };
+
                     let recepient = wallet.get_btc_address();
 
                     let mut utxo_n = 0;
@@ -118,25 +120,28 @@ impl Payouter {
                         };
                     }
                     let utxo = transaction.vout[utxo_n as usize].clone();
-                    let mut value = (utxo.value * (100_000_000 as f64)) as u64;
+                    let value = (utxo.value * (100_000_000 as f64)) as u64;
 
                     // In satoshi
                     let tx_fee_per_byte = (transaction_fee * (100_000_000 as f64)) / 1000 as f64;
 
-                    value -= tx_fee_per_byte as u64 * 192;
+                    if value <= tx_fee_per_byte as u64 * 192 {
+                        info!("Insufficient funds to pay out.");
+                        return Box::new(future::err(Error::InsufficientFunds));
+                    }
 
                     let mut tx = UnsignedTransaction::new(
                         vec![(transaction.clone(), utxo.n)],
-                        vec![(payout_addresses[0].to_string().clone(), value)],
+                        vec![(payout_address.to_string().clone(), value - tx_fee_per_byte as u64 * 192)],
                     );
 
                     tx.sign(wallet.secret_key, wallet.public_key);
                     let raw_transaction = tx.into_raw_transaction();
 
-                    blockchain_api_client
+                    Box::new(blockchain_api_client
                         .send(SendRawTransaction(raw_transaction))
                         .from_err()
-                        .and_then(move |res| res.map_err(|e| Error::from(e)))
+                        .and_then(move |res| res.map_err(|e| Error::from(e))))
                 },
             )
     }
@@ -176,6 +181,7 @@ impl Handler<PayOut> for Payouter {
 
     fn handle(&mut self, PayOut(payout): PayOut, _: &mut Self::Context) -> Self::Result {
         let postgres = self.postgres.clone();
+        let _postgres = self.postgres.clone();
 
         Box::new(
             self.payout(payout)
@@ -198,7 +204,22 @@ impl Handler<PayOut> for Payouter {
                     )
                     .from_err()
                 })
-                .map(move |_| ()),
+                .map(move |_| ())
+                .or_else(move |e| -> Self::Result {
+                    match e {
+                        Error::InsufficientFunds => {
+                            let mut payload = PayoutPayload::from(payout);
+                            payload.status = Some(PayoutStatus::InsufficientFunds);
+
+                            return Box::new(
+                                Payout::update(payout.id, payload, &_postgres)
+                                    .from_err()
+                                    .map(move |_| ()),
+                            );
+                        }
+                        _ => Box::new(future::err(e)),
+                    }
+                }),
         )
     }
 }
