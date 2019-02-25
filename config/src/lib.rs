@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
+extern crate bigdecimal;
 
 extern crate currency_api_client;
 extern crate types;
@@ -42,10 +43,12 @@ pub struct BtcConfig {
     pub rpc_url: String,
     pub rpc_user: String,
     pub rpc_pass: String,
+    pub min_charge: Option<bigdecimal::BigDecimal>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct EthConfig {
     pub network: EthNetwork,
     pub rpc_url: String,
+    pub min_charge: Option<bigdecimal::BigDecimal>,
 }

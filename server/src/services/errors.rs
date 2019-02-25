@@ -1,5 +1,6 @@
 use actix::MailboxError;
 use actix_web::{client::SendRequestError, error, http, HttpResponse};
+use bigdecimal::BigDecimal;
 use data_encoding::DecodeError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use jwt::errors::Error as JwtError;
@@ -12,6 +13,7 @@ use core::{db::Error as DbError, ModelError};
 use currency_api_client::Error as CurrencyApiClientError;
 use hd_keyring::Error as KeyringError;
 use mailer::Error as MailerError;
+use types::currency::Crypto;
 
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -53,6 +55,11 @@ pub enum Error {
     BadRequest,
     #[fail(display = "internal server error")]
     InternalServerError,
+    #[fail(
+        display = "charge amount is too low. It has to be at least {} {}",
+        min, unit
+    )]
+    ChargeAmountTooLow { min: BigDecimal, unit: Crypto },
 }
 
 impl error::ResponseError for Error {

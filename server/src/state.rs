@@ -1,10 +1,8 @@
-use config::ServerConfig;
+use config::{BtcConfig, EthConfig, ServerConfig};
 use core::db::postgres::PgExecutorAddr;
 use currency_api_client::CurrencyApiClientAddr;
 use mailer::MailerAddr;
-use types::{
-    bitcoin::Network as BtcNetwork, ethereum::Network as EthNetwork, PrivateKey, PublicKey,
-};
+use types::{currency::Crypto, PrivateKey, PublicKey};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -13,7 +11,16 @@ pub struct AppState {
     pub config: ServerConfig,
     pub jwt_public: PublicKey,
     pub jwt_private: PrivateKey,
-    pub btc_network: Option<BtcNetwork>,
-    pub eth_network: Option<EthNetwork>,
+    pub btc_config: Option<BtcConfig>,
+    pub eth_config: Option<EthConfig>,
     pub currency_api_client: CurrencyApiClientAddr,
+}
+
+impl AppState {
+    pub fn supports(&self, crypto: &Crypto) -> bool {
+        match crypto {
+            Crypto::Btc => self.btc_config.is_some(),
+            Crypto::Eth => self.eth_config.is_some(),
+        }
+    }
 }

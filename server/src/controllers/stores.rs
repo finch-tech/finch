@@ -7,7 +7,10 @@ use auth::AuthUser;
 use core::store::{Store, StorePayload};
 use services::{self, Error};
 use state::AppState;
-use types::{bitcoin::Address as BtcAddress, H160};
+use types::{
+    bitcoin::{Address as BtcAddress, Network as BtcNetwork},
+    H160,
+};
 
 const LIMIT: i64 = 15;
 const OFFSET: i64 = 0;
@@ -34,7 +37,12 @@ pub fn create(
     payload.eth_confirmations_required = Some(Some(1));
     payload.btc_confirmations_required = Some(Some(1));
 
-    services::stores::create(payload, state.btc_network, &state.postgres)
+    let btc_network = state
+        .clone()
+        .btc_config
+        .map_or(BtcNetwork::TestNet, |config| config.network);
+
+    services::stores::create(payload, btc_network, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))
 }
 

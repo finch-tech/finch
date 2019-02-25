@@ -1,4 +1,5 @@
-use futures::future::{Future, IntoFuture};
+use bigdecimal::BigDecimal;
+use futures::future::{self, Future, IntoFuture};
 use uuid::Uuid;
 
 use core::{
@@ -18,8 +19,8 @@ pub fn create(
     mut payload: PaymentPayload,
     store: &Store,
     postgres: &PgExecutorAddr,
+    min_charge: Option<BigDecimal>,
     currency_api_client: CurrencyApiClientAddr,
-    btc_network: Option<BtcNetwork>,
 ) -> impl Future<Item = Payment, Error = Error> {
     let postgres = postgres.clone();
     let store = store.to_owned();
@@ -45,7 +46,7 @@ pub fn create(
         &path,
         &store.mnemonic.clone(),
         0,
-        btc_network.unwrap_or(BtcNetwork::TestNet),
+        payload.btc_network.unwrap_or(BtcNetwork::TestNet),
     )
     .into_future()
     .from_err()
@@ -58,21 +59,26 @@ pub fn create(
             })
             .from_err()
             .and_then(move |res| res.map_err(|e| Error::from(e)))
-            .and_then(move |rate| {
-                match payload.crypto.unwrap() {
-                    Crypto::Btc => {
-                        payload.charge =
-                            Some(payload.clone().price.unwrap() * rate.with_scale(BTC_SCALE));
-                    }
-                    Crypto::Eth => {
-                        payload.charge =
-                            Some(payload.clone().price.unwrap() * rate.with_scale(ETH_SCALE));
-                    }
+            .and_then(move |rate| -> Box<Future<Item = Payment, Error = Error>> {
+                let charge = match payload.crypto.unwrap() {
+                    Crypto::Btc => payload.clone().price.unwrap() * rate.with_scale(BTC_SCALE),
+                    Crypto::Eth => payload.clone().price.unwrap() * rate.with_scale(ETH_SCALE),
                 };
+
+                if let Some(min_charge) = min_charge {
+                    if charge < min_charge {
+                        return Box::new(future::err(Error::ChargeAmountTooLow {
+                            min: min_charge,
+                            unit: payload.crypto.unwrap(),
+                        }));
+                    }
+                }
+
+                payload.charge = Some(charge);
 
                 payload.address = Some(wallet.get_address(&payload.crypto.unwrap()));
 
-                Payment::insert(payload, &postgres).from_err()
+                Box::new(Payment::insert(payload, &postgres).from_err())
             })
     })
 }

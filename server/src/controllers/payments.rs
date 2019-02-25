@@ -39,63 +39,79 @@ pub fn create(
 
             ok((store, params))
         })
-        .and_then(move |(store, params)| {
-            let auth_client = AuthClient::new(client_token);
+        .and_then(
+            move |(store, params)| -> Box<Future<Item = Json<Value>, Error = Error>> {
+                let auth_client = AuthClient::new(client_token);
 
-            let mut payload = PaymentPayload::new();
-            payload.store_id = Some(auth_client.store_id);
-            payload.created_by = Some(auth_client.id);
-            payload.fiat = Some(params.fiat);
-            payload.price = Some(params.price);
-            payload.crypto = Some(params.crypto);
+                let mut payload = PaymentPayload::new();
+                payload.store_id = Some(auth_client.store_id);
+                payload.created_by = Some(auth_client.id);
+                payload.fiat = Some(params.fiat);
+                payload.price = Some(params.price);
+                payload.crypto = Some(params.crypto);
 
-            if let Some(ref identifier) = params.identifier {
-                if identifier.len() > 100 {
-                    return future::Either::A(err(Error::BadRequest));
+                if let Some(ref identifier) = params.identifier {
+                    if identifier.len() > 100 {
+                        return Box::new(err(Error::BadRequest));
+                    }
+
+                    payload.identifier = params.identifier.to_owned();
                 }
 
-                payload.identifier = params.identifier.to_owned();
-            }
-
-            match params.crypto {
-                Crypto::Btc => {
-                    payload.confirmations_required = store.btc_confirmations_required;
-                    payload.btc_network = state.btc_network;
+                if !state.supports(&params.crypto) {
+                    return Box::new(err(Error::CurrencyNotSupported));
                 }
-                Crypto::Eth => {
-                    payload.confirmations_required = store.eth_confirmations_required;
-                    payload.eth_network = state.eth_network;
-                }
-            }
 
-            future::Either::B(
-                services::payments::create(
-                    payload,
-                    &store,
-                    &state.postgres,
-                    state.currency_api_client.clone(),
-                    state.btc_network,
-                )
-                .and_then(move |payment| {
-                    JWTPayload::new(None, Some(auth_client), payment.expires_at)
-                        .encode(&state.jwt_private)
-                        .map_err(|e| Error::from(e))
-                        .into_future()
-                        .then(move |res| {
-                            res.and_then(|auth_token| {
-                                Ok(Json(json!({
-                                    "payment": payment.export(),
-                                    "store": {
-                                        "name": store.name,
-                                        "description": store.description
-                                    },
-                                    "token": auth_token,
-                                })))
+                let min_charge;
+
+                match params.crypto {
+                    Crypto::Btc => {
+                        payload.confirmations_required = store.btc_confirmations_required;
+                        payload.btc_network = state
+                            .clone()
+                            .btc_config
+                            .map_or(None, |config| Some(config.network));
+                        min_charge = state.clone().btc_config.unwrap().min_charge;
+                    }
+                    Crypto::Eth => {
+                        payload.confirmations_required = store.eth_confirmations_required;
+                        payload.eth_network = state
+                            .clone()
+                            .eth_config
+                            .map_or(None, |config| Some(config.network));
+                        min_charge = state.clone().eth_config.unwrap().min_charge;
+                    }
+                }
+
+                Box::new(
+                    services::payments::create(
+                        payload,
+                        &store,
+                        &state.postgres,
+                        min_charge,
+                        state.currency_api_client.clone(),
+                    )
+                    .and_then(move |payment| {
+                        JWTPayload::new(None, Some(auth_client), payment.expires_at)
+                            .encode(&state.jwt_private)
+                            .map_err(|e| Error::from(e))
+                            .into_future()
+                            .then(move |res| {
+                                res.and_then(|auth_token| {
+                                    Ok(Json(json!({
+                                        "payment": payment.export(),
+                                        "store": {
+                                            "name": store.name,
+                                            "description": store.description
+                                        },
+                                        "token": auth_token,
+                                    })))
+                                })
                             })
-                        })
-                }),
-            )
-        })
+                    }),
+                )
+            },
+        )
 }
 
 fn validate_client(payment: &Payment, client: &AuthClient) -> Result<bool, Error> {

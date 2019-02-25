@@ -78,20 +78,8 @@ pub fn run(postgres: postgres::PgExecutorAddr, config: Config) {
                 .expect("failed to open the public key file"),
             jwt_private: fs::read(config.server.private_key_path.clone())
                 .expect("failed to open the private key file"),
-            btc_network: {
-                if let Some(btc_config) = config.bitcoin.clone() {
-                    Some(btc_config.network)
-                } else {
-                    None
-                }
-            },
-            eth_network: {
-                if let Some(eth_config) = config.ethereum.clone() {
-                    Some(eth_config.network)
-                } else {
-                    None
-                }
-            },
+            btc_config: config.bitcoin.clone(),
+            eth_config: config.ethereum.clone(),
             currency_api_client: currency_api_client.clone(),
         })
         .middleware(middleware::Logger::default())

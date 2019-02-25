@@ -20,19 +20,16 @@ fn generate_rsa() -> Result<(PrivateKey, PublicKey), Error> {
 
 pub fn create(
     mut payload: StorePayload,
-    btc_network: Option<BtcNetwork>,
+    btc_network: BtcNetwork,
     postgres: &PgExecutorAddr,
 ) -> impl Future<Item = Store, Error = Error> {
     let postgres = postgres.clone();
+
     let kay_pair = generate_rsa().into_future();
 
-    let keyring = HdKeyring::new(
-        "m/44'/60'/0'/0",
-        1,
-        btc_network.unwrap_or(BtcNetwork::TestNet),
-    )
-    .into_future()
-    .from_err();
+    let keyring = HdKeyring::new("m/44'/60'/0'/0", 1, btc_network)
+        .into_future()
+        .from_err();
 
     kay_pair
         .join(keyring)
