@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use actix::{
-    fut::{self, wrap_future},
+    fut::{self, wrap_future, ActorFuture},
     prelude::*,
 };
 use futures::{future, stream, Future, Stream};
@@ -41,28 +41,33 @@ impl Actor for Monitor {
 
             let monitor_process = wrap_future(BlockchainStatus::find(network, &monitor.postgres))
                 .from_err::<Error>()
-                .and_then(move |status, m: &mut Monitor, _| {
-                    let block_height = status.block_height;
+                .and_then(
+                    move |status,
+                          m: &mut Monitor,
+                          _|
+                          -> Box<ActorFuture<Item = (), Error = Error, Actor = Self>> {
+                        let block_height = status.block_height;
 
-                    if let Some(ref previous_block) = m.previous_block {
-                        if block_height == *previous_block {
-                            return fut::Either::A(fut::ok(()));
-                        }
-                    };
+                        if let Some(ref previous_block) = m.previous_block {
+                            if block_height == *previous_block {
+                                return Box::new(fut::ok(()));
+                            }
+                        };
 
-                    fut::Either::B(
-                        wrap_future(
-                            address
-                                .send(ProcessBlock(block_height))
-                                .from_err()
-                                .and_then(|res| res.map_err(|e| Error::from(e))),
+                        Box::new(
+                            wrap_future(
+                                address
+                                    .send(ProcessBlock(block_height))
+                                    .from_err()
+                                    .and_then(|res| res.map_err(|e| Error::from(e))),
+                            )
+                            .and_then(move |_, m: &mut Monitor, _| {
+                                m.previous_block = Some(block_height);
+                                fut::ok(())
+                            }),
                         )
-                        .and_then(move |_, m: &mut Monitor, _| {
-                            m.previous_block = Some(block_height);
-                            fut::ok(())
-                        }),
-                    )
-                })
+                    },
+                )
                 .map_err(|e, _, _| match e {
                     _ => error!("{:?}", e),
                 })

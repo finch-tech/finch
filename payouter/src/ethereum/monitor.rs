@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use actix::{
-    fut::{self, wrap_future},
+    fut::{self, wrap_future, ActorFuture},
     prelude::*,
 };
 use futures::{future, stream, Future, Stream};
@@ -41,16 +41,16 @@ impl Actor for Monitor {
 
             let monitor_process = wrap_future(BlockchainStatus::find(network, &monitor.postgres))
                 .from_err::<Error>()
-                .and_then(move |status, m: &mut Monitor, _| {
+                .and_then(move |status, m: &mut Monitor, _| -> Box<ActorFuture<Item = (), Error = Error, Actor = Self>>  {
                     let block_height = status.block_height;
 
                     if let Some(ref previous_block) = m.previous_block {
                         if block_height == *previous_block {
-                            return fut::Either::A(fut::ok(()));
+                            return Box::new(fut::ok(()));
                         }
                     };
 
-                    return fut::Either::B(
+                    return Box::new(
                         wrap_future(
                             address
                                 .send(ProcessBlock(block_height))

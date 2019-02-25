@@ -157,53 +157,58 @@ impl Handler<Bootstrap> for Poller {
                     .map(move |status| (status, current_block_number))
             })
             .from_err::<Error>()
-            .and_then(move |(status, current_block_number)| {
-                let block_height = status.block_height;
+            .and_then(
+                move |(status, current_block_number)| -> Box<Future<Item = U128, Error = Error>> {
+                    let block_height = status.block_height;
 
-                if skip_missed_blocks {
-                    return future::Either::A(future::ok(current_block_number));
-                }
+                    if skip_missed_blocks {
+                        return Box::new(future::ok(current_block_number));
+                    }
 
-                if block_height == current_block_number {
-                    return future::Either::A(future::ok(block_height));
-                }
+                    if block_height == current_block_number {
+                        return Box::new(future::ok(block_height));
+                    }
 
-                info!(
-                    "Fetching missed blocks: {} ~ {}",
-                    block_height + U128::from(1),
-                    current_block_number
-                );
+                    info!(
+                        "Fetching missed blocks: {} ~ {}",
+                        block_height + U128::from(1),
+                        current_block_number
+                    );
 
-                future::Either::B(
-                    stream::unfold(block_height + U128::from(1), move |block_number| {
-                        if block_number <= current_block_number {
-                            return Some(future::ok((block_number, block_number + U128::from(1))));
-                        }
+                    Box::new(
+                        stream::unfold(block_height + U128::from(1), move |block_number| {
+                            if block_number <= current_block_number {
+                                return Some(future::ok((
+                                    block_number,
+                                    block_number + U128::from(1),
+                                )));
+                            }
 
-                        None
-                    })
-                    .for_each(move |block_number| {
-                        let processor = processor.clone();
+                            None
+                        })
+                        .for_each(move |block_number| {
+                            let processor = processor.clone();
 
-                        blockchain_api_client
-                            .send(GetBlockByNumber(block_number))
-                            .from_err()
-                            .and_then(move |res| res.map_err(|e| Error::from(e)))
-                            .and_then(move |block| {
-                                processor
-                                    .send(ProcessBlock(block))
-                                    .from_err()
-                                    .and_then(|res| res.map_err(|e| Error::from(e)))
-                            })
-                    })
-                    .and_then(move |_| {
-                        address
-                            .send(Bootstrap { skip_missed_blocks })
-                            .from_err()
-                            .and_then(|res| res.map_err(|e| Error::from(e)))
-                    }),
-                )
-            });
+                            blockchain_api_client
+                                .send(GetBlockByNumber(block_number))
+                                .from_err()
+                                .and_then(move |res| res.map_err(|e| Error::from(e)))
+                                .and_then(move |block| {
+                                    processor
+                                        .send(ProcessBlock(block))
+                                        .from_err()
+                                        .and_then(|res| res.map_err(|e| Error::from(e)))
+                                })
+                        })
+                        .and_then(move |_| {
+                            address
+                                .send(Bootstrap { skip_missed_blocks })
+                                .from_err()
+                                .and_then(|res| res.map_err(|e| Error::from(e)))
+                        }),
+                    )
+                },
+            );
 
         Box::new(bootstrap_process)
     }
