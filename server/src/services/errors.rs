@@ -1,5 +1,5 @@
 use actix::MailboxError;
-use actix_web::{client::SendRequestError, error, http, HttpResponse};
+use actix_web::{client::SendRequestError, error, http, Body, HttpResponse};
 use bigdecimal::BigDecimal;
 use data_encoding::DecodeError;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
@@ -51,8 +51,8 @@ pub enum Error {
     PaymentNotConfirmed,
     #[fail(display = "{}", _0)]
     MailerError(#[cause] MailerError),
-    #[fail(display = "bad request")]
-    BadRequest,
+    #[fail(display = "{}", _0)]
+    BadRequest(&'static str),
     #[fail(display = "internal server error")]
     InternalServerError,
     #[fail(
@@ -64,35 +64,47 @@ pub enum Error {
 
 impl error::ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
+        let user_err_message = format!("{}", json!({ "message": format!("{}", self) }));
+        let server_err_message = format!("{}", json!({ "message": "internal server error" }));
+
         match *self {
-            Error::IncorrectPassword => HttpResponse::new(http::StatusCode::BAD_REQUEST),
+            Error::BadRequest(_) | Error::IncorrectPassword | Error::CurrencyNotSupported => {
+                HttpResponse::build(http::StatusCode::BAD_REQUEST)
+                    .body(Body::from(user_err_message))
+            }
 
-            Error::BadRequest => HttpResponse::new(http::StatusCode::BAD_REQUEST),
+            Error::InvalidRequestAccount => {
+                HttpResponse::build(http::StatusCode::FORBIDDEN).body(Body::from(user_err_message))
+            }
 
-            Error::CurrencyNotSupported => HttpResponse::new(http::StatusCode::BAD_REQUEST),
-
-            Error::InvalidRequestAccount => HttpResponse::new(http::StatusCode::FORBIDDEN),
-
-            Error::PaymentNotConfirmed => HttpResponse::new(http::StatusCode::NOT_FOUND),
+            Error::PaymentNotConfirmed => {
+                HttpResponse::build(http::StatusCode::NOT_FOUND).body(Body::from(user_err_message))
+            }
 
             Error::ModelError(ref e) => match *e {
                 ModelError::DbError(ref e) => match *e {
                     DbError::DieselError(ref e) => match *e {
                         DieselError::DatabaseError(ref kind, _) => match kind {
                             DatabaseErrorKind::UniqueViolation => {
-                                HttpResponse::new(http::StatusCode::CONFLICT)
+                                HttpResponse::new(http::StatusCode::OK)
                             }
-                            _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+                            _ => HttpResponse::build(http::StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(Body::from(server_err_message)),
                         },
-                        DieselError::NotFound => HttpResponse::new(http::StatusCode::NOT_FOUND),
-                        _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+                        DieselError::NotFound => HttpResponse::build(http::StatusCode::NOT_FOUND)
+                            .body(Body::from(user_err_message)),
+                        _ => HttpResponse::build(http::StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(Body::from(server_err_message)),
                     },
-                    _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+                    _ => HttpResponse::build(http::StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from(server_err_message)),
                 },
-                _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+                _ => HttpResponse::build(http::StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(server_err_message)),
             },
 
-            _ => HttpResponse::new(http::StatusCode::INTERNAL_SERVER_ERROR),
+            _ => HttpResponse::build(http::StatusCode::INTERNAL_SERVER_ERROR)
+                .body(Body::from(server_err_message)),
         }
     }
 }

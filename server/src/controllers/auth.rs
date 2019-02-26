@@ -19,8 +19,12 @@ pub fn registration(
 ) -> Box<Future<Item = Json<Value>, Error = Error>> {
     let params = params.into_inner();
 
-    if params.email.len() == 0 || params.password.len() == 0 {
-        return Box::new(err(Error::BadRequest));
+    if params.email.len() == 0 {
+        return Box::new(err(Error::BadRequest("email is empty")));
+    }
+
+    if params.password.len() == 0 {
+        return Box::new(err(Error::BadRequest("password is empty")));
     }
 
     let mut payload = UserPayload::new();

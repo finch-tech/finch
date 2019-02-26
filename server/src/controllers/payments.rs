@@ -52,7 +52,7 @@ pub fn create(
 
                 if let Some(ref identifier) = params.identifier {
                     if identifier.len() > 100 {
-                        return Box::new(err(Error::BadRequest));
+                        return Box::new(err(Error::BadRequest("identifier is too long. Max: 100")));
                     }
 
                     payload.identifier = params.identifier.to_owned();
