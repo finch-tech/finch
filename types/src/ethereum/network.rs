@@ -11,21 +11,21 @@ use diesel::{
 #[serde(rename_all = "lowercase")]
 #[sql_type = "VarChar"]
 pub enum Network {
-    Main,
+    Mainnet,
     Ropsten,
 }
 
 impl Network {
     pub fn chain_id(&self) -> u64 {
         match self {
-            Network::Main => 1,
+            Network::Mainnet => 1,
             Network::Ropsten => 3,
         }
     }
 
     pub fn to_str(&self) -> &str {
         match *self {
-            Network::Main => "main",
+            Network::Mainnet => "mainnet",
             Network::Ropsten => "ropsten",
         }
     }
@@ -58,7 +58,7 @@ impl FromStr for Network {
 
     fn from_str(s: &str) -> Result<Network, Self::Err> {
         match s.as_ref() {
-            "main" => Ok(Network::Main),
+            "mainnet" => Ok(Network::Mainnet),
             "ropsten" => Ok(Network::Ropsten),
             _ => Err(String::from("invalid value for ethereum network")),
         }
