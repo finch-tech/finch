@@ -46,7 +46,7 @@ pub fn create(
         &path,
         &store.mnemonic.clone(),
         0,
-        payload.btc_network.unwrap_or(BtcNetwork::TestNet),
+        payload.btc_network.unwrap_or(BtcNetwork::Test),
     )
     .into_future()
     .from_err()

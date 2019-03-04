@@ -35,8 +35,8 @@ impl Address {
 
     fn network(&self) -> Network {
         match self.chars().next().unwrap() {
-            'm' | 'n' => Network::MainNet,
-            '2' => Network::TestNet,
+            'm' | 'n' => Network::Mainnet,
+            '2' => Network::Test,
             _ => panic!("invalid bitcoin address found"),
         }
     }

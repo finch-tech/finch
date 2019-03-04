@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn create_new_keyring() {
-        HdKeyring::new("m/44'/60'/0'/0", 1, BtcNetwork::MainNet).unwrap();
+        HdKeyring::new("m/44'/60'/0'/0", 1, BtcNetwork::Mainnet).unwrap();
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
-            BtcNetwork::MainNet,
+            BtcNetwork::Mainnet,
         )
         .unwrap();
 
@@ -116,7 +116,7 @@ mod tests {
             "m/44'/0'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             1,
-            BtcNetwork::MainNet,
+            BtcNetwork::Mainnet,
         )
         .unwrap();
 
@@ -134,7 +134,7 @@ mod tests {
             "m/44'/60'/0'/0",
             "addict else general weird gospel excite void debate north include exercise liberty",
             0,
-            BtcNetwork::MainNet,
+            BtcNetwork::Mainnet,
         )
         .unwrap();
 

@@ -40,7 +40,7 @@ pub fn create(
     let btc_network = state
         .clone()
         .btc_config
-        .map_or(BtcNetwork::TestNet, |config| config.network);
+        .map_or(BtcNetwork::Test, |config| config.network);
 
     services::stores::create(payload, btc_network, &state.postgres)
         .then(|res| res.and_then(|store| Ok(Json(store.export()))))

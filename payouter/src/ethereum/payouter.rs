@@ -100,7 +100,7 @@ impl Payouter {
                                 &store.mnemonic.clone(),
                                 0,
                                 // Dummy
-                                BtcNetwork::TestNet,
+                                BtcNetwork::Test,
                             )
                             .into_future()
                             .from_err()

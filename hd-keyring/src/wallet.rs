@@ -58,8 +58,8 @@ impl Wallet {
         let mut prefixed = [0; 21];
 
         prefixed[0] = match self.btc_network {
-            BtcNetwork::MainNet => 0,
-            BtcNetwork::TestNet => 111,
+            BtcNetwork::Mainnet => 0,
+            BtcNetwork::Test => 111,
         };
 
         prefixed[1..].copy_from_slice(&h160[..]);

@@ -276,8 +276,8 @@ impl ToString for Xprv {
         let mut data = [0; 78];
         data[0..4].copy_from_slice(
             &match self.network {
-                BtcNetwork::MainNet => [0x04u8, 0x88, 0xAD, 0xE4],
-                BtcNetwork::TestNet => [0x04u8, 0x35, 0x83, 0x94],
+                BtcNetwork::Mainnet => [0x04u8, 0x88, 0xAD, 0xE4],
+                BtcNetwork::Test => [0x04u8, 0x35, 0x83, 0x94],
             }[..],
         );
         data[4] = self.depth as u8;
@@ -327,9 +327,9 @@ impl FromStr for Xprv {
 
         Ok(Xprv {
             network: if &data[0..4] == [0x04u8, 0x88, 0xAD, 0xE4] {
-                BtcNetwork::MainNet
+                BtcNetwork::Mainnet
             } else if &data[0..4] == [0x04u8, 0x35, 0x83, 0x94] {
-                BtcNetwork::TestNet
+                BtcNetwork::Test
             } else {
                 return Err(Error::InvalidNetwork);
             },
@@ -416,8 +416,8 @@ impl ToString for Xpub {
         let mut data = [0; 78];
         data[0..4].copy_from_slice(
             &match self.network {
-                BtcNetwork::MainNet => [0x04u8, 0x88, 0xB2, 0x1E],
-                BtcNetwork::TestNet => [0x04u8, 0x35, 0x87, 0xCF],
+                BtcNetwork::Mainnet => [0x04u8, 0x88, 0xB2, 0x1E],
+                BtcNetwork::Test => [0x04u8, 0x35, 0x87, 0xCF],
             }[..],
         );
         data[4] = self.depth as u8;
@@ -466,9 +466,9 @@ impl FromStr for Xpub {
 
         Ok(Xpub {
             network: if &data[0..4] == [0x04u8, 0x88, 0xB2, 0x1E] {
-                BtcNetwork::MainNet
+                BtcNetwork::Mainnet
             } else if &data[0..4] == [0x04u8, 0x35, 0x87, 0xCF] {
-                BtcNetwork::TestNet
+                BtcNetwork::Test
             } else {
                 return Err(Error::InvalidNetwork);
             },
