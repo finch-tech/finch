@@ -12,7 +12,7 @@ use types::H256;
 
 #[derive(Insertable, Queryable)]
 struct BtcTransaction {
-    txid: H256,
+    hash: H256,
     data: Value,
 }
 
@@ -21,7 +21,7 @@ pub fn insert(payload: Transaction, conn: &PooledConnection) -> Result<Transacti
     use schema::btc_transactions::dsl;
 
     let tx = BtcTransaction {
-        txid: payload.txid,
+        hash: payload.hash,
         data: json!(payload),
     };
 
@@ -34,11 +34,11 @@ pub fn insert(payload: Transaction, conn: &PooledConnection) -> Result<Transacti
         .map_err(|e| Error::from(e))
 }
 
-pub fn find_by_txid(txid: H256, conn: &PooledConnection) -> Result<Transaction, Error> {
+pub fn find_by_hash(hash: H256, conn: &PooledConnection) -> Result<Transaction, Error> {
     use schema::btc_transactions::dsl;
 
     let transaction = dsl::btc_transactions
-        .filter(dsl::txid.eq(txid))
+        .filter(dsl::hash.eq(hash))
         .first::<BtcTransaction>(conn)
         .map_err(|e| Error::from(e))?;
 
@@ -62,14 +62,14 @@ impl Handler<Insert> for PgExecutor {
 
 #[derive(Message)]
 #[rtype(result = "Result<Transaction, Error>")]
-pub struct FindByTxId(pub H256);
+pub struct FindByHash(pub H256);
 
-impl Handler<FindByTxId> for PgExecutor {
+impl Handler<FindByHash> for PgExecutor {
     type Result = Result<Transaction, Error>;
 
-    fn handle(&mut self, FindByTxId(txid): FindByTxId, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, FindByHash(hash): FindByHash, _: &mut Self::Context) -> Self::Result {
         let conn = &self.get()?;
 
-        find_by_txid(txid, &conn)
+        find_by_hash(hash, &conn)
     }
 }

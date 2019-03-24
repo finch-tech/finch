@@ -6,8 +6,8 @@ table! {
 }
 
 table! {
-    btc_transactions (txid) {
-        txid -> Varchar,
+    btc_transactions (hash) {
+        hash -> Varchar,
         data -> Json,
     }
 }

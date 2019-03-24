@@ -1,7 +1,7 @@
 use futures::Future;
 
 use db::{
-    bitcoin::transactions::{FindByTxId, Insert},
+    bitcoin::transactions::{FindByHash, Insert},
     postgres::PgExecutorAddr,
 };
 use models::Error;
@@ -52,7 +52,7 @@ pub struct SignedTransactionInput {
     pub script_sig: Option<TransactionInputScript>,
     pub sequence: u32,
     pub txinwitness: Option<Vec<String>>,
-    pub coinbase: Option<String>
+    pub coinbase: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -91,12 +91,12 @@ impl Transaction {
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }
 
-    pub fn find_by_txid(
-        txid: H256,
+    pub fn find_by_hash(
+        hash: H256,
         postgres: &PgExecutorAddr,
     ) -> impl Future<Item = Transaction, Error = Error> {
         (*postgres)
-            .send(FindByTxId(txid))
+            .send(FindByHash(hash))
             .from_err()
             .and_then(|res| res.map_err(|e| Error::from(e)))
     }

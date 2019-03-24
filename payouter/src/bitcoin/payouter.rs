@@ -63,7 +63,7 @@ impl Payouter {
                 future::ok((store, payment, transaction_fee))
             })
             .and_then(move |(store, payment, transaction_fee)| {
-                Transaction::find_by_txid(payment.clone().transaction_hash.unwrap(), &postgres)
+                Transaction::find_by_hash(payment.clone().transaction_hash.unwrap(), &postgres)
                     .from_err()
                     .and_then(move |transaction| {
                         let mut path = store.hd_path.clone();
