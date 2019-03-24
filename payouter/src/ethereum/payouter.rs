@@ -85,14 +85,11 @@ impl Payouter {
                         }
 
                         let mut path = store.hd_path.clone();
-                        let timestamp_nanos = payment.created_at.timestamp_nanos().to_string();
-                        let second = &timestamp_nanos[..10];
-                        let nano_second = &timestamp_nanos[10..];
 
                         path.push_str("/");
-                        path.push_str(second);
+                        path.push_str(&payment.created_at.timestamp().to_string());
                         path.push_str("/");
-                        path.push_str(nano_second);
+                        path.push_str(&payment.created_at.timestamp_subsec_micros().to_string());
 
                         Box::new(
                             HdKeyring::from_mnemonic(

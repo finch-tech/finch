@@ -33,14 +33,12 @@ pub fn create(
 
     let mut path = store.hd_path.clone();
 
-    let timestamp_nanos = payload.created_at.unwrap().timestamp_nanos().to_string();
-    let second = &timestamp_nanos[..10];
-    let nano_second = &timestamp_nanos[10..];
+    let created_at = payload.created_at.unwrap();
 
     path.push_str("/");
-    path.push_str(second);
+    path.push_str(&created_at.timestamp().to_string());
     path.push_str("/");
-    path.push_str(nano_second);
+    path.push_str(&created_at.timestamp_subsec_micros().to_string());
 
     HdKeyring::from_mnemonic(
         &path,
