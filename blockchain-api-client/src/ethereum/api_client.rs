@@ -46,13 +46,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<U256>(&format!("{}", result)) {
-                        Ok(balance) => ok(balance),
-                        Err(e) => err(Error::from(e)),
-                    },
-                    None => err(Error::EmptyResponseError),
-                }
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<U256>(&format!("{}", result)) {
+                        Ok(balance) => return ok(balance),
+                        Err(e) => return err(Error::from(e)),
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -77,13 +90,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<U128>(&format!("{}", result)) {
-                        Ok(block_number) => ok(block_number),
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<U128>(&format!("{}", result)) {
+                        Ok(block_number) => return ok(block_number),
                         Err(e) => return err(Error::from(e)),
-                    },
-                    None => err(Error::EmptyResponseError),
-                }
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -109,13 +135,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
-                        Ok(block) => ok(block),
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<Block>(&format!("{}", result)) {
+                        Ok(block) => return ok(block),
                         Err(e) => return err(Error::from(e)),
-                    },
-                    None => return err(Error::EmptyResponseError),
-                }
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -144,13 +183,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<Block>(&format!("{}", result)) {
-                        Ok(block) => ok(block),
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<Block>(&format!("{}", result)) {
+                        Ok(block) => return ok(block),
                         Err(e) => return err(Error::from(e)),
-                    },
-                    None => return err(Error::EmptyResponseError),
-                }
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -177,13 +229,26 @@ impl BlockchainApiClient {
                     }
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<U256>(&format!("{}", result)) {
-                        Ok(gas_price) => ok(gas_price),
-                        Err(e) => err(Error::from(e)),
-                    },
-                    None => err(Error::EmptyResponseError),
-                }
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<U256>(&format!("{}", result)) {
+                        Ok(gas_price) => return ok(gas_price),
+                        Err(e) => return err(Error::from(e)),
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -208,13 +273,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<U128>(&format!("{}", result)) {
-                        Ok(count) => ok(count),
-                        Err(e) => err(Error::from(e)),
-                    },
-                    None => err(Error::EmptyResponseError),
-                }
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<U128>(&format!("{}", result)) {
+                        Ok(count) => return ok(count),
+                        Err(e) => return err(Error::from(e)),
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
@@ -242,13 +320,26 @@ impl BlockchainApiClient {
                     Err(e) => return err(Error::from(e)),
                 };
 
-                match body.get("result") {
-                    Some(result) => match serde_json::from_str::<H256>(&format!("{}", result)) {
-                        Ok(hash) => ok(hash),
-                        Err(e) => err(Error::from(e)),
-                    },
-                    None => return err(Error::EmptyResponseError),
-                }
+                if let Some(result) = body.get("result") {
+                    if result.is_null() {
+                        return err(Error::EmptyResponseError);
+                    }
+
+                    match serde_json::from_str::<H256>(&format!("{}", result)) {
+                        Ok(hash) => return ok(hash),
+                        Err(e) => return err(Error::from(e)),
+                    }
+                };
+
+                err(Error::CustomError(format!(
+                    "{}",
+                    body.get("error")
+                        .unwrap()
+                        .get("message")
+                        .unwrap()
+                        .as_str()
+                        .unwrap()
+                )))
             })
         }))
     }
